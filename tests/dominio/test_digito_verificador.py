@@ -16,6 +16,7 @@ from app.dominio.digito_verificador import (
     valida_cpf,
     valida_linha_digitavel,
 )
+from app.dominio.linha_digitavel import codigo_barras_de_linha_digitavel
 
 # Linha montada para os testes, com todos os DVs corretos:
 # banco 341, vencimento 15/09/2026 (fator 1570), valor R$ 1.234,56.
@@ -29,6 +30,27 @@ CAMPOS_EXEMPLOS_PUBLICOS = [
     "34191790010104351004791020150008",
     "23793381286000782781395000063305",
 ]
+
+# Linhas digitáveis COMPLETAS, de 47 dígitos, publicadas como exemplo de uso
+# em README de bibliotecas validadoras de terceiros. São dado externo: os DVs
+# foram calculados por outra implementação, não pelo gerador deste projeto.
+#
+# É a lacuna que CAMPOS_EXEMPLOS_PUBLICOS deixa. Lá só há os 32 primeiros
+# dígitos, então o DV geral módulo 11 — o único que protege fator de
+# vencimento e valor — nunca tinha sido conferido contra dado de fora daqui.
+#
+# Não são documentos reais e não vieram de boleto de ninguém: são exemplos de
+# documentação pública, de boletos vencidos (fatores 6861 e 8969).
+LINHAS_EXTERNAS = [
+    # github.com/Tagliatti/Boleto-Validator-PHP — banco 422, R$ 546,59
+    "42297115040000195441160020034520268610000054659",
+    # github.com/amendoncabh/validador-de-boletos — banco 237, R$ 1.430,14
+    "23793380296099605290241006333300689690000143014",
+]
+
+# O segundo README publica também o código de barras derivado daquela linha,
+# o que permite conferir a remontagem dos campos contra a implementação alheia.
+CODIGO_BARRAS_EXTERNO = "23796896900001430143380260996052904100633330"
 
 
 class TestModulo10:
@@ -189,6 +211,56 @@ class TestValidaLinhaDigitavel:
             CampoLinhaDigitavel.CAMPO_1,
             CampoLinhaDigitavel.CAMPO_2,
         )
+
+
+class TestLinhasExternasCompletas:
+    """Valida o algoritmo contra linha que este projeto não gerou.
+
+    O resto da suíte confere o validador contra linhas montadas pelo próprio
+    código. Um erro compartilhado entre gerador e validador — os dois usam as
+    mesmas funções de DV — passaria despercebido nesse arranjo. Estas linhas
+    vêm de fora e fecham essa brecha.
+    """
+
+    @pytest.mark.parametrize("linha", LINHAS_EXTERNAS)
+    def test_linha_externa_e_aprovada(self, linha: str) -> None:
+        resultado = valida_linha_digitavel(linha)
+
+        assert resultado.valido, resultado.descricao()
+
+    @pytest.mark.parametrize("linha", LINHAS_EXTERNAS)
+    def test_os_quatro_dvs_fecham_um_a_um(self, linha: str) -> None:
+        """Confere cada DV isolado, para a falha dizer qual campo não fechou."""
+        assert modulo10(linha[0:9]) == int(linha[9])
+        assert modulo10(linha[10:20]) == int(linha[20])
+        assert modulo10(linha[21:31]) == int(linha[31])
+
+        codigo = codigo_barras_de_linha_digitavel(linha)
+        assert modulo11_boleto(codigo[:4] + codigo[5:]) == int(codigo[4])
+
+    def test_remontagem_do_codigo_de_barras_bate_com_a_publicada(self) -> None:
+        """A reordenação dos campos confere com a de outra implementação."""
+        assert codigo_barras_de_linha_digitavel(LINHAS_EXTERNAS[1]) == CODIGO_BARRAS_EXTERNO
+
+    @pytest.mark.parametrize("linha", LINHAS_EXTERNAS)
+    @pytest.mark.parametrize(
+        ("posicao", "campo"),
+        [
+            (3, CampoLinhaDigitavel.CAMPO_1),
+            (15, CampoLinhaDigitavel.CAMPO_2),
+            (25, CampoLinhaDigitavel.CAMPO_3),
+            # Posição 35 cai no fator de vencimento, que só o DV geral cobre.
+            (35, CampoLinhaDigitavel.DV_GERAL),
+        ],
+    )
+    def test_alteracao_em_linha_externa_e_localizada(
+        self, linha: str, posicao: int, campo: CampoLinhaDigitavel
+    ) -> None:
+        """Aprovar dado externo só prova algo se reprovar dado externo adulterado."""
+        resultado = valida_linha_digitavel(_troca_digito(linha, posicao))
+
+        assert not resultado.valido
+        assert campo in resultado.campos_invalidos
 
 
 class TestResultadoValidacao:
