@@ -17,6 +17,7 @@ dependencies = [
     "pillow>=10.4",
     "jinja2>=3.1",
     "weasyprint>=62.3",
+    "faker>=30",
 ]
 
 [dependency-groups]
@@ -59,6 +60,11 @@ files = ["app", "tests"]
 plugins = ["pydantic.mypy"]
 strict = true
 warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+# WeasyPrint não publica type hints (sem py.typed).
+module = ["weasyprint.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
