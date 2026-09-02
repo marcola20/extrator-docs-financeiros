@@ -163,8 +163,23 @@ def gera_lote(
     return [gera_boleto(faker, aleatorio, referencia) for _ in range(quantidade)]
 
 
-def renderiza_html(sintetico: BoletoSintetico) -> str:
-    """Aplica o template Jinja2 ao boleto."""
+def renderiza_html(
+    sintetico: BoletoSintetico,
+    *,
+    ataque_html: str = "",
+    valor_impresso: str | None = None,
+    beneficiario_impresso: str | None = None,
+) -> str:
+    """Aplica o template Jinja2 ao boleto.
+
+    Os três argumentos opcionais existem para o gerador adversarial. Em
+    documento limpo eles ficam no padrão e o resultado é idêntico ao de
+    antes: o que se imprime é o que está no gabarito.
+
+    `valor_impresso` e `beneficiario_impresso` permitem que a página mostre
+    algo diferente do que o gabarito diz — é o ataque em que o texto impresso
+    diverge do que está codificado na linha digitável.
+    """
     ambiente = Environment(
         loader=FileSystemLoader(DIRETORIO_TEMPLATES),
         autoescape=True,
@@ -180,6 +195,15 @@ def renderiza_html(sintetico: BoletoSintetico) -> str:
         moeda=formata_moeda,
         data=formata_data,
         documento=formata_documento,
+        ataque_html=ataque_html,
+        valor_impresso=(
+            valor_impresso if valor_impresso is not None else formata_moeda(sintetico.boleto.valor)
+        ),
+        beneficiario_impresso=(
+            beneficiario_impresso
+            if beneficiario_impresso is not None
+            else sintetico.boleto.beneficiario_nome
+        ),
     )
 
 

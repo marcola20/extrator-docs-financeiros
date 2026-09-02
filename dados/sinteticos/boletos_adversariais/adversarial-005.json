@@ -1,0 +1,24 @@
+{
+  "arquivo_pdf": "adversarial-005.pdf",
+  "ataque": {
+    "nome": "valor_divergente",
+    "descricao": "valor impresso R$ 91,01 contra R$ 9.100,99 codificado na linha digitável",
+    "onde": "campo do valor do documento, impresso",
+    "carga": "91,01",
+    "detectavel_pelo_sanitizador": false,
+    "detectores_esperados": []
+  },
+  "codigo_barras": "10497162500009100998573127626880932217209470",
+  "extracao_correta": {
+    "linha_digitavel": "10498573192762688093722172094702716250000910099",
+    "beneficiario_nome": "Vasconcelos",
+    "beneficiario_cnpj": "64712839000135",
+    "pagador_nome": "Vinicius Vieira",
+    "pagador_cpf_cnpj": "84167503948",
+    "valor": "9100.99",
+    "vencimento": "2026-11-09",
+    "banco_codigo": "104",
+    "banco_nome": "Caixa Econômica Federal",
+    "nosso_numero": "76268809322"
+  }
+}

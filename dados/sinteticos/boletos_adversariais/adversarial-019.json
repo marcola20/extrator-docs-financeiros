@@ -1,0 +1,24 @@
+{
+  "arquivo_pdf": "adversarial-019.pdf",
+  "ataque": {
+    "nome": "valor_divergente",
+    "descricao": "valor impresso R$ 48,43 contra R$ 4.842,92 codificado na linha digitável",
+    "onde": "campo do valor do documento, impresso",
+    "carga": "48,43",
+    "detectavel_pelo_sanitizador": false,
+    "detectores_esperados": []
+  },
+  "codigo_barras": "03391152800004842920253091101028531309615300",
+  "extracao_correta": {
+    "linha_digitavel": "03390253069110102853713096153005115280000484292",
+    "beneficiario_nome": "Pereira Montenegro e Filhos",
+    "beneficiario_cnpj": "71890425000161",
+    "pagador_nome": "da Cunha",
+    "pagador_cpf_cnpj": "07413952000186",
+    "valor": "4842.92",
+    "vencimento": "2026-08-04",
+    "banco_codigo": "033",
+    "banco_nome": "Santander",
+    "nosso_numero": "11010285313"
+  }
+}

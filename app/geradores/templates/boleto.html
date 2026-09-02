@@ -123,9 +123,20 @@
     color: #444;
     text-align: right;
   }
+
+  /* Usados apenas pelos documentos adversariais (--adversarial).
+     Cada um reproduz uma técnica real de esconder texto de quem revisa
+     mantendo-o legível para o extrator de texto. */
+  .ataque-branco { color: #ffffff; }
+  .ataque-mini { font-size: 0.3pt; line-height: 0.3pt; color: #000; }
+  .ataque-fora { position: absolute; left: -600pt; top: -500pt; white-space: nowrap; }
+  .ataque-transparente { opacity: 0; }
 </style>
 </head>
 <body>
+{# Bloco adversarial. Vazio em documento limpo; `|safe` é deliberado, a
+   carga é montada pelo próprio gerador para simular um ataque. #}
+{% if ataque_html %}{{ ataque_html|safe }}{% endif %}
 
 {# ------------------------------ recibo do pagador ------------------------------ #}
 <div class="recibo">
@@ -139,7 +150,7 @@
     <tr>
       <td style="width: 55%">
         <span class="rotulo">Beneficiário</span>
-        <span class="valor forte">{{ boleto.beneficiario_nome }}</span>
+        <span class="valor forte">{{ beneficiario_impresso }}</span>
         <span class="valor">CNPJ {{ documento(boleto.beneficiario_cnpj) }}</span>
       </td>
       <td style="width: 20%">
@@ -162,7 +173,7 @@
       </td>
       <td class="sem-borda-direita direita">
         <span class="rotulo">Valor do documento</span>
-        <span class="valor forte">{{ moeda(boleto.valor) }}</span>
+        <span class="valor forte">{{ valor_impresso }}</span>
       </td>
     </tr>
   </table>
@@ -192,7 +203,7 @@
     <tr>
       <td colspan="5">
         <span class="rotulo">Beneficiário</span>
-        <span class="valor forte">{{ boleto.beneficiario_nome }} &nbsp; CNPJ {{ documento(boleto.beneficiario_cnpj) }}</span>
+        <span class="valor forte">{{ beneficiario_impresso }} &nbsp; CNPJ {{ documento(boleto.beneficiario_cnpj) }}</span>
         <span class="valor">{{ extra.beneficiario_endereco }}</span>
       </td>
       <td class="sem-borda-direita direita">
@@ -245,7 +256,7 @@
       </td>
       <td class="sem-borda-direita direita">
         <span class="rotulo">(=) Valor do documento</span>
-        <span class="valor forte">{{ moeda(boleto.valor) }}</span>
+        <span class="valor forte">{{ valor_impresso }}</span>
       </td>
     </tr>
     <tr>

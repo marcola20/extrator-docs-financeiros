@@ -1,0 +1,24 @@
+{
+  "arquivo_pdf": "adversarial-012.pdf",
+  "ataque": {
+    "nome": "valor_divergente",
+    "descricao": "valor impresso R$ 71,46 contra R$ 7.145,99 codificado na linha digitável",
+    "onde": "campo do valor do documento, impresso",
+    "carga": "71,46",
+    "detectavel_pelo_sanitizador": false,
+    "detectores_esperados": []
+  },
+  "codigo_barras": "26093164600007145997800185488301119054989020",
+  "extracao_correta": {
+    "linha_digitavel": "26097800168548830111190549890201316460000714599",
+    "beneficiario_nome": "Duarte",
+    "beneficiario_cnpj": "40718326000173",
+    "pagador_nome": null,
+    "pagador_cpf_cnpj": null,
+    "valor": "7145.99",
+    "vencimento": "2026-11-30",
+    "banco_codigo": "260",
+    "banco_nome": "Nu Pagamentos",
+    "nosso_numero": "54883011190"
+  }
+}
