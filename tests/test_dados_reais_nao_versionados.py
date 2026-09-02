@@ -9,8 +9,27 @@ que pega o arquivo depois de rastreado, antes que o commit vire histórico.
 import subprocess
 from pathlib import Path
 
+import pytest
+
 RAIZ = Path(__file__).resolve().parents[1]
 DADOS_REAIS = "dados/real"
+
+# Fora de um clone — um sdist, um `git archive` — não há o que conferir, e o
+# git responde 128 a tudo. Pular é honesto; deixar o 128 virar "a regra foi
+# afrouxada" seria um alarme falso, que é o pior defeito de uma trava.
+_EM_REPOSITORIO = (
+    subprocess.run(
+        ["git", "rev-parse", "--is-inside-work-tree"],
+        cwd=RAIZ,
+        capture_output=True,
+        check=False,
+    ).returncode
+    == 0
+)
+
+pytestmark = pytest.mark.skipif(
+    not _EM_REPOSITORIO, reason="fora de um repositório git não há índice para conferir"
+)
 
 # Únicos arquivos de dados/real/ que podem estar no git: a explicação da
 # pasta e os .gitkeep que preservam a estrutura em um clone novo.
@@ -58,6 +77,8 @@ def test_gitignore_bloqueia_documento_novo_em_dados_reais() -> None:
     finally:
         documento.unlink()
 
+    # 0 = ignorado, 1 = versionável, qualquer outro = o git falhou.
+    assert ignorado.returncode in (0, 1), f"git check-ignore falhou: {ignorado.returncode}"
     assert ignorado.returncode == 0, (
         f"{documento.relative_to(RAIZ)} não é ignorado pelo .gitignore; "
         "a regra de dados/real/ foi afrouxada."
