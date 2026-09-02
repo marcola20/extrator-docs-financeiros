@@ -52,6 +52,7 @@ select = [
 ]
 ignore = [
     "ANN401",   # Any explícito é permitido quando necessário
+    "N818",     # exceção em português usa o prefixo "Erro", não o sufixo "Error"
 ]
 
 [tool.mypy]
