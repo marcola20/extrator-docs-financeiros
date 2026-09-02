@@ -26,6 +26,7 @@ from app.llm.provedor import (
     ResultadoExtracao,
     UsoDeTokens,
 )
+from app.seguranca.delimitadores import envelopa
 
 NOME = "gemini"
 
@@ -105,7 +106,7 @@ class ProvedorGemini:
         try:
             resposta = self._cliente.models.generate_content(
                 model=self._modelo,
-                contents=texto,
+                contents=envelopa(texto),
                 config=configuracao,
             )
         except erros_genai.ClientError as erro:

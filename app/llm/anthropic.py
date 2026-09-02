@@ -23,6 +23,7 @@ from app.llm.provedor import (
     ResultadoExtracao,
     UsoDeTokens,
 )
+from app.seguranca.delimitadores import envelopa
 
 NOME = "anthropic"
 
@@ -88,7 +89,7 @@ class ProvedorAnthropic:
                 model=self._modelo,
                 max_tokens=MAX_TOKENS,
                 system=instrucao,
-                messages=[{"role": "user", "content": texto}],
+                messages=[{"role": "user", "content": envelopa(texto)}],
                 output_format=schema,
             )
         except anthropic.RateLimitError as erro:

@@ -15,6 +15,7 @@ from google.genai import types
 
 from app.llm.gemini import MODELO_PADRAO, ProvedorGemini
 from app.llm.provedor import ErroDeConfiguracao, ErroDeExtracao, ErroDeTaxa
+from app.seguranca.delimitadores import envelopa
 from tests.llm.falso import DocumentoFalso
 
 DOCUMENTO = DocumentoFalso(titulo="Boleto", valor=Decimal("1234.56"))
@@ -76,7 +77,9 @@ def test_gemini_pede_structured_output_com_o_schema() -> None:
     (chamada,) = cliente.models.chamadas
     configuracao = chamada["config"]
     assert chamada["model"] == MODELO_PADRAO
-    assert chamada["contents"] == "texto"
+    # O conteúdo vai isolado entre delimitadores, nunca solto no prompt.
+    assert chamada["contents"] == envelopa("texto")
+    assert "texto" in chamada["contents"]
     assert configuracao.response_schema is DocumentoFalso
     assert configuracao.response_mime_type == "application/json"
     assert configuracao.system_instruction == "leia isto"

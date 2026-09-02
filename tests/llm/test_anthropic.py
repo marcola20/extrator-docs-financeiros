@@ -9,6 +9,7 @@ from anthropic.types import ParsedMessage, ParsedTextBlock, Usage
 
 from app.llm.anthropic import ProvedorAnthropic
 from app.llm.provedor import ErroDeConfiguracao
+from app.seguranca.delimitadores import envelopa
 from tests.llm.falso import DocumentoFalso
 
 DOCUMENTO = DocumentoFalso(titulo="Boleto", valor=Decimal("1234.56"))
@@ -74,6 +75,7 @@ def test_anthropic_nao_manda_temperature() -> None:
     (chamada,) = cliente.messages.chamadas
     assert "temperature" not in chamada
     assert chamada["output_format"] is DocumentoFalso
+    assert chamada["messages"] == [{"role": "user", "content": envelopa("texto")}]
 
 
 def test_anthropic_sem_chave_e_sem_cliente_falha_claro() -> None:
