@@ -13,11 +13,15 @@ aplicada. Preferir código explícito e tipado sobre "pythonices" mágicas.
 - Sem framework de LLM (LangChain etc). SDK direto.
 - Valor monetário sempre `Decimal`, nunca `float`.
 - Confiança vem de validação determinística, não do confidence do modelo.
+  Ver ADR 002.
 - Todo dado é sintético. Documento real nunca entra no repo.
 
 ## Escopo por fase
 
 1. Boleto — pipeline vertical, structured output, eval básico
+   1. Gerador sintético, schema e validadores determinísticos
+   2. Sanitização e documentos adversariais (defesa contra prompt injection)
+   3. Extração via LLM com structured output, e eval
 2. Informe de Rendimentos — seções, listas, validação cruzada entre anos
 3. Extrato de investimento — multi-página, tabela com quebra
 4. Revisão (Next.js) + observabilidade
@@ -49,10 +53,14 @@ uv run ruff format .   # formatação
 uv run mypy            # tipos (strict em app/)
 uv run uvicorn app.main:app --reload   # API em http://127.0.0.1:8000
 docker compose up -d   # Postgres 16 local
+
+# Boletos sintéticos em dados/sinteticos/boletos/, PDF + gabarito JSON.
+# Recusa sobrescrever um lote existente; use --forcar, --saida ou --prefixo.
+# Com --semente N o lote sai sempre igual.
+uv run python -m app.geradores.boleto_sintetico --quantidade 15
 ```
 
 ## Estado atual
 
-Fase 0 concluída: estrutura do pacote, uv, lint, tipos, testes, API com
-`/health`, Postgres via Compose e ADR 001.
-Próximo: Fase 1 — Boleto.
+Fase 1.1 concluída (gerador, schema, validadores).
+Próximo: Fase 1.2, sanitização e documentos adversariais.
