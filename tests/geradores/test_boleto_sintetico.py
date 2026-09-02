@@ -24,6 +24,7 @@ from app.geradores.boleto_sintetico import (
     formata_documento,
     formata_moeda,
     gera_lote,
+    lote_existente,
     main,
     renderiza_html,
     salva,
@@ -180,6 +181,62 @@ class TestCli:
         )
 
         assert (tmp_path / "teste-001.pdf").exists()
+
+
+class TestGuardaContraSobrescrita:
+    """Gerar por cima de um lote existente trocaria o corpus do eval sem aviso."""
+
+    def test_recusa_gerar_por_cima_de_um_lote_existente(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        main(["--quantidade", "1", "--semente", "3", "--saida", str(tmp_path)])
+        antes = (tmp_path / "boleto-001.pdf").read_bytes()
+
+        codigo = main(["--quantidade", "1", "--semente", "4", "--saida", str(tmp_path)])
+
+        assert codigo == 1
+        assert (tmp_path / "boleto-001.pdf").read_bytes() == antes
+        assert "--forcar" in capsys.readouterr().err
+
+    def test_forcar_sobrescreve(self, tmp_path: Path) -> None:
+        main(["--quantidade", "1", "--semente", "3", "--saida", str(tmp_path)])
+        antes = (tmp_path / "boleto-001.json").read_text(encoding="utf-8")
+
+        codigo = main(["--quantidade", "1", "--semente", "4", "--saida", str(tmp_path), "--forcar"])
+
+        assert codigo == 0
+        assert (tmp_path / "boleto-001.json").read_text(encoding="utf-8") != antes
+
+    def test_prefixo_diferente_convive_com_o_lote_atual(self, tmp_path: Path) -> None:
+        main(["--quantidade", "1", "--semente", "3", "--saida", str(tmp_path)])
+
+        codigo = main(
+            ["--quantidade", "1", "--semente", "4", "--saida", str(tmp_path), "--prefixo", "outro"]
+        )
+
+        assert codigo == 0
+        assert (tmp_path / "boleto-001.pdf").exists()
+        assert (tmp_path / "outro-001.pdf").exists()
+
+    def test_lote_existente_lista_pdf_e_gabarito(self, tmp_path: Path) -> None:
+        main(["--quantidade", "2", "--semente", "3", "--saida", str(tmp_path)])
+
+        encontrados = lote_existente(tmp_path, "boleto")
+
+        assert [caminho.name for caminho in encontrados] == [
+            "boleto-001.json",
+            "boleto-001.pdf",
+            "boleto-002.json",
+            "boleto-002.pdf",
+        ]
+
+    def test_lote_existente_ignora_outro_prefixo(self, tmp_path: Path) -> None:
+        main(["--quantidade", "1", "--semente", "3", "--saida", str(tmp_path)])
+
+        assert lote_existente(tmp_path, "outro") == []
+
+    def test_lote_existente_aceita_diretorio_que_nao_existe(self, tmp_path: Path) -> None:
+        assert lote_existente(tmp_path / "nao" / "existe", "boleto") == []
 
 
 class TestFormatadores:

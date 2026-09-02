@@ -10,6 +10,7 @@ Uso:
 import argparse
 import json
 import random
+import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -196,6 +197,17 @@ def salva(sintetico: BoletoSintetico, destino: Path, nome_base: str) -> tuple[Pa
     return caminho_pdf, caminho_json
 
 
+def lote_existente(destino: Path, prefixo: str) -> list[Path]:
+    """Lista os arquivos que uma nova geração com esse prefixo sobrescreveria."""
+    if not destino.is_dir():
+        return []
+    return sorted(
+        caminho
+        for extensao in ("pdf", "json")
+        for caminho in destino.glob(f"{prefixo}-*.{extensao}")
+    )
+
+
 def formata_moeda(valor: Decimal) -> str:
     """Formata em reais no padrão brasileiro: 1.234,56."""
     return f"{valor:,.2f}".replace(",", "\x00").replace(".", ",").replace("\x00", ".")
@@ -263,12 +275,28 @@ def _analisa_argumentos(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--prefixo", default="boleto", help="prefixo do nome dos arquivos (padrão: boleto)"
     )
+    parser.add_argument(
+        "--forcar",
+        action="store_true",
+        help="sobrescreve um lote que já exista no diretório de saída",
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Ponto de entrada da CLI."""
     argumentos = _analisa_argumentos(argv)
+
+    existentes = lote_existente(argumentos.saida, argumentos.prefixo)
+    if existentes and not argumentos.forcar:
+        print(
+            f"{argumentos.saida} já tem um lote com o prefixo "
+            f"{argumentos.prefixo!r} ({len(existentes)} arquivos).\n"
+            f"Gerar por cima trocaria o corpus. Use --forcar para sobrescrever, "
+            f"--saida para escrever em outro lugar ou --prefixo para conviver com o lote atual.",
+            file=sys.stderr,
+        )
+        return 1
 
     lote = gera_lote(argumentos.quantidade, semente=argumentos.semente)
     for indice, sintetico in enumerate(lote, start=1):
