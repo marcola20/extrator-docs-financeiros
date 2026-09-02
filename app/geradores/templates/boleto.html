@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Boleto {{ extra.numero_documento }}</title>
+<style>
+  @page {
+    size: A4;
+    margin: 15mm 12mm;
+  }
+
+  body {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 7.5pt;
+    color: #000;
+  }
+
+  .recibo, .ficha {
+    width: 100%;
+  }
+
+  .titulo-secao {
+    font-size: 7pt;
+    text-align: right;
+    font-weight: bold;
+    margin-bottom: 1mm;
+  }
+
+  .cabecalho {
+    display: flex;
+    align-items: flex-end;
+    border-bottom: 2px solid #000;
+    padding-bottom: 1mm;
+  }
+
+  .banco-marca {
+    font-size: 13pt;
+    font-weight: bold;
+    letter-spacing: -0.3pt;
+    padding-right: 3mm;
+    width: 48mm;
+  }
+
+  .banco-codigo {
+    font-size: 12pt;
+    font-weight: bold;
+    padding: 0 3mm;
+    border-left: 2px solid #000;
+    border-right: 2px solid #000;
+  }
+
+  .linha-digitavel {
+    flex: 1;
+    text-align: right;
+    font-size: 9.5pt;
+    font-weight: bold;
+    letter-spacing: 0.1pt;
+    padding-left: 3mm;
+    white-space: nowrap;
+  }
+
+  table.grade {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  table.grade td {
+    border-bottom: 1px solid #000;
+    border-right: 1px solid #000;
+    padding: 0.6mm 1.2mm 1.2mm;
+    vertical-align: top;
+    height: 8mm;
+  }
+
+  table.grade td.sem-borda-direita {
+    border-right: none;
+  }
+
+  .rotulo {
+    display: block;
+    font-size: 5.5pt;
+    color: #333;
+    margin-bottom: 0.5mm;
+  }
+
+  .valor {
+    display: block;
+    font-size: 8pt;
+  }
+
+  .valor.forte {
+    font-weight: bold;
+  }
+
+  .direita {
+    text-align: right;
+  }
+
+  .instrucoes {
+    height: 22mm;
+  }
+
+  .instrucoes .valor {
+    line-height: 1.5;
+  }
+
+  .corte {
+    border-top: 1px dashed #666;
+    margin: 5mm 0 3mm;
+    font-size: 5.5pt;
+    color: #666;
+    text-align: right;
+  }
+
+  .rodape-codigo {
+    margin-top: 4mm;
+  }
+
+  .autenticacao {
+    margin-top: 3mm;
+    font-size: 6pt;
+    color: #444;
+    text-align: right;
+  }
+</style>
+</head>
+<body>
+
+{# ------------------------------ recibo do pagador ------------------------------ #}
+<div class="recibo">
+  <div class="cabecalho">
+    <div class="banco-marca">{{ boleto.banco_nome }}</div>
+    <div class="banco-codigo">{{ boleto.banco_codigo }}-{{ dv_banco }}</div>
+    <div class="linha-digitavel">{{ linha_formatada }}</div>
+  </div>
+
+  <table class="grade">
+    <tr>
+      <td style="width: 55%">
+        <span class="rotulo">Beneficiário</span>
+        <span class="valor forte">{{ boleto.beneficiario_nome }}</span>
+        <span class="valor">CNPJ {{ documento(boleto.beneficiario_cnpj) }}</span>
+      </td>
+      <td style="width: 20%">
+        <span class="rotulo">Agência / Código do beneficiário</span>
+        <span class="valor">{{ extra.agencia }} / {{ extra.conta }}</span>
+      </td>
+      <td style="width: 25%" class="sem-borda-direita">
+        <span class="rotulo">Nosso número</span>
+        <span class="valor">{{ boleto.nosso_numero }}</span>
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <span class="rotulo">Pagador</span>
+        <span class="valor">{{ boleto.pagador_nome or "—" }}</span>
+      </td>
+      <td>
+        <span class="rotulo">Vencimento</span>
+        <span class="valor forte">{{ data(boleto.vencimento) }}</span>
+      </td>
+      <td class="sem-borda-direita direita">
+        <span class="rotulo">Valor do documento</span>
+        <span class="valor forte">{{ moeda(boleto.valor) }}</span>
+      </td>
+    </tr>
+  </table>
+
+  <div class="corte">Recibo do pagador — autenticação mecânica</div>
+</div>
+
+{# --------------------------- ficha de compensação --------------------------- #}
+<div class="ficha">
+  <div class="cabecalho">
+    <div class="banco-marca">{{ boleto.banco_nome }}</div>
+    <div class="banco-codigo">{{ boleto.banco_codigo }}-{{ dv_banco }}</div>
+    <div class="linha-digitavel">{{ linha_formatada }}</div>
+  </div>
+
+  <table class="grade">
+    <tr>
+      <td colspan="5" style="width: 75%">
+        <span class="rotulo">Local de pagamento</span>
+        <span class="valor">Pagável em qualquer banco ou canal eletrônico até o vencimento</span>
+      </td>
+      <td class="sem-borda-direita direita" style="width: 25%">
+        <span class="rotulo">Vencimento</span>
+        <span class="valor forte">{{ data(boleto.vencimento) }}</span>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="5">
+        <span class="rotulo">Beneficiário</span>
+        <span class="valor forte">{{ boleto.beneficiario_nome }} &nbsp; CNPJ {{ documento(boleto.beneficiario_cnpj) }}</span>
+        <span class="valor">{{ extra.beneficiario_endereco }}</span>
+      </td>
+      <td class="sem-borda-direita direita">
+        <span class="rotulo">Agência / Código do beneficiário</span>
+        <span class="valor">{{ extra.agencia }} / {{ extra.conta }}</span>
+      </td>
+    </tr>
+    <tr>
+      <td style="width: 16%">
+        <span class="rotulo">Data do documento</span>
+        <span class="valor">{{ data(extra.data_documento) }}</span>
+      </td>
+      <td style="width: 16%">
+        <span class="rotulo">Nº do documento</span>
+        <span class="valor">{{ extra.numero_documento }}</span>
+      </td>
+      <td style="width: 10%">
+        <span class="rotulo">Espécie doc.</span>
+        <span class="valor">{{ extra.especie_documento }}</span>
+      </td>
+      <td style="width: 10%">
+        <span class="rotulo">Aceite</span>
+        <span class="valor">N</span>
+      </td>
+      <td style="width: 23%">
+        <span class="rotulo">Data do processamento</span>
+        <span class="valor">{{ data(extra.data_documento) }}</span>
+      </td>
+      <td class="sem-borda-direita direita" style="width: 25%">
+        <span class="rotulo">Nosso número</span>
+        <span class="valor">{{ boleto.nosso_numero }}</span>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="2">
+        <span class="rotulo">Uso do banco</span>
+        <span class="valor">&nbsp;</span>
+      </td>
+      <td>
+        <span class="rotulo">Carteira</span>
+        <span class="valor">{{ extra.carteira }}</span>
+      </td>
+      <td>
+        <span class="rotulo">Espécie</span>
+        <span class="valor">R$</span>
+      </td>
+      <td>
+        <span class="rotulo">Quantidade</span>
+        <span class="valor">&nbsp;</span>
+      </td>
+      <td class="sem-borda-direita direita">
+        <span class="rotulo">(=) Valor do documento</span>
+        <span class="valor forte">{{ moeda(boleto.valor) }}</span>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="5" rowspan="4" class="instrucoes">
+        <span class="rotulo">Instruções (texto de responsabilidade do beneficiário)</span>
+        <span class="valor">{{ extra.instrucoes }}</span>
+      </td>
+      <td class="sem-borda-direita direita">
+        <span class="rotulo">(-) Desconto / Abatimento</span>
+        <span class="valor">&nbsp;</span>
+      </td>
+    </tr>
+    <tr>
+      <td class="sem-borda-direita direita">
+        <span class="rotulo">(-) Outras deduções</span>
+        <span class="valor">&nbsp;</span>
+      </td>
+    </tr>
+    <tr>
+      <td class="sem-borda-direita direita">
+        <span class="rotulo">(+) Mora / Multa</span>
+        <span class="valor">&nbsp;</span>
+      </td>
+    </tr>
+    <tr>
+      <td class="sem-borda-direita direita">
+        <span class="rotulo">(=) Valor cobrado</span>
+        <span class="valor">&nbsp;</span>
+      </td>
+    </tr>
+    <tr>
+      <td colspan="6" class="sem-borda-direita">
+        <span class="rotulo">Pagador</span>
+        <span class="valor forte">
+          {{ boleto.pagador_nome or "—" }}
+          {%- if boleto.pagador_cpf_cnpj %} &nbsp; {{ documento(boleto.pagador_cpf_cnpj) }}{% endif %}
+        </span>
+        <span class="valor">{{ extra.pagador_endereco }}</span>
+      </td>
+    </tr>
+  </table>
+
+  <div class="rodape-codigo">{{ codigo_barras_svg|safe }}</div>
+
+  <div class="autenticacao">Autenticação mecânica — Ficha de Compensação</div>
+</div>
+
+</body>
+</html>
