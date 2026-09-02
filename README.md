@@ -44,9 +44,68 @@ uv run pytest
 ```
 app/                 código da aplicação (FastAPI, configuração)
 tests/               testes, junto da feature
-dados/sinteticos/    documentos sintéticos versionados
+app/seguranca/       sanitização de documentos não confiáveis
+dados/sinteticos/    documentos sintéticos versionados, limpos e adversariais
 dados/real/          documentos reais para teste local, fora do git
 docs/adr/            decisões de arquitetura
+```
+
+## Modelo de ameaças
+
+O pipeline lê PDFs enviados por terceiros e coloca o texto deles no prompt de
+um modelo cuja saída decide aprovação de pagamento. **Quem manda o documento
+controla parte da entrada do modelo** — não é preciso invadir nada, basta
+enviar um boleto. É prompt injection, e é a superfície de ataque principal.
+
+O ataque perigoso não é o visível. É o texto que o extrator lê perfeitamente
+e o revisor humano não encontra: branco sobre branco, fonte de tamanho quase
+zero, posicionado fora da página, ou com opacidade zero. Os quatro foram
+reproduzidos e medidos — todos são extraídos, nenhum aparece impresso.
+
+### Defesas, por camada
+
+| Camada | O que faz | O que garante |
+|---|---|---|
+| Sanitização na ingestão | três detectores independentes: texto invisível, padrões de injection, divergência entre camada de texto e página renderizada | **nada, sozinha.** Encarece o ataque e levanta sinal |
+| Isolamento no prompt | conteúdo entre delimitadores explícitos, marcado como dado e não como comando, com neutralização de tentativa de fechar o bloco | reduz a superfície, não a elimina |
+| Roteamento | qualquer achado tira a auto-aprovação e manda para revisão com os trechos destacados | que ataque detectado nunca passa sozinho |
+| **Validação determinística** | dígitos verificadores da linha digitável e cruzamento de banco, valor e vencimento ([ADR 002](docs/adr/002-validacao-por-digito-verificador.md)) | **esta é a garantia real** |
+
+A ordem importa. O sanitizador **não é** a garantia do sistema: detecção por
+padrão de texto é uma corrida perdida, porque qualquer padrão escrito aqui
+pode ser reformulado do outro lado. O que sustenta o pipeline é aritmética —
+um atacante pode induzir o modelo a escrever `valor: 1,00`, mas não consegue
+produzir uma linha digitável de 47 dígitos cujos dígitos verificadores fechem
+com esse valor.
+
+Achado da sanitização é sinal. Ausência de achado não é atestado.
+Ver [ADR 004](docs/adr/004-defesa-contra-prompt-injection.md).
+
+### Fora de escopo
+
+- **Ataque por imagem dirigido a modelo com visão.** Instrução escrita dentro
+  de uma imagem não está na camada de texto e nenhum detector daqui a lê. Hoje
+  não é exposição, porque o pipeline manda texto e não imagem; passa a ser
+  quando existir caminho de visão, e a defesa terá que nascer junto com ele.
+- **Homoglifos e caracteres de controle** (bidi, largura zero, letras
+  cirílicas parecidas com latinas) para escapar dos padrões sem parecer
+  estranho na página. Reconhecido, não tratado.
+- **Negação de serviço por documento grande.** Não há limite de tamanho nem
+  de tempo na ingestão.
+- **Autenticidade do PDF.** Se o atacante controla o documento inteiro,
+  inclusive a linha digitável, o problema deixa de ser injeção e vira troca de
+  documento — anterior ao pipeline.
+
+### Corpus adversarial
+
+`dados/sinteticos/boletos_adversariais/` tem 28 boletos com um ataque cada e
+gabarito declarando o ataque, onde está, a extração correta e quais detectores
+deveriam acusar. Dois casos existem para provar limites: `valor_divergente`,
+que a sanitização **não pega** de propósito — é o que só a validação
+determinística vê — e `opacidade_zero`, que só a comparação com a imagem pega.
+
+```bash
+uv run python -m app.geradores.boleto_adversarial --quantidade 28 --semente 2026
 ```
 
 ## Dados
