@@ -26,13 +26,18 @@ aplicada. Preferir código explícito e tipado sobre "pythonices" mágicas.
 
 Python 3.12 / uv / FastAPI / Pydantic v2 / SQLAlchemy 2 / Postgres 16
 pdfplumber / pypdfium2 / Pillow / SDK Anthropic
-pytest / ruff / mypy / Langfuse / Next.js 15
+Jinja2 + WeasyPrint (geração dos PDFs sintéticos)
+pytest / ruff / mypy / Docker Compose / Langfuse / Next.js 15
 
 ## Convenções
 
 - Type hints obrigatórios. mypy em modo strict (`app/` e `tests/`).
 - Testes junto da feature, não depois.
 - Commits pequenos, em português, no imperativo.
+- Desenvolvimento sempre no WSL2, repo em `~/projetos` (nunca `/mnt/*`).
+  Nada de comando PowerShell ou caminho Windows. Ver ADR 001.
+- Decisões de arquitetura viram ADR em `docs/adr/`, numerados, no formato
+  contexto / decisão / consequências.
 
 ## Comandos
 
@@ -48,5 +53,6 @@ docker compose up -d   # Postgres 16 local
 
 ## Estado atual
 
-Fase 0 — setup concluído (estrutura, lint, tipos, testes, API com /health).
+Fase 0 concluída: estrutura do pacote, uv, lint, tipos, testes, API com
+`/health`, Postgres via Compose e ADR 001.
 Próximo: Fase 1 — Boleto.
