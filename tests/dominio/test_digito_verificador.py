@@ -9,6 +9,7 @@ import pytest
 from app.dominio.digito_verificador import (
     CampoLinhaDigitavel,
     ResultadoValidacao,
+    dv_codigo_banco,
     modulo10,
     modulo11_boleto,
     valida_cnpj,
@@ -93,6 +94,29 @@ class TestModulo11Boleto:
     def test_recusa_entrada_que_nao_e_digito(self) -> None:
         with pytest.raises(ValueError):
             modulo11_boleto("1234x")
+
+
+class TestDvCodigoBanco:
+    @pytest.mark.parametrize(
+        ("codigo", "dv"),
+        [
+            # Como aparece impresso no cabeçalho do boleto de cada banco.
+            ("001", "9"),
+            ("033", "7"),
+            ("077", "9"),
+            ("237", "2"),
+            ("341", "7"),
+            ("748", "X"),  # DV 10 é impresso como X
+            ("756", "0"),  # resto 0 é impresso como 0
+        ],
+    )
+    def test_bancos_conhecidos(self, codigo: str, dv: str) -> None:
+        assert dv_codigo_banco(codigo) == dv
+
+    @pytest.mark.parametrize("codigo", ["1", "0001", "abc"])
+    def test_recusa_codigo_invalido(self, codigo: str) -> None:
+        with pytest.raises(ValueError):
+            dv_codigo_banco(codigo)
 
 
 class TestValidaLinhaDigitavel:

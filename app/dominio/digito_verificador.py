@@ -122,6 +122,25 @@ def modulo11_boleto(digitos: str) -> int:
     return 1 if dv in (0, 10, 11) else dv
 
 
+def dv_codigo_banco(banco_codigo: str) -> str:
+    """DV do código do banco na compensação, o que aparece impresso como 341-7.
+
+    Módulo 11 com pesos 2, 3 e 4 da direita para a esquerda sobre os 3 dígitos.
+    Resto 0 imprime 0 e DV 10 imprime X — é por isso que o Sicredi é 748-X.
+    """
+    _exige_digitos(banco_codigo, "dv_codigo_banco")
+    if len(banco_codigo) != 3:
+        raise ValueError(f"código do banco precisa de 3 dígitos, recebido {banco_codigo!r}")
+
+    pesos = zip(reversed(banco_codigo), (2, 3, 4), strict=True)
+    soma = sum(int(caractere) * peso for caractere, peso in pesos)
+    resto = soma % 11
+    if resto == 0:
+        return "0"
+    dv = 11 - resto
+    return "X" if dv == 10 else str(dv)
+
+
 def codigo_barras_sem_dv(linha: str) -> str:
     """Remonta os 43 dígitos do código de barras (sem o DV geral) a partir da linha.
 
