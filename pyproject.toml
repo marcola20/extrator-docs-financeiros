@@ -19,6 +19,7 @@ dependencies = [
     "weasyprint>=62.3",
     "faker>=30",
     "google-genai>=2.22.0",
+    "pytesseract>=0.3.13",
 ]
 
 [dependency-groups]
@@ -64,8 +65,8 @@ strict = true
 warn_unused_configs = true
 
 [[tool.mypy.overrides]]
-# WeasyPrint não publica type hints (sem py.typed).
-module = ["weasyprint.*"]
+# Bibliotecas sem type hints publicados (sem py.typed).
+module = ["weasyprint.*", "pypdfium2.*", "pytesseract.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
