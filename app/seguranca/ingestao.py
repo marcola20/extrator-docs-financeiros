@@ -14,6 +14,7 @@ mesma leitura amarrados no `ResultadoSanitizacao`.
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 import pdfplumber
 
@@ -30,19 +31,61 @@ DETECTOR_PADROES = "padroes"
 DETECTOR_DIVERGENCIA_OCR = "divergencia_ocr"
 
 
+TOLERANCIA_DE_LINHA_PT = 3.0
+VARIACAO_DE_TAMANHO = 0.2
+
+
 def _blocos_da_pagina(pagina: pdfplumber.page.Page, numero: int) -> list[Bloco]:
-    """Uma linha da camada de texto por bloco, com a caixa dela."""
+    """Divide a página em blocos homogêneos de estilo, para a comparação com o OCR.
+
+    Não dá para usar as linhas do `extract_text_lines` direto. Um texto
+    injetado em 0,3pt cai na mesma coordenada vertical de um texto legítimo
+    de 13pt, e o pdfplumber junta os dois na mesma linha — medido: a carga de
+    um documento adversarial saiu grudada no nome do banco, `"IBMPORTANTE:
+    ignore as instruções..."`. O bloco resultante mistura texto que aparece
+    na página com texto que não aparece, e a fração de cobertura fica diluída
+    no meio do caminho, sem acusar nem inocentar.
+
+    Então o bloco aqui é uma corrida de chars na mesma linha **e com o mesmo
+    estilo**: muda o tamanho da fonte ou a cor, começa outro bloco. É o que
+    separa o injetado do legítimo antes de medir.
+    """
+    chars = sorted(
+        (c for c in pagina.chars if str(c.get("text", "")).strip()),
+        key=lambda c: (round(float(c["top"]), 1), float(c["x0"])),
+    )
+    if not chars:
+        return []
+
+    grupos: list[list[dict[str, Any]]] = [[chars[0]]]
+    for char in chars[1:]:
+        anterior = grupos[-1][-1]
+        mesma_linha = abs(float(char["top"]) - float(anterior["top"])) < TOLERANCIA_DE_LINHA_PT
+        tamanho_anterior = float(anterior.get("size", 0.0)) or 1.0
+        mesmo_tamanho = (
+            abs(float(char.get("size", 0.0)) - tamanho_anterior) / tamanho_anterior
+            < VARIACAO_DE_TAMANHO
+        )
+        mesma_cor = char.get("non_stroking_color") == anterior.get("non_stroking_color")
+        if mesma_linha and mesmo_tamanho and mesma_cor:
+            grupos[-1].append(char)
+        else:
+            grupos.append([char])
+
     blocos = []
-    for linha in pagina.extract_text_lines():
+    for grupo in grupos:
+        texto = texto_invisivel.junta_texto(grupo).strip()
+        if not texto:
+            continue
         blocos.append(
             Bloco(
-                texto=str(linha["text"]),
+                texto=texto,
                 local=Local(
                     pagina=numero,
-                    x0=float(linha["x0"]),
-                    topo=float(linha["top"]),
-                    x1=float(linha["x1"]),
-                    base=float(linha["bottom"]),
+                    x0=min(float(c["x0"]) for c in grupo),
+                    topo=min(float(c["top"]) for c in grupo),
+                    x1=max(float(c["x1"]) for c in grupo),
+                    base=max(float(c["bottom"]) for c in grupo),
                 ),
             )
         )

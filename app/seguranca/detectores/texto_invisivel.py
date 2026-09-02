@@ -102,7 +102,7 @@ def _limita(valor: float) -> float:
     return min(1.0, max(0.0, valor))
 
 
-def _texto(chars: Sequence[dict[str, Any]]) -> str:
+def junta_texto(chars: Sequence[dict[str, Any]]) -> str:
     """Remonta o texto do bloco, repondo os espaços.
 
     O PDF nem sempre grava o espaço como caractere: ele costuma virar um
@@ -238,7 +238,7 @@ def _achados_de(
 ) -> list[Achado]:
     achados = []
     for bloco in _agrupa_vizinhos(chars):
-        texto = _texto(bloco).strip()
+        texto = junta_texto(bloco).strip()
         if len(bloco) < MIN_CHARS_PARA_ACHADO or not texto:
             continue
         achados.append(
