@@ -1,6 +1,7 @@
 """Configuração da aplicação, carregada de variáveis de ambiente ou .env."""
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -12,7 +13,22 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     database_url: str = "postgresql+psycopg://extrator:extrator@localhost:5432/extrator"
+
+    # Provedor de LLM (ADR 003). O padrão é o Gemini por causa do tier gratuito.
+    llm_provedor: str = "gemini"
+    # Vazio significa "use o modelo padrão do provedor".
+    llm_modelo: str = ""
+
+    gemini_api_key: SecretStr = SecretStr("")
     anthropic_api_key: SecretStr = SecretStr("")
+
+    # Zero significa "use a cota de tabela do provedor" (app/llm/gemini.py).
+    llm_rpm: int = 0
+    llm_rpd: int = 0
+    llm_arquivo_cotas: Path = Path("dados/estado-cotas.json")
+
+    llm_cache_ativo: bool = True
+    llm_cache_diretorio: Path = Path("dados/cache-llm")
 
 
 @lru_cache
