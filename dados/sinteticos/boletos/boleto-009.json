@@ -1,16 +1,16 @@
 {
   "arquivo_pdf": "boleto-009.pdf",
-  "codigo_barras": "74891160100011968043258091696246268241580260",
+  "codigo_barras": "26097164300000273761483124638183912774483400",
   "campos": {
-    "linha_digitavel": "74893258089169624626282415802600116010001196804",
-    "beneficiario_nome": "Lima",
-    "beneficiario_cnpj": "58294013000109",
-    "pagador_nome": "Clara Castro",
-    "pagador_cpf_cnpj": "01962758494",
-    "valor": "11968.04",
-    "vencimento": "2026-10-16",
-    "banco_codigo": "748",
-    "banco_nome": "Sicredi",
-    "nosso_numero": "16962462682"
+    "linha_digitavel": "26091483132463818391327744834006716430000027376",
+    "beneficiario_nome": "Castro",
+    "beneficiario_cnpj": "18905362000197",
+    "pagador_nome": null,
+    "pagador_cpf_cnpj": null,
+    "valor": "273.76",
+    "vencimento": "2026-11-27",
+    "banco_codigo": "260",
+    "banco_nome": "Nu Pagamentos",
+    "nosso_numero": "46381839127"
   }
 }

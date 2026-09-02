@@ -6,11 +6,16 @@ Cada PDF tem, ao lado, um `.json` com o gabarito da extração.
 Todos os dados são fictícios: nomes, CNPJ, CPF e endereços vêm do Faker.
 Nenhum documento real entra no repositório.
 
-## Como regerar
+O lote versionado foi sorteado sem semente, então não dá para reproduzir
+exatamente estes 15 boletos — eles valem pelo que estão: um corpus fixo,
+versionado, para o eval comparar contra.
+
+## Como gerar um lote novo
 
 ```bash
-uv run python -m app.geradores.boleto_sintetico --quantidade 15 --semente 2026
+uv run python -m app.geradores.boleto_sintetico --quantidade 15 --forcar
 ```
 
-A semente fixa mantém o lote estável entre execuções. Sem `--semente`, o
-gerador sorteia um lote novo a cada chamada.
+O `--forcar` é necessário porque o gerador se recusa a sobrescrever um
+lote que já existe. Com `--semente N` o lote sai sempre igual, o que ajuda
+a investigar um caso específico sem mexer no corpus versionado.

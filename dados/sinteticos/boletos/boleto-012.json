@@ -1,16 +1,16 @@
 {
   "arquivo_pdf": "boleto-012.pdf",
-  "codigo_barras": "26093164600007145997800185488301119054989020",
+  "codigo_barras": "10498159900002873146778097342883484262981010",
   "campos": {
-    "linha_digitavel": "26097800168548830111190549890201316460000714599",
-    "beneficiario_nome": "Duarte",
-    "beneficiario_cnpj": "40718326000173",
+    "linha_digitavel": "10496778089734288348142629810104815990000287314",
+    "beneficiario_nome": "Carvalho",
+    "beneficiario_cnpj": "87194302000126",
     "pagador_nome": null,
     "pagador_cpf_cnpj": null,
-    "valor": "7145.99",
-    "vencimento": "2026-11-30",
-    "banco_codigo": "260",
-    "banco_nome": "Nu Pagamentos",
-    "nosso_numero": "54883011190"
+    "valor": "2873.14",
+    "vencimento": "2026-10-14",
+    "banco_codigo": "104",
+    "banco_nome": "Caixa Econômica Federal",
+    "nosso_numero": "73428834842"
   }
 }

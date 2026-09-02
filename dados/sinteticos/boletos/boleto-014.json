@@ -1,16 +1,16 @@
 {
   "arquivo_pdf": "boleto-014.pdf",
-  "codigo_barras": "10492158800000247968683123206634694236695720",
+  "codigo_barras": "07797164600044920315928115902700292549034640",
   "campos": {
-    "linha_digitavel": "10498683162320663469542366957209215880000024796",
-    "beneficiario_nome": "Borges Lima e Filhos",
-    "beneficiario_cnpj": "63219854000183",
-    "pagador_nome": "Nascimento Lima e Filhos",
-    "pagador_cpf_cnpj": "67581234000140",
-    "valor": "247.96",
-    "vencimento": "2026-10-03",
-    "banco_codigo": "104",
-    "banco_nome": "Caixa Econômica Federal",
-    "nosso_numero": "32066346942"
+    "linha_digitavel": "07795928151590270029125490346407716460004492031",
+    "beneficiario_nome": "Fogaça",
+    "beneficiario_cnpj": "83165402000173",
+    "pagador_nome": "Thales Sousa",
+    "pagador_cpf_cnpj": "09586243729",
+    "valor": "44920.31",
+    "vencimento": "2026-11-30",
+    "banco_codigo": "077",
+    "banco_nome": "Banco Inter",
+    "nosso_numero": "59027002925"
   }
 }
