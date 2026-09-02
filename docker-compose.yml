@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: extrator-postgres
+    environment:
+      POSTGRES_USER: extrator
+      POSTGRES_PASSWORD: extrator
+      POSTGRES_DB: extrator
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

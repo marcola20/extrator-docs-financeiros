@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Ferramentas
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Ambiente
+.env
+
+# Documentos reais NUNCA entram no repo.
+# Apenas dados sintéticos versionados em dados/sinteticos/.
+dados/*
+!dados/sinteticos/
+!dados/.gitkeep
+
+# IDE / SO
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
