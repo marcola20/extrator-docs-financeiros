@@ -1,0 +1,81 @@
+# Padrões de prompt injection procurados no texto extraído dos documentos.
+#
+# Versionado e fora do código de propósito: a lista muda por motivo
+# diferente do detector, e muda mais rápido. Acrescentar um padrão aqui não
+# deveria exigir mexer em Python.
+#
+# ATENÇÃO AO FALSO POSITIVO. Boleto tem campo "Instruções", e boleto real diz
+# coisas como "Sr. Caixa, não receber após o vencimento" — imperativo,
+# dirigido a um agente, e perfeitamente legítimo. Os 15 boletos limpos do
+# corpus contêm exatamente esse texto. Um padrão que procure "verbo no
+# imperativo" reprova o corpus inteiro e o detector perde a utilidade.
+#
+# A régua para entrar aqui: o padrão tem que mirar linguagem dirigida a um
+# **sistema de linguagem**, não a uma pessoa. "Não receber após o vencimento"
+# é instrução para o caixa. "Ignore as instruções anteriores" só faz sentido
+# dito a um modelo.
+#
+# Os padrões são regex, aplicados sobre o texto normalizado (minúsculas, sem
+# acento). Escreva-os já sem acento.
+
+versao = 1
+
+[[padrao]]
+nome = "anula_instrucoes_anteriores"
+severidade = "alta"
+descricao = "pede para descartar o que foi instruído antes — só se diz a um modelo"
+regex = "\\b(ignore|ignorar|desconsidere|desconsiderar|esqueca|esquecer|descarte|descartar|nao siga|desobedeca)\\b[^.]{0,40}\\b(instruc|comando|regra|orientac|prompt|acima|anterior|previo|tudo)"
+
+[[padrao]]
+nome = "anula_instrucoes_anteriores_en"
+severidade = "alta"
+descricao = "a mesma anulação em inglês"
+regex = "\\b(ignore|disregard|forget|override)\\b[^.]{0,40}\\b(previous|prior|above|earlier|all)\\b[^.]{0,20}\\b(instruction|prompt|rule|command)"
+
+[[padrao]]
+nome = "papel_de_sistema"
+severidade = "alta"
+descricao = "tenta atribuir papel ou persona ao modelo"
+regex = "\\b(voce e um|voce eh um|you are an?|aja como|atue como|act as|assuma o papel|nova persona)\\b"
+
+[[padrao]]
+nome = "marcador_de_turno"
+severidade = "alta"
+descricao = "marcador de turno de conversa embutido no documento"
+regex = "(^|\\n)\\s*(system|assistant|user|humano|assistente|sistema)\\s*:"
+
+[[padrao]]
+nome = "delimitador_falso"
+severidade = "alta"
+descricao = "finge encerrar o documento para o que vem depois parecer instrução"
+regex = "\\[?\\s*(fim|final|end)\\s+(do|de|of)\\s+(documento|document|texto|text|contexto|context)\\s*\\]?"
+
+[[padrao]]
+nome = "cerca_de_bloco"
+severidade = "media"
+descricao = "cerca de markdown ou linha de tralhas, usada para simular fronteira de bloco"
+regex = "(^|\\n)\\s*(#{3,}|`{3,}|-{5,}|={5,})"
+
+[[padrao]]
+nome = "status_afirmado"
+severidade = "alta"
+descricao = "afirma um veredito que quem decide é o pipeline, não o documento"
+regex = "\\b(aprovado|autorizado|validado|verificado|liberado)\\s+(automaticamente|previamente|pelo sistema|por padrao)\\b"
+
+[[padrao]]
+nome = "dispensa_de_validacao"
+severidade = "alta"
+descricao = "pede para pular conferência"
+regex = "\\b(nao|sem|dispensa[r]?|pule|pular|skip|no need to)\\b[^.]{0,30}\\b(valid|conferir|conferencia|verificar|verificacao|checar|check)"
+
+[[padrao]]
+nome = "instrucao_ao_extrator"
+severidade = "alta"
+descricao = "fala com o extrator sobre o que escrever na saída"
+regex = "\\b(extraia|extrair|retorne|retornar|responda|responder|escreva|escrever|preencha|output|return)\\b[^.]{0,40}\\b(valor|campo|json|saida|resposta|field|value)\\b[^.]{0,40}\\b(como|igual a|com o valor|as|=)\\b"
+
+[[padrao]]
+nome = "conteudo_com_prioridade"
+severidade = "media"
+descricao = "afirma precedência sobre outras instruções"
+regex = "\\b(est[ae]s?|ess[ae]s?|these|this)\\b[^.]{0,30}\\b(instruc|orientac|regra|instruction)[^.]{0,40}\\b(prevalec|sobrepo|tem prioridade|override|take precedence|mais important)"
