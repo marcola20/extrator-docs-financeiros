@@ -85,6 +85,74 @@ muda em `(b − a) × (peso_a − peso_b)`, com a diferença de pesos igual a 1 
 na volta de 9 para 2), e nenhum dos dois produtos é múltiplo de 11. Vale
 registrar, porém, que o teste exaustivo mede **substituição**, não permutação.
 
+### Validação contra dado externo
+
+*Seção acrescentada em 2026-09-02, depois da decisão original.*
+
+Tudo acima é conferido contra linhas que este projeto mesmo monta. É uma
+brecha real: o gerador de sintéticos e o validador chamam **as mesmas
+funções** de módulo 10 e módulo 11. Um erro dentro delas produziria linhas
+erradas e as aprovaria, coerentemente, dos dois lados. A cobertura de 423
+mutações mede consistência interna, não correção.
+
+Fechar isso exige linha digitável que este código não tenha produzido, e com
+uma restrição: ela precisa ser **literal**. Alterar um dígito obriga a
+recalcular os DVs com o nosso código, o que devolve o problema ao ponto de
+partida. Vetor externo ou é verbatim ou não é vetor.
+
+**O que passou a ser conferido.** Duas linhas completas de 47 dígitos,
+publicadas como exemplo de uso em README de bibliotecas validadoras de
+terceiros — bancos 422 e 237. Os quatro DVs fecham nas duas. O ganho está no
+DV geral: os exemplos públicos que o projeto já usava traziam só os 32
+primeiros dígitos, o suficiente para os módulos 10 dos campos 1 a 3. **O
+módulo 11 — justamente o que protege fator de vencimento e valor, e portanto
+o que sustenta o argumento contra prompt injection acima — nunca tinha visto
+dado de fora.**
+
+**Reprodução do código de barras.** Um dos READMEs publica também o código de
+barras derivado daquela linha. `codigo_barras_de_linha_digitavel` reproduziu
+os 44 dígitos exatamente. Isso confere a remontagem — a reordenação que tira
+os campos da linha e os recoloca na ordem do código de barras — contra uma
+implementação independente, e não só contra a nossa inversa. É a parte do
+código onde um erro de índice não apareceria em teste de ida e volta, porque
+ida e volta usam o mesmo mapa de posições.
+
+**Adulteração.** Aprovar dado externo só prova algo junto com o oposto: uma
+troca de dígito em cada campo das linhas externas é reprovada, e o campo
+apontado é o certo.
+
+### O que a validação externa ainda não cobre
+
+- **Três bancos, num universo de layouts.** As linhas externas são dos bancos
+  422 e 237, e a montada à mão é do 341. Os DVs não dependem do banco, então
+  a lacuna é menor do que parece — mas ela existe para tudo que **é**
+  específico de banco.
+- **O campo livre não é validado por nada.** Os 25 dígitos centrais têm
+  formato definido por cada banco e nenhum DV do padrão os cobre; o código
+  apenas os transporta. Quando o pipeline for extrair nosso número, agência
+  ou convênio de dentro dele, **não haverá vetor externo nenhum** para essa
+  interpretação. É a lacuna que mais importa daqui para a frente.
+- **Faixas de valor e vencimento não exercitadas.** Os dois vetores têm valor
+  e vencimento normais, ambos com fator do ciclo antigo (6861 e 8969).
+  Boleto sem valor, fator zerado e a virada do ciclo de 22/02/2025 continuam
+  cobertos só por caso sintético.
+- **São instantâneos, não uma fonte viva.** As linhas estão fixas no teste, e
+  não buscadas. Se o README de origem estivesse errado, o erro teria entrado
+  aqui — o que mitiga é serem de projetos independentes entre si e a
+  reprodução do código de barras bater.
+- **A prova exaustiva continua valendo só para a linha de referência.** As
+  423 mutações são medidas sobre a linha montada aqui; as externas recebem
+  uma checagem de localização por campo, não a varredura completa.
+
+**Nada disso vem de documento real, e não deve vir.** A linha digitável é o
+instrumento de pagamento do boleto, não um identificador dele: quem tem os 47
+dígitos paga o documento, e o campo livre aponta o beneficiário. Reduzir um
+boleto real aos "só os números" não anonimiza — preserva exatamente a parte
+sensível. Vetor externo aceitável é o que já é público e não é de ninguém.
+Ver `dados/real/LEIA-ME.md`; a regra é conferida por
+`tests/test_dados_reais_nao_versionados.py`, que reprova linha digitável
+válida sem procedência declarada em `tests/`.
+
 ## Consequências
 
 **Positivas**
