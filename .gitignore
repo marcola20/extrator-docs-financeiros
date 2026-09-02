@@ -17,8 +17,19 @@ build/
 # Documentos reais NUNCA entram no repo.
 # Apenas dados sintéticos versionados em dados/sinteticos/.
 dados/*
-!dados/sinteticos/
 !dados/.gitkeep
+!dados/sinteticos/
+!dados/real/
+
+# dados/real/ é onde ficam documentos de verdade durante o teste local.
+# Do que está ali, só a estrutura da pasta é versionada — o LEIA-ME e o
+# .gitkeep. Todo documento colocado dentro fica de fora do git.
+# A regra é conferida por tests/test_dados_reais_nao_versionados.py.
+dados/real/*
+!dados/real/LEIA-ME.md
+!dados/real/boletos/
+dados/real/boletos/*
+!dados/real/boletos/.gitkeep
 
 # IDE / SO
 .vscode/

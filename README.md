@@ -45,11 +45,23 @@ uv run pytest
 app/                 código da aplicação (FastAPI, configuração)
 tests/               testes, junto da feature
 dados/sinteticos/    documentos sintéticos versionados
+dados/real/          documentos reais para teste local, fora do git
 docs/adr/            decisões de arquitetura
 ```
 
 ## Dados
 
-Todo dado neste repositório é sintético, gerado por templates Jinja2 +
-WeasyPrint. Documentos reais nunca entram aqui: o `.gitignore` bloqueia
-`dados/` inteiro, exceto `dados/sinteticos/`.
+Todo dado versionado neste repositório é sintético, gerado por templates
+Jinja2 + WeasyPrint. O `.gitignore` bloqueia `dados/` inteiro, exceto
+`dados/sinteticos/`.
+
+A avaliação roda sempre contra esse dataset sintético versionado: ele é
+fixo e reprodutível, então dá para comparar duas execuções e saber que a
+diferença veio da mudança no extrator, não do corpus.
+
+Documentos reais são testados apenas localmente, sem versionamento. Ficam
+em `dados/real/`, que o git ignora por inteiro — eles contêm dados
+pessoais de terceiros (nome, CPF, CNPJ, endereço, agência e conta) e um
+commit é permanente. Ver [`dados/real/LEIA-ME.md`](dados/real/LEIA-ME.md).
+Além do `.gitignore`, `tests/test_dados_reais_nao_versionados.py` falha se
+algum arquivo de lá aparecer rastreado.
