@@ -1,0 +1,16 @@
+{
+  "arquivo_pdf": "boleto-005.pdf",
+  "codigo_barras": "10497162500009100998573127626880932217209470",
+  "campos": {
+    "linha_digitavel": "10498573192762688093722172094702716250000910099",
+    "beneficiario_nome": "Vasconcelos",
+    "beneficiario_cnpj": "64712839000135",
+    "pagador_nome": "Vinicius Vieira",
+    "pagador_cpf_cnpj": "84167503948",
+    "valor": "9100.99",
+    "vencimento": "2026-11-09",
+    "banco_codigo": "104",
+    "banco_nome": "Caixa Econômica Federal",
+    "nosso_numero": "76268809322"
+  }
+}

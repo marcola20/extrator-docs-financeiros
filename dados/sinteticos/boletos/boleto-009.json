@@ -1,0 +1,16 @@
+{
+  "arquivo_pdf": "boleto-009.pdf",
+  "codigo_barras": "74891160100011968043258091696246268241580260",
+  "campos": {
+    "linha_digitavel": "74893258089169624626282415802600116010001196804",
+    "beneficiario_nome": "Lima",
+    "beneficiario_cnpj": "58294013000109",
+    "pagador_nome": "Clara Castro",
+    "pagador_cpf_cnpj": "01962758494",
+    "valor": "11968.04",
+    "vencimento": "2026-10-16",
+    "banco_codigo": "748",
+    "banco_nome": "Sicredi",
+    "nosso_numero": "16962462682"
+  }
+}

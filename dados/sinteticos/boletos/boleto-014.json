@@ -1,0 +1,16 @@
+{
+  "arquivo_pdf": "boleto-014.pdf",
+  "codigo_barras": "10492158800000247968683123206634694236695720",
+  "campos": {
+    "linha_digitavel": "10498683162320663469542366957209215880000024796",
+    "beneficiario_nome": "Borges Lima e Filhos",
+    "beneficiario_cnpj": "63219854000183",
+    "pagador_nome": "Nascimento Lima e Filhos",
+    "pagador_cpf_cnpj": "67581234000140",
+    "valor": "247.96",
+    "vencimento": "2026-10-03",
+    "banco_codigo": "104",
+    "banco_nome": "Caixa Econômica Federal",
+    "nosso_numero": "32066346942"
+  }
+}

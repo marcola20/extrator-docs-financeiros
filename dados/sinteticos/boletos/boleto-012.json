@@ -1,0 +1,16 @@
+{
+  "arquivo_pdf": "boleto-012.pdf",
+  "codigo_barras": "26093164600007145997800185488301119054989020",
+  "campos": {
+    "linha_digitavel": "26097800168548830111190549890201316460000714599",
+    "beneficiario_nome": "Duarte",
+    "beneficiario_cnpj": "40718326000173",
+    "pagador_nome": null,
+    "pagador_cpf_cnpj": null,
+    "valor": "7145.99",
+    "vencimento": "2026-11-30",
+    "banco_codigo": "260",
+    "banco_nome": "Nu Pagamentos",
+    "nosso_numero": "54883011190"
+  }
+}

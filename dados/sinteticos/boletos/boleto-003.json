@@ -1,0 +1,16 @@
+{
+  "arquivo_pdf": "boleto-003.pdf",
+  "codigo_barras": "03396161900000770107495121132713935723637150",
+  "campos": {
+    "linha_digitavel": "03397495172113271393057236371506616190000077010",
+    "beneficiario_nome": "Azevedo",
+    "beneficiario_cnpj": "47501389000112",
+    "pagador_nome": "Caleb Abreu",
+    "pagador_cpf_cnpj": "78149502360",
+    "valor": "770.1",
+    "vencimento": "2026-11-03",
+    "banco_codigo": "033",
+    "banco_nome": "Santander",
+    "nosso_numero": "11327139357"
+  }
+}
