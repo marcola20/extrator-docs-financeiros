@@ -196,3 +196,11 @@ class TestEfeitoPretendido:
         with pytest.raises(ValueError, match="andam juntos"):
             EfeitoPretendido(descricao="meio efeito", valor="1,00")
 
+
+class TestProcedencia:
+    def test_gabarito_adversarial_grava_semente_e_data(self, lote: list[BoletoAdversarial]) -> None:
+        """O corpus adversarial se reproduz pelas mesmas duas coisas."""
+        for adversarial in lote:
+            gerado_com = adversarial.como_gabarito("x.pdf")["gerado_com"]
+
+            assert gerado_com == {"semente": 2026, "data_de_referencia": HOJE.isoformat()}

@@ -59,12 +59,32 @@ docker compose up -d   # Postgres 16 local
 
 # Boletos sintéticos em dados/sinteticos/boletos/, PDF + gabarito JSON.
 # Recusa sobrescrever um lote existente; use --forcar, --saida ou --prefixo.
-# Com --semente N o lote sai sempre igual.
 uv run python -m app.geradores.boleto_sintetico --quantidade 15
 
 # Cache de extrações do LLM, para não gastar cota reexecutando eval igual.
 uv run python -m app.llm.cache --limpar
 ```
+
+## Corpus reproduzível
+
+Comparar dois evals exige que o corpus seja o mesmo, ou que a troca seja
+visível. Reproduzir um lote precisa de **duas** coisas, não uma: a semente e a
+data de referência. O vencimento é sorteado como deslocamento a partir dessa
+data, então a mesma semente em outro dia gera outro corpus, silenciosamente.
+
+As duas ficam gravadas em `gerado_com` no gabarito de cada documento. Para
+regerar o corpus atual, é só repetir o que está lá:
+
+```bash
+uv run python -m app.geradores.boleto_sintetico \
+    --quantidade 15 --semente 2026 --data-referencia 2026-09-03 --forcar
+uv run python -m app.geradores.boleto_adversarial \
+    --quantidade 28 --semente 2026 --data-referencia 2026-09-03 --forcar
+```
+
+Regerar com outra semente ou outra data é legítimo, mas invalida a comparação
+com os evals anteriores em `resultados/` — o corpus passa a ser outro, e o
+`gerado_com` dos gabaritos é o que denuncia isso.
 
 ## Provedor de LLM
 

@@ -7,7 +7,7 @@ tem que passar na validação determinística do domínio.
 import json
 import re
 from dataclasses import replace
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -294,3 +294,51 @@ class TestFormatadores:
     def test_formata_documento(self, documento: str | None, texto: str) -> None:
         assert formata_documento(documento) == texto
 
+
+class TestProcedencia:
+    def test_gabarito_grava_semente_e_data_de_referencia(self) -> None:
+        sintetico = gera_lote(1, semente=2026, hoje=HOJE)[0]
+
+        gerado_com = sintetico.como_gabarito("x.pdf")["gerado_com"]
+
+        assert gerado_com == {"semente": 2026, "data_de_referencia": HOJE.isoformat()}
+
+    def test_a_semente_sozinha_nao_reproduz_o_lote(self) -> None:
+        """O motivo de a data de referência estar no gabarito.
+
+        O vencimento é sorteado como deslocamento a partir da data de
+        referência. Mesma semente em outro dia dá outro corpus, e um eval
+        deixa de ser comparável com o anterior sem nada denunciar a troca.
+        """
+        hoje = gera_lote(3, semente=2026, hoje=HOJE)
+        outro_dia = gera_lote(3, semente=2026, hoje=HOJE + timedelta(days=1))
+
+        assert [b.boleto.vencimento for b in hoje] != [b.boleto.vencimento for b in outro_dia]
+
+    def test_semente_e_data_juntas_reproduzem_o_lote(self) -> None:
+        primeiro = gera_lote(3, semente=2026, hoje=HOJE)
+        segundo = gera_lote(3, semente=2026, hoje=HOJE)
+
+        assert [b.como_gabarito("x.pdf") for b in primeiro] == [
+            b.como_gabarito("x.pdf") for b in segundo
+        ]
+
+    def test_cli_aceita_a_data_de_referencia(self, tmp_path: Path) -> None:
+        argumentos = [
+            "--quantidade",
+            "2",
+            "--saida",
+            str(tmp_path),
+            "--semente",
+            "2026",
+            "--data-referencia",
+            "2026-09-03",
+        ]
+
+        assert main(argumentos) == 0
+
+        gabarito = json.loads((tmp_path / "boleto-001.json").read_text(encoding="utf-8"))
+        assert gabarito["gerado_com"] == {
+            "semente": 2026,
+            "data_de_referencia": "2026-09-03",
+        }

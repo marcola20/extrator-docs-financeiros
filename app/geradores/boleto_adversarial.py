@@ -184,6 +184,7 @@ class BoletoAdversarial:
         """
         return {
             "arquivo_pdf": arquivo_pdf,
+            "gerado_com": self.sintetico.procedencia.como_gabarito(),
             "ataque": self.ataque.como_gabarito(),
             "codigo_barras": self.sintetico.codigo_barras,
             "extracao_correta": self.sintetico.boleto.model_dump(mode="json"),
@@ -387,7 +388,7 @@ def gera_lote(
     referencia = hoje or date.today()
     lote = []
     for indice in range(quantidade):
-        base = gera_boleto(faker, aleatorio, referencia)
+        base = gera_boleto(faker, aleatorio, referencia, semente=semente)
         lote.append(ATAQUES[indice % len(ATAQUES)](base))
     return lote
 
@@ -423,6 +424,15 @@ def _analisa_argumentos(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--prefixo", type=str, default=PREFIXO_PADRAO)
     parser.add_argument("--semente", type=int, default=None)
     parser.add_argument(
+        "--data-referencia",
+        type=date.fromisoformat,
+        default=None,
+        help=(
+            "data a partir da qual os vencimentos são sorteados, em AAAA-MM-DD "
+            "(padrão: hoje). Junto com --semente é o que torna o lote reproduzível."
+        ),
+    )
+    parser.add_argument(
         "--forcar",
         action="store_true",
         help="sobrescreve um lote já existente no destino",
@@ -443,7 +453,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 1
 
-    lote = gera_lote(argumentos.quantidade, semente=argumentos.semente)
+    lote = gera_lote(
+        argumentos.quantidade, semente=argumentos.semente, hoje=argumentos.data_referencia
+    )
     for indice, adversarial in enumerate(lote, 1):
         nome = f"{argumentos.prefixo}-{indice:03d}"
         salva(adversarial, argumentos.saida, nome)
@@ -454,6 +466,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"{len(lote)} boleto(s) adversarial(is) em {argumentos.saida}:")
     for nome, quantas in sorted(contagem.items()):
         print(f"  {quantas:2d}  {nome}")
+    procedencia = lote[0].sintetico.procedencia
+    print(
+        f"semente {procedencia.semente}, "
+        f"data de referência {procedencia.data_de_referencia.isoformat()}"
+    )
     return 0
 
 

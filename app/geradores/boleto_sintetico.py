@@ -1,10 +1,13 @@
 """Gerador de boletos sintéticos: PDF renderizado e gabarito JSON ao lado.
 
-Nenhum documento real entra no repositório. Tudo aqui é fictício e
-determinístico quando se passa uma semente.
+Nenhum documento real entra no repositório. Tudo aqui é fictício, e o lote é
+reproduzível quando se passa **semente e data de referência** — só a semente
+não basta, porque os vencimentos são sorteados a partir da data. As duas
+ficam gravadas no gabarito de cada documento; ver `Procedencia`.
 
 Uso:
-    uv run python -m app.geradores.boleto_sintetico --quantidade 15
+    uv run python -m app.geradores.boleto_sintetico \
+        --quantidade 15 --semente 2026 --data-referencia 2026-09-03
 """
 
 import argparse
@@ -69,6 +72,30 @@ ESPECIES_DOCUMENTO = ("DM", "DS", "NP", "RC")
 
 
 @dataclass(frozen=True, slots=True)
+class Procedencia:
+    """Como o lote foi gerado — o que basta para produzi-lo de novo.
+
+    A semente sozinha não reproduz corpus nenhum. O vencimento é sorteado
+    como um deslocamento a partir de uma **data de referência**, que por
+    padrão é o dia em que o gerador rodou: mesma semente em dia diferente dá
+    outro corpus, e nada no repositório denuncia a troca. Dois evals de datas
+    diferentes deixam de ser comparáveis sem que ninguém perceba.
+
+    Por isso as duas coisas ficam gravadas no gabarito de cada documento, e
+    não só no comando que alguém lembrou de anotar.
+    """
+
+    semente: int | None
+    data_de_referencia: date
+
+    def como_gabarito(self) -> dict[str, Any]:
+        return {
+            "semente": self.semente,
+            "data_de_referencia": self.data_de_referencia.isoformat(),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class BoletoSintetico:
     """Um boleto gerado: o gabarito da extração mais o que só aparece impresso."""
 
@@ -83,17 +110,21 @@ class BoletoSintetico:
     instrucoes: str
     pagador_endereco: str
     beneficiario_endereco: str
+    procedencia: Procedencia
 
     def como_gabarito(self, arquivo_pdf: str) -> dict[str, Any]:
         """Monta o dicionário salvo em JSON ao lado do PDF."""
         return {
             "arquivo_pdf": arquivo_pdf,
+            "gerado_com": self.procedencia.como_gabarito(),
             "codigo_barras": self.codigo_barras,
             "campos": self.boleto.model_dump(mode="json"),
         }
 
 
-def gera_boleto(faker: Faker, aleatorio: random.Random, hoje: date) -> BoletoSintetico:
+def gera_boleto(
+    faker: Faker, aleatorio: random.Random, hoje: date, *, semente: int | None = None
+) -> BoletoSintetico:
     """Gera um boleto fictício coerente, com todos os DVs corretos."""
     banco = aleatorio.choice(BANCOS)
     vencimento = hoje + timedelta(days=aleatorio.randint(-30, 90))
@@ -144,6 +175,7 @@ def gera_boleto(faker: Faker, aleatorio: random.Random, hoje: date) -> BoletoSin
         instrucoes=aleatorio.choice(INSTRUCOES),
         pagador_endereco=_endereco(faker),
         beneficiario_endereco=_endereco(faker),
+        procedencia=Procedencia(semente=semente, data_de_referencia=hoje),
     )
 
 
@@ -160,7 +192,7 @@ def gera_lote(
         faker.seed_instance(semente)
 
     referencia = hoje or date.today()
-    return [gera_boleto(faker, aleatorio, referencia) for _ in range(quantidade)]
+    return [gera_boleto(faker, aleatorio, referencia, semente=semente) for _ in range(quantidade)]
 
 
 def renderiza_html(
@@ -297,6 +329,15 @@ def _analisa_argumentos(argv: Sequence[str] | None) -> argparse.Namespace:
         help="semente para gerar sempre o mesmo lote",
     )
     parser.add_argument(
+        "--data-referencia",
+        type=date.fromisoformat,
+        default=None,
+        help=(
+            "data a partir da qual os vencimentos são sorteados, em AAAA-MM-DD "
+            "(padrão: hoje). Junto com --semente é o que torna o lote reproduzível."
+        ),
+    )
+    parser.add_argument(
         "--prefixo", default="boleto", help="prefixo do nome dos arquivos (padrão: boleto)"
     )
     parser.add_argument(
@@ -322,7 +363,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 1
 
-    lote = gera_lote(argumentos.quantidade, semente=argumentos.semente)
+    lote = gera_lote(
+        argumentos.quantidade, semente=argumentos.semente, hoje=argumentos.data_referencia
+    )
     for indice, sintetico in enumerate(lote, start=1):
         nome_base = f"{argumentos.prefixo}-{indice:03d}"
         caminho_pdf, _ = salva(sintetico, argumentos.saida, nome_base)
@@ -332,7 +375,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"venc. {formata_data(sintetico.boleto.vencimento)}"
         )
 
+    procedencia = lote[0].procedencia
     print(f"\n{len(lote)} boletos em {argumentos.saida}")
+    print(
+        f"semente {procedencia.semente}, "
+        f"data de referência {procedencia.data_de_referencia.isoformat()}"
+    )
     return 0
 
 
