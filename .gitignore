@@ -31,6 +31,10 @@ dados/real/*
 dados/real/boletos/*
 !dados/real/boletos/.gitkeep
 
+# Relatórios do eval: gerados por execução, com carimbo de data.
+# Versionar um número medido é decisão consciente, não efeito colateral.
+resultados/
+
 # IDE / SO
 .vscode/
 .idea/
