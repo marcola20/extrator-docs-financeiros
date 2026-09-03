@@ -87,6 +87,23 @@ def test_gemini_pede_structured_output_com_o_schema() -> None:
     assert configuracao.temperature == 0.0
 
 
+def test_gemini_desliga_o_automatic_function_calling() -> None:
+    """Sem ferramenta declarada não há função a chamar.
+
+    O SDK liga o AFC por padrão e emite um WARNING por processo, que suja a
+    saída do eval. Desligar é o estado correto do pedido, e o teste confere
+    pela função do próprio SDK que decide o caminho.
+    """
+    from google.genai import _extra_utils
+
+    cliente = _ClienteGeminiFalso(_resposta_gemini(DOCUMENTO))
+
+    _provedor_gemini(cliente).extrai("texto", DocumentoFalso)
+
+    (chamada,) = cliente.models.chamadas
+    assert _extra_utils.should_disable_afc(chamada["config"])
+
+
 def test_gemini_aceita_o_schema_do_projeto_sem_reclamar() -> None:
     """O SDK converte o schema Pydantic no formato dele — que rejeita construções.
 

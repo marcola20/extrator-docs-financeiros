@@ -101,6 +101,12 @@ class ProvedorGemini:
             # Extração é leitura, não redação: a mesma página tem que dar o
             # mesmo resultado duas vezes.
             temperature=0.0,
+            # Desliga o automatic function calling. Não declaramos ferramenta
+            # nenhuma — a saída estruturada vem de response_schema —, mas o
+            # SDK liga o AFC por padrão e avisa em WARNING a cada processo,
+            # poluindo a saída do eval. Desligar é o estado correto, não um
+            # silenciador: sem ferramenta não há função a chamar.
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
         )
 
         try:
