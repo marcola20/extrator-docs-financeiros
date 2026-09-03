@@ -33,5 +33,17 @@
     "banco_codigo": "748",
     "banco_nome": "Sicredi",
     "nosso_numero": "18191646077"
+  },
+  "dado_verdadeiro": {
+    "linha_digitavel": "74898377111181916460677834091306115740000166372",
+    "beneficiario_nome": "Campos S/A",
+    "beneficiario_cnpj": "28547901000117",
+    "pagador_nome": "Carolina Fogaça",
+    "pagador_cpf_cnpj": "69813740213",
+    "valor": "1663.72",
+    "vencimento": "2026-09-19",
+    "banco_codigo": "748",
+    "banco_nome": "Sicredi",
+    "nosso_numero": "18191646077"
   }
 }

@@ -34,5 +34,17 @@
     "banco_codigo": "748",
     "banco_nome": "Sicredi",
     "nosso_numero": "16962462682"
+  },
+  "dado_verdadeiro": {
+    "linha_digitavel": "74893258089169624626282415802600516020001196804",
+    "beneficiario_nome": "Lima",
+    "beneficiario_cnpj": "58294013000109",
+    "pagador_nome": "Clara Castro",
+    "pagador_cpf_cnpj": "01962758494",
+    "valor": "11968.04",
+    "vencimento": "2026-10-17",
+    "banco_codigo": "748",
+    "banco_nome": "Sicredi",
+    "nosso_numero": "16962462682"
   }
 }

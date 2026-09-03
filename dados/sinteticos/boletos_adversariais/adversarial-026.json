@@ -25,6 +25,18 @@
     "beneficiario_cnpj": "13402869000104",
     "pagador_nome": "da Paz",
     "pagador_cpf_cnpj": "42078369000167",
+    "valor": "433.83",
+    "vencimento": "2026-09-20",
+    "banco_codigo": "104",
+    "banco_nome": "Caixa Econômica Federal",
+    "nosso_numero": "32281870610"
+  },
+  "dado_verdadeiro": {
+    "linha_digitavel": "10497768168322818706410974051202415750004338293",
+    "beneficiario_nome": "da Mata Marques - ME",
+    "beneficiario_cnpj": "13402869000104",
+    "pagador_nome": "da Paz",
+    "pagador_cpf_cnpj": "42078369000167",
     "valor": "43382.93",
     "vencimento": "2026-09-20",
     "banco_codigo": "104",

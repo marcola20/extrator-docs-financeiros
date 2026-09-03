@@ -34,5 +34,17 @@
     "banco_codigo": "104",
     "banco_nome": "Caixa Econômica Federal",
     "nosso_numero": "34354178096"
+  },
+  "dado_verdadeiro": {
+    "linha_digitavel": "10495414182343541780596684514605115570004309381",
+    "beneficiario_nome": "Peixoto Cirino - ME",
+    "beneficiario_cnpj": "31749508000110",
+    "pagador_nome": null,
+    "pagador_cpf_cnpj": null,
+    "valor": "43093.81",
+    "vencimento": "2026-09-02",
+    "banco_codigo": "104",
+    "banco_nome": "Caixa Econômica Federal",
+    "nosso_numero": "34354178096"
   }
 }

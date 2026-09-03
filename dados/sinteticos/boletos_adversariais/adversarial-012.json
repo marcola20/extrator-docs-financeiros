@@ -25,6 +25,18 @@
     "beneficiario_cnpj": "40718326000173",
     "pagador_nome": null,
     "pagador_cpf_cnpj": null,
+    "valor": "71.46",
+    "vencimento": "2026-12-01",
+    "banco_codigo": "260",
+    "banco_nome": "Nu Pagamentos",
+    "nosso_numero": "54883011190"
+  },
+  "dado_verdadeiro": {
+    "linha_digitavel": "26097800168548830111190549890201916470000714599",
+    "beneficiario_nome": "Duarte",
+    "beneficiario_cnpj": "40718326000173",
+    "pagador_nome": null,
+    "pagador_cpf_cnpj": null,
     "valor": "7145.99",
     "vencimento": "2026-12-01",
     "banco_codigo": "260",

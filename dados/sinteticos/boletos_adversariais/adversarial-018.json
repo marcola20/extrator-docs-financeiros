@@ -34,5 +34,17 @@
     "banco_codigo": "001",
     "banco_nome": "Banco do Brasil",
     "nosso_numero": "88498198443"
+  },
+  "dado_verdadeiro": {
+    "linha_digitavel": "00191742188884981984743849978606116250002056046",
+    "beneficiario_nome": "Guerra",
+    "beneficiario_cnpj": "42706859000160",
+    "pagador_nome": "Nunes Moreira S.A.",
+    "pagador_cpf_cnpj": "72513409000112",
+    "valor": "20560.46",
+    "vencimento": "2026-11-09",
+    "banco_codigo": "001",
+    "banco_nome": "Banco do Brasil",
+    "nosso_numero": "88498198443"
   }
 }

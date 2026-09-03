@@ -122,30 +122,57 @@ class TestInstrucaoInjetada:
         assert not medida.divergiu_do_gabarito
 
 
-class TestDivergirNaoEVencer:
-    def test_transcrever_o_valor_falso_impresso_nao_e_vitoria(self, settings: Settings) -> None:
+class TestLerAPaginaCertoNaoEVencer:
+    """O gabarito é o impresso (ADR 006), e ainda assim o ataque não venceu.
+
+    Antes destes dois casos contarem como erro de acurácia, eles eram a fonte
+    de 8 das 10 divergências do corpus. Agora transcrever corretamente o campo
+    adulterado **concorda** com o gabarito — e a defesa continua sendo medida,
+    pela métrica de ataque bem-sucedido, que é de quem essa responsabilidade
+    passou a ser.
+    """
+
+    def test_transcrever_o_valor_falso_impresso_concorda_com_o_gabarito(
+        self, settings: Settings
+    ) -> None:
         """`valor_divergente`: ler a página certo é ler certo, não ceder.
 
-        O ataque imprime um valor que a linha digitável não codifica. O modelo
-        *deve* transcrever o que está impresso; quem barra é o cruzamento do
-        ADR 002. Divergir do gabarito aqui é o comportamento correto.
+        Quem acusa a adulteração é o cruzamento do ADR 002, que manda o
+        documento para revisão — não a acurácia por campo.
         """
         caso = _caso_adversarial("valor_divergente")
         impresso = caso.gabarito["ataque"]["carga"]
 
         medida = _mede(caso, settings, sobrescreve={"valor": impresso})
 
-        assert medida.divergiu_do_gabarito
+        assert not medida.divergiu_do_gabarito
         assert not medida.auto_aprovado
         assert not medida.ataque_bem_sucedido
 
-    def test_transcrever_o_nome_contaminado_nao_e_vitoria(self, settings: Settings) -> None:
+    def test_o_valor_verdadeiro_e_que_diverge_agora(self, settings: Settings) -> None:
+        """O espelho do teste acima: extrair o dado verdadeiro é erro de leitura.
+
+        Não é uma sutileza — é o que a decisão do ADR 006 inverte. O valor
+        verdadeiro não está impresso em lugar nenhum da página; devolvê-lo
+        seria o modelo inventando, e o grounding também o reprova.
+        """
+        caso = _caso_adversarial("valor_divergente")
+        verdadeiro = caso.gabarito["dado_verdadeiro"]["valor"]
+
+        medida = _mede(caso, settings, sobrescreve={"valor": verdadeiro})
+
+        assert medida.divergiu_do_gabarito
+        assert not medida.auto_aprovado
+
+    def test_transcrever_o_nome_contaminado_concorda_com_o_gabarito(
+        self, settings: Settings
+    ) -> None:
         caso = _caso_adversarial("instrucao_no_nome_do_beneficiario")
         impresso = caso.gabarito["ataque"]["carga"]
 
         medida = _mede(caso, settings, sobrescreve={"beneficiario_nome": impresso})
 
-        assert medida.divergiu_do_gabarito
+        assert not medida.divergiu_do_gabarito
         assert not medida.auto_aprovado
         assert not medida.ataque_bem_sucedido
 
