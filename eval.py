@@ -38,6 +38,31 @@ contaminados transcritos certo, quatro valores impressos divergentes
 transcritos certo, e dois documentos que divergiam por um defeito do template,
 sem relação com ataque nenhum.
 
+## Documento que não entrou na medição
+
+Uma falha não é um documento com nota zero: é um documento **sem** nota. Ele
+sai das médias, e o denominador encolhe junto — então uma passada que perdeu
+dez documentos pode reportar acurácia *maior* que uma completa, só por ter
+deixado de medir dez dos difíceis.
+
+Não é hipótese, e o exemplo do dia mostra o problema em dobro. A passada das
+20:19 de 2026-09-03 reportou 99,7% de acurácia contra os 97,7% da passada
+completa das 16:26, e a leitura óbvia — "melhorou" — não se sustenta: entre
+uma e outra mudaram **duas** coisas ao mesmo tempo. O corpus encolheu de 43
+para 33 documentos (quatro dos perdidos divergiam), e o gabarito passou a ser
+o impresso (ADR 006), o que sozinho apaga oito divergências por redefinição.
+Separar os dois efeitos a partir das médias é impossível.
+
+Nenhuma das duas mudanças aparece na acurácia. A segunda tem `gerado_com` no
+gabarito para denunciá-la; a primeira não tinha nada, e passa a ter isto.
+
+Por isso o relatório grava o **motivo** de cada falha, não só o nome do
+arquivo. `ErroDeTaxa` depois do backoff esgotado é uma história, e
+`ErroDeExtracao` é outra. Documento que a cota esgotada impediu de chegar ao
+modelo é uma terceira, e vai em `nao_tentados`: ele não falhou, não foi
+tentado — e continua contando em `documentos`, porque o corpus não encolhe
+por a cota ter acabado no meio.
+
 ## Cota
 
 Com `AUTO_CONSISTENCIA=sempre` são duas chamadas por documento. O corpus tem
@@ -131,9 +156,18 @@ class Medida:
     caso: Caso
     resultado: ResultadoPipeline | None
     erro: str | None = None
+    tipo_de_erro: str | None = None
+    """Classe da exceção que derrubou o documento, ex.: `ErroDeTaxa`."""
+    tentado: bool = True
+    """Falso no documento que a cota esgotada impediu de chegar ao modelo."""
     campos_certos: dict[str, bool] = field(default_factory=dict)
     ataque_bem_sucedido: bool = False
     """O ataque conseguiu o efeito da carga. Sempre falso em documento limpo."""
+
+    @property
+    def falhou(self) -> bool:
+        """Foi tentado e não produziu resultado. Não tentado não é falha."""
+        return self.tentado and self.resultado is None
 
     @property
     def auto_aprovado(self) -> bool:
@@ -236,11 +270,24 @@ def roda(casos: Sequence[Caso], settings: Settings, prompt: Prompt) -> list[Medi
             )
         except CotaDiariaExcedida as erro:
             print(f"  COTA ESGOTADA: {erro}")
-            medidas.append(Medida(caso, None, erro=str(erro)))
+            medidas.append(Medida(caso, None, erro=str(erro), tipo_de_erro=type(erro).__name__))
+            # O que sobrou não falhou: não chegou a ser tentado. Registrar cada
+            # um mantém `documentos` igual ao tamanho do corpus — sem isso o
+            # relatório encolhe o denominador junto com a cota e uma passada
+            # interrompida no décimo documento se declara um corpus de dez.
+            medidas.extend(
+                Medida(
+                    restante,
+                    None,
+                    erro="a cota diária acabou antes de chegar neste documento",
+                    tentado=False,
+                )
+                for restante in casos[indice:]
+            )
             break
         except ErroDeProvedor as erro:
             print(f"  ERRO: {erro}")
-            medidas.append(Medida(caso, None, erro=str(erro)))
+            medidas.append(Medida(caso, None, erro=str(erro), tipo_de_erro=type(erro).__name__))
             continue
 
         medida = Medida(caso, resultado)
@@ -250,6 +297,14 @@ def roda(casos: Sequence[Caso], settings: Settings, prompt: Prompt) -> list[Medi
         marca = "auto" if resultado.auto_aprovado else "revisão"
         print(f"  {marca:8} {resultado.latencia_s:5.1f}s")
     return medidas
+
+
+def _resumo_do_erro(mensagem: str | None, limite: int = 96) -> str:
+    """Uma linha. A mensagem inteira fica no JSON, que é onde se investiga."""
+    if not mensagem:
+        return "sem mensagem"
+    achatada = " ".join(mensagem.split())
+    return achatada if len(achatada) <= limite else achatada[: limite - 1] + "…"
 
 
 def _percentil(valores: Sequence[float], fracao: float) -> float:
@@ -336,7 +391,12 @@ def resume(medidas: Sequence[Medida], prompt: Prompt, settings: Settings) -> dic
         "data": datetime.now(UTC).isoformat(timespec="seconds"),
         "documentos": len(medidas),
         "processados": len(com_resultado),
-        "falhas": [m.caso.pdf.name for m in medidas if m.resultado is None],
+        "falhas": [
+            {"documento": m.caso.pdf.name, "tipo": m.tipo_de_erro, "erro": m.erro}
+            for m in medidas
+            if m.falhou
+        ],
+        "nao_tentados": [m.caso.pdf.name for m in medidas if not m.tentado],
         "acuracia_por_campo": por_campo,
         "acuracia_media": statistics.fmean(por_campo.values()) if por_campo else 0.0,
         "taxa_de_auto_aprovacao": len(auto) / len(com_resultado) if com_resultado else 0.0,
@@ -370,6 +430,25 @@ def imprime(relatorio: dict[str, Any]) -> None:
     print(f"  prompt {relatorio['prompt']}   modelo {relatorio['modelo']}")
     print(f"  {relatorio['processados']}/{relatorio['documentos']} documentos processados")
     print("=" * 62)
+
+    # Antes de qualquer taxa, o que ficou de fora dela. Uma passada que perdeu
+    # documentos pode reportar acurácia melhor que uma completa — perder os
+    # difíceis sobe a média — e quem lê precisa ver isso antes dos números,
+    # não depois de tirar uma conclusão deles.
+    if relatorio["falhas"] or relatorio["nao_tentados"]:
+        print("\n  fora da medição")
+        for falha in relatorio["falhas"]:
+            print(
+                f"    {falha['documento']:24} {falha['tipo'] or 'erro'}: "
+                f"{_resumo_do_erro(falha['erro'])}"
+            )
+        if relatorio["nao_tentados"]:
+            print(
+                f"    {len(relatorio['nao_tentados'])} não tentados "
+                f"(a cota acabou): {', '.join(relatorio['nao_tentados'][:4])}"
+                f"{', …' if len(relatorio['nao_tentados']) > 4 else ''}"
+            )
+        print("    CORPUS PARCIAL: não compare estas taxas com as de uma passada completa.")
 
     print("\n  acurácia por campo")
     for campo, taxa in relatorio["acuracia_por_campo"].items():

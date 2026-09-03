@@ -20,7 +20,15 @@ from pydantic import BaseModel, SecretStr
 
 import eval as modulo_eval
 from app.config import Settings
-from app.llm.provedor import INSTRUCAO_PADRAO, ResultadoExtracao, UsoDeTokens
+from app.extracao.prompt import carrega
+from app.llm.limitador import CotaDiariaExcedida
+from app.llm.provedor import (
+    INSTRUCAO_PADRAO,
+    ErroDeExtracao,
+    ErroDeTaxa,
+    ResultadoExtracao,
+    UsoDeTokens,
+)
 from app.pipeline import processa
 
 CORPUS_LIMPO = Path("dados/sinteticos/boletos")
@@ -284,3 +292,125 @@ class TestGabaritoSemCriterio:
 
         with pytest.raises(KeyError, match="regere o corpus"):
             _ = caso.efeito_pretendido
+
+
+class ProvedorQueFalha:
+    """Levanta a exceção pedida em vez de chamar a API.
+
+    Encena as duas formas de perder um documento sem gastar cota: o erro que
+    derruba um só (`ErroDeExtracao`) e o que interrompe a passada inteira
+    (`CotaDiariaExcedida`).
+    """
+
+    def __init__(self, erro: Exception) -> None:
+        self.erro = erro
+
+    @property
+    def nome(self) -> str:
+        return "falso"
+
+    @property
+    def modelo(self) -> str:
+        return "falso-1"
+
+    def extrai[TSchema: BaseModel](
+        self,
+        texto: str,
+        schema: type[TSchema],
+        *,
+        instrucao: str = INSTRUCAO_PADRAO,
+    ) -> ResultadoExtracao[TSchema]:
+        raise self.erro
+
+
+def _tres_casos_limpos() -> list[modulo_eval.Caso]:
+    casos = []
+    for caminho in sorted(CORPUS_LIMPO.glob("*.json"))[:3]:
+        dados = json.loads(caminho.read_text(encoding="utf-8"))
+        casos.append(modulo_eval.Caso(caminho.with_suffix(".pdf"), dados, adversarial=False))
+    return casos
+
+
+def _roda_com(
+    provedor: ProvedorQueFalha,
+    casos: list[modulo_eval.Caso],
+    settings: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+) -> list[modulo_eval.Medida]:
+    monkeypatch.setattr(modulo_eval, "cria_provedor", lambda *a, **k: provedor)
+    monkeypatch.setattr(modulo_eval, "provedor_para_segunda_execucao", lambda *a, **k: provedor)
+    return modulo_eval.roda(casos, settings, carrega())
+
+
+class TestDocumentoForaDaMedicao:
+    """Perder um documento tem que aparecer no relatório, e com o motivo.
+
+    Uma passada que perde documentos pode reportar acurácia **maior** que uma
+    completa — os que caem saem das médias e o denominador encolhe junto. Em
+    2026-09-03 uma passada de 33 de 43 documentos reportou 99,7% contra os
+    97,7% da completa do mesmo dia, com o gabarito mudando no meio: dois
+    efeitos somados que as médias não separam. O nome do arquivo sozinho não
+    contava essa história; o motivo conta.
+    """
+
+    def test_a_falha_leva_o_tipo_e_a_mensagem(
+        self, settings: Settings, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        casos = _tres_casos_limpos()
+        provedor = ProvedorQueFalha(ErroDeExtracao("Gemini devolveu resposta vazia"))
+
+        medidas = _roda_com(provedor, casos, settings, monkeypatch)
+        relatorio = modulo_eval.resume(medidas, carrega(), settings)
+
+        assert relatorio["processados"] == 0
+        assert len(relatorio["falhas"]) == 3
+        assert relatorio["falhas"][0]["tipo"] == "ErroDeExtracao"
+        assert "resposta vazia" in relatorio["falhas"][0]["erro"]
+
+    def test_erro_num_documento_nao_derruba_os_outros(
+        self, settings: Settings, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`ErroDeProvedor` pula o documento; a passada segue e reporta a perda."""
+        casos = _tres_casos_limpos()
+        provedor = ProvedorQueFalha(ErroDeTaxa("429 depois de cinco tentativas"))
+
+        medidas = _roda_com(provedor, casos, settings, monkeypatch)
+        relatorio = modulo_eval.resume(medidas, carrega(), settings)
+
+        assert relatorio["documentos"] == 3
+        assert relatorio["nao_tentados"] == []
+        assert [f["tipo"] for f in relatorio["falhas"]] == ["ErroDeTaxa"] * 3
+
+
+class TestCotaEsgotadaNoMeio:
+    def test_o_resto_vira_nao_tentado_e_o_corpus_nao_encolhe(
+        self, settings: Settings, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """O denominador é o corpus, não o que a cota deixou medir.
+
+        Sem isto, a passada interrompida no primeiro documento se declarava um
+        corpus de um documento: `documentos: 1, processados: 0`. Some do
+        relatório justamente o fato de que 2 dos 3 nunca foram olhados.
+        """
+        casos = _tres_casos_limpos()
+        provedor = ProvedorQueFalha(CotaDiariaExcedida("cota diária de 500 esgotada"))
+
+        medidas = _roda_com(provedor, casos, settings, monkeypatch)
+        relatorio = modulo_eval.resume(medidas, carrega(), settings)
+
+        assert relatorio["documentos"] == 3
+        assert len(relatorio["falhas"]) == 1
+        assert relatorio["falhas"][0]["tipo"] == "CotaDiariaExcedida"
+        assert len(relatorio["nao_tentados"]) == 2
+
+    def test_nao_tentado_nao_conta_como_falha(
+        self, settings: Settings, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """São coisas diferentes: um documento reprovou a chamada, dois não a tiveram."""
+        casos = _tres_casos_limpos()
+        provedor = ProvedorQueFalha(CotaDiariaExcedida("cota diária de 500 esgotada"))
+
+        medidas = _roda_com(provedor, casos, settings, monkeypatch)
+
+        assert [m.falhou for m in medidas] == [True, False, False]
+        assert [m.tentado for m in medidas] == [True, False, False]
