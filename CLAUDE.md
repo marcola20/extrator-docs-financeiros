@@ -20,10 +20,11 @@ aplicada. Preferir código explícito e tipado sobre "pythonices" mágicas.
 
 ## Escopo por fase
 
-1. Boleto — pipeline vertical, structured output, eval básico
-   1. Gerador sintético, schema e validadores determinísticos
+1. Boleto — pipeline vertical, structured output, eval básico — **concluída**
+   1. Gerador sintético, schema e validadores determinísticos — concluída
    2. Sanitização e documentos adversariais (defesa contra prompt injection)
-   3. Extração via LLM com structured output, e eval
+      — concluída
+   3. Extração via LLM com structured output, e eval — concluída
 2. Informe de Rendimentos — seções, listas, validação cruzada entre anos
 3. Extrato de investimento — multi-página, tabela com quebra
 4. Revisão (Next.js) + observabilidade
@@ -102,8 +103,27 @@ continuarem comparáveis.
 
 ## Estado atual
 
-Fase 1.1 concluída (gerador, schema, validadores).
-Camada de provedor de LLM pronta e testada sem rede — nenhuma chamada real
-foi feita ainda, e o structured output do Gemini não foi exercitado com o
-schema `Boleto`.
-Próximo: Fase 1.2, sanitização e documentos adversariais.
+**Fase 1 (boleto) concluída e medida contra a API.** As três subfases
+entregaram:
+
+- 1.1 — gerador sintético reprodutível, schema de domínio e validadores
+  determinísticos (4 DVs da linha digitável, cruzamento de banco, valor e
+  vencimento, DV de CPF/CNPJ).
+- 1.2 — sanitização com três detectores independentes, isolamento por
+  delimitadores no prompt, e corpus adversarial de 28 documentos em 7
+  famílias de ataque.
+- 1.3 — extração via structured output do Gemini, quatro sinais de confiança
+  com roteamento para revisão, e `eval.py` medindo taxa de escape,
+  resistência a injection, custo e latência.
+
+Última passada completa: 43/43 documentos, escape rate 0% sobre 15
+auto-aprovados, 0 ataques bem-sucedidos de 28 adversariais, US$ 0,0017 por
+documento. Os números e sua procedência estão no README.
+
+Pendente antes de fechar a fase: **reexecutar o eval completo com o gabarito
+do ADR 006**. A última passada de 43 documentos é anterior a ele, e a única
+com o gabarito novo perdeu 10 documentos para erro de provedor — passada
+parcial não é comparável com completa. Espera-se `beneficiario_nome` e
+`valor` subirem, sem mexer nos outros oito campos.
+
+Próximo: Fase 2, informe de rendimentos.
