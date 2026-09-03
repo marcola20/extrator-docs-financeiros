@@ -55,7 +55,13 @@ class BoletoExtraido(BaseModel):
     pagador_cpf_cnpj: str = Field(default="", description="CPF ou CNPJ do pagador")
     valor: str = Field(default="", description="Valor do documento, como impresso")
     vencimento: str = Field(default="", description="Data de vencimento, como impressa")
-    banco_codigo: str = Field(default="", description="Código de três dígitos do banco")
+    banco_codigo: str = Field(
+        default="",
+        description=(
+            "Somente os três dígitos do código do banco, sem o dígito "
+            "verificador que o cabeçalho imprime depois do hífen"
+        ),
+    )
     banco_nome: str = Field(default="", description="Nome do banco emissor")
     nosso_numero: str = Field(default="", description="Nosso número, se houver")
 

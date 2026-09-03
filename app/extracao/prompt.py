@@ -11,7 +11,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 DIRETORIO_PROMPTS = Path(__file__).parent / "prompts"
-PROMPT_BOLETO = "boleto-v1.md"
+PROMPT_BOLETO = "boleto-v2.md"
+"""A versão em uso. As anteriores ficam no diretório: um relatório de eval
+carimbado com `boleto-v1` tem que continuar reproduzível."""
 
 _CABECALHO = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
 
