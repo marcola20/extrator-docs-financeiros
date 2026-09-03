@@ -81,6 +81,16 @@ def decide(resultado: ResultadoSanitizacao) -> Decisao:
             achados=resultado.achados,
         )
 
+    if not resultado.houve_o_que_inspecionar:
+        return Decisao(
+            rota=Rota.REVISAO_HUMANA,
+            motivo=(
+                "o documento não tem camada de texto, então os detectores "
+                "rodaram sobre nada. Isso não é um documento limpo: é um "
+                "documento não inspecionado."
+            ),
+        )
+
     if DETECTOR_DIVERGENCIA_OCR not in resultado.detectores_executados:
         return Decisao(
             rota=Rota.REVISAO_HUMANA,

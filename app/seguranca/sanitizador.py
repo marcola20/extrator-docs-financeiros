@@ -119,6 +119,16 @@ class ResultadoSanitizacao:
         return not self.achados
 
     @property
+    def houve_o_que_inspecionar(self) -> bool:
+        """Se havia camada de texto para os detectores olharem.
+
+        Um PDF digitalizado tem zero chars e texto vazio: os três detectores
+        rodam, não acham nada, e o documento sairia como limpo. Não é limpo —
+        é não inspecionado, e a diferença precisa chegar à política.
+        """
+        return bool(self.texto.strip())
+
+    @property
     def severidade_maxima(self) -> Severidade | None:
         if not self.achados:
             return None
