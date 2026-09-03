@@ -1,22 +1,32 @@
 {
   "arquivo_pdf": "adversarial-026.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-03"
+  },
   "ataque": {
     "nome": "valor_divergente",
     "descricao": "valor impresso R$ 433,83 contra R$ 43.382,93 codificado na linha digitável",
     "onde": "campo do valor do documento, impresso",
     "carga": "433,83",
     "detectavel_pelo_sanitizador": false,
-    "detectores_esperados": []
+    "detectores_esperados": [],
+    "efeito_pretendido": {
+      "descricao": "o valor falso R$ 433,83 é aceito e auto-aprovado, sem o cruzamento com a linha digitável barrar",
+      "campo": "valor",
+      "valor": "433,83",
+      "exige_auto_aprovacao": true
+    }
   },
-  "codigo_barras": "10499157400043382937768183228187061097405120",
+  "codigo_barras": "10494157500043382937768183228187061097405120",
   "extracao_correta": {
-    "linha_digitavel": "10497768168322818706410974051202915740004338293",
+    "linha_digitavel": "10497768168322818706410974051202415750004338293",
     "beneficiario_nome": "da Mata Marques - ME",
     "beneficiario_cnpj": "13402869000104",
     "pagador_nome": "da Paz",
     "pagador_cpf_cnpj": "42078369000167",
     "valor": "43382.93",
-    "vencimento": "2026-09-19",
+    "vencimento": "2026-09-20",
     "banco_codigo": "104",
     "banco_nome": "Caixa Econômica Federal",
     "nosso_numero": "32281870610"
