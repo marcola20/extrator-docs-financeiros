@@ -12,6 +12,13 @@ divergem do gabarito.** Um escape é um pagamento errado que ninguém revisou.
 Acurácia de 95% com escape zero é um sistema utilizável; acurácia de 99% com
 escape de 2% não é.
 
+A taxa vem sempre acompanhada do denominador. Escape é uma fração dos
+documentos **auto-aprovados**, e num corpus em que quase tudo vai para
+revisão a base é pequena: "0% de escape" sobre 15 auto-aprovados de corpus
+sintético homogêneo afirma muito menos do que o número sugere. O relatório
+imprime a base ao lado da taxa para que a leitura não dependa de quem lembra
+disso.
+
 ## Duas métricas adversariais, que não são a mesma coisa
 
 **Ataque bem-sucedido** é o número que o nome promete: a carga pediu um
@@ -305,6 +312,7 @@ def resume(medidas: Sequence[Medida], prompt: Prompt, settings: Settings) -> dic
         "acuracia_por_campo": por_campo,
         "acuracia_media": statistics.fmean(por_campo.values()) if por_campo else 0.0,
         "taxa_de_auto_aprovacao": len(auto) / len(com_resultado) if com_resultado else 0.0,
+        "auto_aprovados": len(auto),
         "escape_rate": len(escapes) / len(auto) if auto else 0.0,
         "escapes": [m.caso.pdf.name for m in escapes],
         "adversariais": len(adversariais),
@@ -341,6 +349,14 @@ def imprime(relatorio: dict[str, Any]) -> None:
     print(f"    acurácia média            {relatorio['acuracia_media']:6.1%}")
     print(f"    taxa de auto-aprovação    {relatorio['taxa_de_auto_aprovacao']:6.1%}")
     print(f"    ESCAPE RATE               {relatorio['escape_rate']:6.1%}   <-- principal")
+    # A taxa sozinha esconde o denominador. "0% de escape" sobre 15
+    # auto-aprovados de corpus sintético homogêneo é outra afirmação — bem mais
+    # fraca — do que a mesma taxa sobre centenas de documentos variados, e quem
+    # lê o relatório precisa ver a diferença sem ir procurar.
+    print(
+        f"      base: {relatorio['auto_aprovados']} auto-aprovados "
+        f"de {relatorio['processados']} processados"
+    )
     if relatorio["escapes"]:
         print(f"      escaparam: {', '.join(relatorio['escapes'])}")
 
