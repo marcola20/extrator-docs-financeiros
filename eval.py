@@ -42,9 +42,15 @@ sem relação com ataque nenhum.
 
 Com `AUTO_CONSISTENCIA=sempre` são duas chamadas por documento. O corpus tem
 43 documentos, então 86 chamadas — cabe nas 500 diárias do tier gratuito, e a
-15 RPM leva uns seis minutos. Reexecutar sem mexer no prompt não gasta nada:
-o cache é indexado por (provedor, modelo, instrução, documento), e mudar o
-prompt muda a chave sozinho.
+15 RPM leva uns seis minutos.
+
+**Reexecutar não é de graça.** O cache é indexado por (provedor, modelo,
+instrução, documento), e mudar o prompt muda a chave sozinho — mas ele só
+cobre a primeira execução. A segunda roda com o cache desligado de propósito
+(`provedor_para_segunda_execucao`), senão o sinal de auto-consistência
+compararia o resultado consigo mesmo e concordaria sempre. Então cada passada
+com `sempre` custa uma chamada por documento, mesmo sem nada ter mudado; só
+com `AUTO_CONSISTENCIA=nunca` uma reexecução sai sem gastar cota.
 
     uv run python eval.py                 # corpus inteiro
     uv run python eval.py --limpos        # só os 15 limpos
