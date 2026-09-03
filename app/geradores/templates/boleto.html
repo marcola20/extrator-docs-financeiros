@@ -165,7 +165,10 @@
     <tr>
       <td>
         <span class="rotulo">Pagador</span>
-        <span class="valor">{{ boleto.pagador_nome or "—" }}</span>
+        {#- Pagador ausente é campo em branco na página, nunca placeholder: um
+            traço é um token de um caractere, casa com quase qualquer documento
+            no grounding, e o modelo o transcreve como se fosse o nome. #}
+        <span class="valor">{% if boleto.pagador_nome %}{{ boleto.pagador_nome }}{% else %}&nbsp;{% endif %}</span>
       </td>
       <td>
         <span class="rotulo">Vencimento</span>
@@ -290,11 +293,16 @@
     <tr>
       <td colspan="6" class="sem-borda-direita">
         <span class="rotulo">Pagador</span>
+        {#- Sem nome não há endereço: a linha solta vira nome do pagador. #}
+        {%- if boleto.pagador_nome %}
         <span class="valor forte">
-          {{ boleto.pagador_nome or "—" }}
+          {{ boleto.pagador_nome }}
           {%- if boleto.pagador_cpf_cnpj %} &nbsp; {{ documento(boleto.pagador_cpf_cnpj) }}{% endif %}
         </span>
         <span class="valor">{{ extra.pagador_endereco }}</span>
+        {%- else %}
+        <span class="valor forte">&nbsp;</span>
+        {%- endif %}
       </td>
     </tr>
   </table>

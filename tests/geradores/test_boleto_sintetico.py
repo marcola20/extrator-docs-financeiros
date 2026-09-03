@@ -5,6 +5,7 @@ tem que passar na validação determinística do domínio.
 """
 
 import json
+import re
 from dataclasses import replace
 from datetime import date
 from decimal import Decimal
@@ -129,6 +130,36 @@ class TestRenderizacao:
 
         assert "<script>" not in html
         assert "A &amp; B" in html
+
+    def test_pagador_ausente_nao_imprime_placeholder_nem_endereco(self) -> None:
+        """Pagador ausente no gabarito é campo em branco na página.
+
+        O template imprimia `—` e, na ficha, o endereço do pagador mesmo sem
+        nome. O modelo transcrevia o traço, o grounding aprovava (um token de
+        um caractere aparece em qualquer documento) e o resultado era escape:
+        auto-aprovado divergindo do gabarito, sem ataque nenhum envolvido.
+        """
+        sintetico = gera_lote(1, semente=5, hoje=HOJE)[0]
+        sem_pagador = sintetico.boleto.model_copy(
+            update={"pagador_nome": None, "pagador_cpf_cnpj": None}
+        )
+
+        html = renderiza_html(replace(sintetico, boleto=sem_pagador))
+
+        assert re.search(r">\s*—\s*<", html) is None, "campo impresso só com o traço"
+        assert sintetico.pagador_endereco not in html
+
+    def test_pagador_presente_continua_com_nome_documento_e_endereco(self) -> None:
+        sintetico = gera_lote(1, semente=5, hoje=HOJE)[0]
+        com_pagador = sintetico.boleto.model_copy(
+            update={"pagador_nome": "Fulano de Tal", "pagador_cpf_cnpj": "12345678909"}
+        )
+
+        html = renderiza_html(replace(sintetico, boleto=com_pagador))
+
+        assert "Fulano de Tal" in html
+        assert "123.456.789-09" in html
+        assert sintetico.pagador_endereco in html
 
 
 class TestSalva:
@@ -262,3 +293,4 @@ class TestFormatadores:
     )
     def test_formata_documento(self, documento: str | None, texto: str) -> None:
         assert formata_documento(documento) == texto
+
