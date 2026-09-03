@@ -10,13 +10,14 @@ O caminho de visão é **recusado aqui**, de propósito. Ver ADR 005.
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 from pydantic import ValidationError
 
-from app.confianca import normalizacao
+from app.confianca import campos
 from app.dominio.boleto import Boleto
 from app.extracao.prompt import Prompt, carrega
-from app.extracao.schema_transporte import BoletoExtraido
+from app.extracao.schema_transporte import CAMPOS, BoletoExtraido
 from app.ingestao.documento import DocumentoIngerido
 from app.llm.provedor import ProvedorLLM, UsoDeTokens
 
@@ -57,34 +58,44 @@ class Extracao:
         return self.dominio is not None
 
 
+OPCIONAIS = frozenset({"pagador_nome", "pagador_cpf_cnpj", "nosso_numero"})
+
+
 def para_dominio(bruto: BoletoExtraido) -> tuple[Boleto | None, str | None]:
     """Converte o transporte em `Boleto`. A falha aqui é o sinal de DV.
 
-    Não tenta consertar nada: se o modelo escreveu um valor que não bate com
-    a linha digitável, a conversão reprova, e é exatamente esse o ponto.
-    """
-    valor = normalizacao.numero(bruto.valor)
-    vencimento = normalizacao.data(bruto.vencimento)
-    if valor is None or vencimento is None:
-        faltando = [
-            nome for nome, lido in (("valor", valor), ("vencimento", vencimento)) if lido is None
-        ]
-        return None, f"não deu para ler {', '.join(faltando)} do que o modelo devolveu"
+    A forma canônica de cada campo vem de `app.confianca.campos`, o mesmo
+    módulo que o grounding e o eval consultam. Se ela morasse aqui, o eval
+    precisaria repeti-la — e foi exatamente assim que uma taxa de escape
+    falsa de 50% nasceu (ADR 005).
 
-    campos = {
-        "linha_digitavel": normalizacao.digitos(bruto.linha_digitavel),
-        "beneficiario_nome": bruto.beneficiario_nome.strip(),
-        "beneficiario_cnpj": normalizacao.digitos(bruto.beneficiario_cnpj),
-        "pagador_nome": bruto.pagador_nome.strip() or None,
-        "pagador_cpf_cnpj": normalizacao.digitos(bruto.pagador_cpf_cnpj) or None,
-        "valor": valor,
-        "vencimento": vencimento,
-        "banco_codigo": normalizacao.digitos(bruto.banco_codigo),
-        "banco_nome": bruto.banco_nome.strip(),
-        "nosso_numero": bruto.nosso_numero.strip() or None,
-    }
+    Não conserta nada além da forma: se o modelo escreveu um valor que não
+    bate com a linha digitável, a conversão reprova, e é esse o ponto.
+    """
+    ilegiveis: list[str] = []
+    canonicos: dict[str, str] = {}
+    for campo in CAMPOS:
+        escrito = getattr(bruto, campo).strip()
+        if not escrito:
+            continue
+        try:
+            canonicos[campo] = campos.canonico(campo, escrito)
+        except campos.ValorIlegivel as erro:
+            ilegiveis.append(str(erro))
+
+    if ilegiveis:
+        return None, "; ".join(ilegiveis)
+
+    faltando = [c for c in CAMPOS if c not in canonicos and c not in OPCIONAIS]
+    if faltando:
+        return None, f"o modelo não preencheu: {', '.join(faltando)}"
+
+    valores: dict[str, Any] = dict(canonicos)
+    for campo in OPCIONAIS:
+        valores.setdefault(campo, None)
+
     try:
-        return Boleto.model_validate(campos), None
+        return Boleto.model_validate(valores), None
     except ValidationError as erro:
         motivos = "; ".join(
             f"{'.'.join(str(p) for p in e['loc']) or 'boleto'}: {e['msg']}" for e in erro.errors()

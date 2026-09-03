@@ -37,6 +37,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from app.confianca import campos
 from app.confianca.consistencia import provedor_para_segunda_execucao
 from app.config import Settings, get_settings
 from app.extracao.prompt import Prompt, carrega
@@ -112,31 +113,21 @@ def carrega_casos(*, limpos: bool, adversariais: bool, limite: int | None) -> li
 def _compara_campos(medida: Medida) -> dict[str, bool]:
     """Compara o que o modelo extraiu com o gabarito, campo a campo.
 
-    A comparação é sobre o dado, não sobre a grafia: `1.847,30` e `1847.30`
-    são o mesmo valor, e o gabarito guarda a forma canônica.
+    A definição de "mesmo valor" vem de `app.confianca.campos`, o mesmo
+    módulo que a conversão para o domínio usa. Antes o eval tinha a própria
+    regra, e para `banco_codigo` as duas discordavam: `748-X` era igual a
+    `748` para o pipeline e diferente para o eval. O resultado foi uma taxa
+    de escape de 50% acusando um erro que não existia na saída. Ver ADR 005.
     """
-    from app.confianca import normalizacao
-
     if medida.resultado is None or medida.resultado.extracao is None:
         return dict.fromkeys(CAMPOS, False)
 
     bruto = medida.resultado.extracao.bruto
     esperado = medida.caso.esperado
-    certos = {}
-    for campo in CAMPOS:
-        obtido = getattr(bruto, campo).strip()
-        alvo = esperado.get(campo, "").strip()
-        if campo == "valor":
-            certos[campo] = normalizacao.numero(obtido) == normalizacao.numero(alvo)
-        elif campo == "vencimento":
-            certos[campo] = normalizacao.data(obtido) == normalizacao.data(alvo)
-        elif campo in ("linha_digitavel", "beneficiario_cnpj", "pagador_cpf_cnpj"):
-            certos[campo] = normalizacao.digitos(obtido) == normalizacao.digitos(alvo)
-        else:
-            certos[campo] = normalizacao.texto_comparavel(obtido) == normalizacao.texto_comparavel(
-                alvo
-            )
-    return certos
+    return {
+        campo: campos.iguais(campo, getattr(bruto, campo), esperado.get(campo, ""))
+        for campo in CAMPOS
+    }
 
 
 def roda(casos: Sequence[Caso], settings: Settings, prompt: Prompt) -> list[Medida]:

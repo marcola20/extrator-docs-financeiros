@@ -26,18 +26,16 @@ contém os dois. Grounding pega invenção, não troca de campo.
 from dataclasses import dataclass
 from enum import StrEnum
 
-from app.confianca import normalizacao
+from app.confianca import campos, normalizacao
 from app.extracao.schema_transporte import CAMPOS, BoletoExtraido
 
 CAMPOS_ISENTOS: dict[str, str] = {
     "banco_nome": ("derivável de banco_codigo; o cabeçalho pode trazer só a marca do banco"),
 }
 
-CAMPOS_DE_DIGITOS = frozenset(
-    {"linha_digitavel", "beneficiario_cnpj", "pagador_cpf_cnpj", "banco_codigo", "nosso_numero"}
-)
-CAMPOS_DE_VALOR = frozenset({"valor"})
-CAMPOS_DE_DATA = frozenset({"vencimento"})
+# A classificação dos campos não mora aqui: ela é a mesma que a conversão
+# para o domínio e o eval usam, e vem de `app.confianca.campos`. Duas cópias
+# desta tabela foi o que produziu a taxa de escape falsa do ADR 005.
 
 
 class Situacao(StrEnum):
@@ -94,30 +92,44 @@ class ResultadoGrounding:
 
 
 def _aparece(campo: str, valor: str, texto: str, texto_digitos: str) -> bool:
-    """Confere presença literal, tolerando a formatação da página."""
-    if campo in CAMPOS_DE_DIGITOS:
-        so_digitos = normalizacao.digitos(valor)
-        return bool(so_digitos) and so_digitos in texto_digitos
+    """Confere presença literal, tolerando a formatação da página.
 
-    if campo in CAMPOS_DE_VALOR:
-        lido = normalizacao.numero(valor)
-        if lido is None:
-            return False
-        return any(
-            normalizacao.texto_comparavel(forma) in texto
-            for forma in normalizacao.valor_como_impresso(lido)
-        )
+    A operação muda com o tipo do campo — dígitos procuram em dígitos, valor
+    procura nas formas em que ele pode estar impresso —, mas **qual** é o
+    tipo de cada campo vem da tabela compartilhada.
+    """
+    try:
+        forma = campos.canonico(campo, valor)
+    except campos.ValorIlegivel:
+        # O modelo escreveu algo que este campo não comporta. Não dá para
+        # dizer que aparece no documento: não dá nem para dizer o que é.
+        return False
 
-    if campo in CAMPOS_DE_DATA:
-        lida = normalizacao.data(valor)
-        if lida is None:
-            return False
-        return any(
-            normalizacao.texto_comparavel(forma) in texto
-            for forma in normalizacao.data_como_impressa(lida)
-        )
+    match campos.tipo(campo):
+        case campos.TipoDeCampo.DIGITOS:
+            return forma in texto_digitos
 
-    return normalizacao.texto_comparavel(valor) in texto
+        case campos.TipoDeCampo.CODIGO_DE_BANCO:
+            # O código impresso vem colado ao DV do banco (`748-X`), então
+            # procurar os três dígitos dentro dos dígitos da página basta.
+            return forma in texto_digitos
+
+        case campos.TipoDeCampo.VALOR:
+            lido = normalizacao.numero(forma)
+            return lido is not None and any(
+                normalizacao.texto_comparavel(impresso) in texto
+                for impresso in normalizacao.valor_como_impresso(lido)
+            )
+
+        case campos.TipoDeCampo.DATA:
+            lida = normalizacao.data(forma)
+            return lida is not None and any(
+                normalizacao.texto_comparavel(impresso) in texto
+                for impresso in normalizacao.data_como_impressa(lida)
+            )
+
+        case campos.TipoDeCampo.TEXTO:
+            return forma in texto
 
 
 def confere(bruto: BoletoExtraido, texto_de_origem: str) -> ResultadoGrounding:
