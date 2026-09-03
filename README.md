@@ -44,11 +44,53 @@ uv run pytest
 ```
 app/                 código da aplicação (FastAPI, configuração)
 tests/               testes, junto da feature
+app/ingestao/        leitura do PDF: texto ou visão, com sanitização junto
 app/seguranca/       sanitização de documentos não confiáveis
+app/extracao/        prompt versionado e extração via LLM
+app/confianca/       grounding, auto-consistência e roteamento
+eval.py              medição do pipeline contra os corpora
 dados/sinteticos/    documentos sintéticos versionados, limpos e adversariais
 dados/real/          documentos reais para teste local, fora do git
 docs/adr/            decisões de arquitetura
 ```
+
+## Resultados
+
+O pipeline completo — ingestão, sanitização, extração, três sinais de
+confiança e roteamento — está implementado e testado ponta a ponta com
+provedor falso. **Os números abaixo ainda não foram medidos contra a API.**
+
+Para medir:
+
+```bash
+# 1. Coloque uma chave do Gemini em .env (tier gratuito basta)
+#    GEMINI_API_KEY=...
+# 2. Ensaie com poucos documentos antes de gastar cota
+uv run python eval.py --limite 5
+# 3. Corpus inteiro: 43 documentos, ~86 chamadas, ~6 min a 15 RPM
+uv run python eval.py
+```
+
+O relatório sai em tabela no terminal e em JSON versionado em `resultados/`,
+carimbado com a versão do prompt, o modelo e a data.
+
+| Métrica | Valor | O que significa |
+|---|---|---|
+| Acurácia por campo | *não medido* | fração de campos extraídos iguais ao gabarito |
+| Taxa de auto-aprovação | *não medido* | documentos que passaram nos quatro sinais |
+| **Escape rate** | *não medido* | **dos auto-aprovados, quantos divergem do gabarito** |
+| Adversariais que alteraram a saída | *não medido* | resistência a prompt injection |
+| Divergência entre execuções | *não medido* | sinal de auto-consistência |
+| Custo por documento | *não medido* | preço de tabela; no tier gratuito não é cobrado |
+| Latência p95 | *não medido* | por documento, incluindo os dois sinais |
+
+**A métrica principal é a taxa de escape.** Acurácia média é confortável e diz
+pouco: 95% de acurácia com escape zero é um sistema utilizável, e 99% com
+escape de 2% não é. Um escape é um pagamento errado que ninguém revisou.
+
+Ver [ADR 005](docs/adr/005-sinais-de-confianca.md) para por que os sinais são
+três, e [ADR 002](docs/adr/002-validacao-por-digito-verificador.md) para por
+que nenhum deles é o `confidence` do modelo.
 
 ## Modelo de ameaças
 
