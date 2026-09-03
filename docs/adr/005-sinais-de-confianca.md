@@ -138,6 +138,101 @@ essa defesa tem que ser desenhada junto com o caminho. Enquanto ela não
 existir, documento sem camada de texto vai para revisão humana. É reversível:
 o dia em que houver defesa para imagem, a recusa sai.
 
+## O episódio da taxa de escape falsa
+
+*Seção acrescentada em 2026-09-03, depois do primeiro eval real.*
+
+O primeiro eval contra a API, com 5 documentos limpos, reportou **taxa de
+escape de 50%**. Pela definição desta ADR, isso significaria que metade dos
+documentos auto-aprovados sairia com um campo divergente do gabarito — um
+pagamento errado que ninguém revisou, no sistema cuja razão de existir é não
+fazer isso.
+
+Não era verdade. O `boleto-004.pdf` foi contado como escape, e o objeto que
+o pipeline produziu para ele estava **correto**.
+
+### O que aconteceu
+
+O boleto imprime o código do banco junto com o dígito verificador do banco:
+`748-X`. O prompt mandava copiar o que estava escrito, e o modelo copiou. O
+gabarito guarda três dígitos.
+
+A partir daí, dois caminhos de comparação divergiram:
+
+| | regra | `748-X` vs `748` |
+|---|---|---|
+| Pipeline (`para_dominio`) | `digitos()` | **iguais** — vira `748` |
+| Eval (`_compara_campos`) | comparação de texto | **diferentes** |
+
+O pipeline convertia para `748`, todos os sinais passavam corretamente, e o
+documento era auto-aprovado — com razão. O eval, medindo o campo **bruto**
+contra um gabarito que guarda valores **de domínio**, via diferença e contava
+escape.
+
+### Por que só um documento escapou
+
+O detalhe que fecha o diagnóstico: dos três documentos em que o modelo copiou
+o DV, dois foram **barrados** e um passou.
+
+- `digitos("001-9")` → `"0019"`, quatro dígitos, o `Boleto` reprova.
+- `digitos("756-0")` → `"7560"`, idem.
+- `digitos("748-X")` → `"748"` — o DV do Sicredi é a letra `X`, que
+  `digitos()` descarta, e o resultado sai **certo por acidente**.
+
+A normalização funcionava por sorte quando o dígito verificador era letra e
+falhava quando era número — com a mensagem "código do banco precisa de 3
+dígitos", que culpa o modelo por ter copiado corretamente o que estava
+impresso.
+
+### A lição, que é sobre medição e não sobre bancos
+
+**O eval e o pipeline precisam compartilhar a definição de igualdade.**
+
+Não porque uma das duas regras estivesse errada — nenhuma estava. Porque
+havia duas. Uma métrica que usa uma definição de "mesmo valor" diferente da
+que o sistema usa não está medindo o sistema: está medindo a diferença entre
+as duas definições. E o erro entra pela métrica que decide se o projeto pode
+existir, onde ele é mais caro e menos visível.
+
+O modo de falha vale nomear porque é assimétrico e traiçoeiro: um falso
+escape assusta e leva a investigar; um **falso não-escape** — se as regras
+divergissem no outro sentido — silenciaria um erro real. As duas metades do
+mesmo defeito, e só uma delas aparece.
+
+Isso decidiu três coisas:
+
+1. **`app/confianca/campos.py` é a definição única.** A tabela de tipos e a
+   forma canônica de cada campo moram lá, e os três consumidores a leem: a
+   conversão para o domínio, o grounding e o eval. Campo do schema sem tipo
+   declarado é erro na hora, não texto por omissão.
+2. **`banco_codigo` é o código puro de três dígitos.** O domínio já o define
+   assim e o cruza contra a linha digitável, que é protegida por quatro DVs
+   próprios; e o DV do banco é derivável do código, então não carrega
+   informação independente. O prompt v2 diz isso explicitamente.
+3. **A separação entre código e DV é regra escrita**, com erro que nomeia a
+   forma aceita, em vez de um `digitos()` genérico decidindo por acidente.
+
+### O antes e depois
+
+Mesmos 5 documentos, mesmo modelo:
+
+| | prompt v1 | prompt v2 |
+|---|---|---|
+| Acurácia de `banco_codigo` | 40% | 100% |
+| Acurácia média | 94% | 100% |
+| Taxa de auto-aprovação | 40% | 100% |
+| **Taxa de escape** | **50%** | **0%** |
+| Divergência entre execuções | 4% | 0% |
+
+As duas correções agem em lugares diferentes, e vale separar o que cada uma
+fez. O **prompt v2 corrigiu a saída na origem**: o modelo passou a devolver
+`748` em vez de `748-X`, conferido nas duas execuções. A **definição
+compartilhada é a rede**: se o modelo voltar a copiar o DV, eval e pipeline
+continuam concordando, e nenhum escape falso aparece.
+
+A ordem importa. Só o prompt teria escondido o defeito de medição até a
+próxima vez que as duas regras divergissem, em outro campo.
+
 ## Consequências
 
 **Positivas**

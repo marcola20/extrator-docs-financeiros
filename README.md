@@ -74,15 +74,28 @@ uv run python eval.py
 O relatório sai em tabela no terminal e em JSON versionado em `resultados/`,
 carimbado com a versão do prompt, o modelo e a data.
 
+Medido em **5 boletos limpos**, `gemini-3.5-flash-lite`, prompt `boleto-v2`,
+em 2026-09-03. O corpus adversarial ainda não foi medido.
+
 | Métrica | Valor | O que significa |
 |---|---|---|
-| Acurácia por campo | *não medido* | fração de campos extraídos iguais ao gabarito |
-| Taxa de auto-aprovação | *não medido* | documentos que passaram nos quatro sinais |
-| **Escape rate** | *não medido* | **dos auto-aprovados, quantos divergem do gabarito** |
-| Adversariais que alteraram a saída | *não medido* | resistência a prompt injection |
-| Divergência entre execuções | *não medido* | sinal de auto-consistência |
-| Custo por documento | *não medido* | preço de tabela; no tier gratuito não é cobrado |
-| Latência p95 | *não medido* | por documento, incluindo os dois sinais |
+| Acurácia média | 100% | sobre os 10 campos |
+| Taxa de auto-aprovação | 100% | documentos que passaram nos quatro sinais |
+| **Escape rate** | **0%** | **dos auto-aprovados, quantos divergem do gabarito** |
+| Divergência entre execuções | 0% | sinal de auto-consistência |
+| Custo por documento | US$ 0,001673 | preço de tabela; no tier gratuito não é cobrado |
+| Latência p50 / p95 | 4,2s / 12,8s | por documento, incluindo as duas execuções |
+| Adversariais | *não medido* | resistência a prompt injection |
+
+Cinco documentos é uma amostra pequena: serve para dizer que o pipeline
+funciona ponta a ponta, não para afirmar taxa de escape zero. O corpus
+completo — 15 limpos e 28 adversariais — é o próximo passo.
+
+A primeira medição, com o prompt `boleto-v1`, reportou **50% de escape**. Era
+falso: o eval comparava o campo bruto e o pipeline o valor convertido, e as
+duas regras discordavam em `banco_codigo`. O episódio está registrado no
+[ADR 005](docs/adr/005-sinais-de-confianca.md) — é a razão de eval e pipeline
+compartilharem a definição de igualdade.
 
 **A métrica principal é a taxa de escape.** Acurácia média é confortável e diz
 pouco: 95% de acurácia com escape zero é um sistema utilizável, e 99% com
