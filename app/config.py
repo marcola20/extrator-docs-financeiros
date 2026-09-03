@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     llm_cache_ativo: bool = True
     llm_cache_diretorio: Path = Path("dados/cache-llm")
 
+    # Sinal de auto-consistência (ADR 005): sempre | condicional | nunca.
+    # "sempre" dobra o consumo de cota e dá taxa base comparável entre
+    # documentos; "condicional" economiza metade e assume um ponto cego.
+    auto_consistencia: str = "sempre"
+
 
 @lru_cache
 def get_settings() -> Settings:
