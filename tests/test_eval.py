@@ -223,6 +223,55 @@ class TestDocumentoLimpo:
         assert not medida.ataque_bem_sucedido
 
 
+class TestModoDeConsistenciaDoEval:
+    def test_o_padrao_do_eval_e_condicional(self) -> None:
+        """O sistema fica em `sempre`; o eval, não. Ver ADR 005.
+
+        Cada segunda execução custa uma chamada — o cache é desligado nela de
+        propósito —, e o eval reexecuta muito. O padrão diferente é uma
+        escolha de orçamento da medição, não uma mudança do pipeline.
+        """
+        argumentos = modulo_eval._analisa_argumentos([])
+
+        assert argumentos.consistencia == "condicional"
+
+    def test_a_flag_explicita_liga_o_sinal_em_todos(self) -> None:
+        argumentos = modulo_eval._analisa_argumentos(["--consistencia", "sempre"])
+
+        assert argumentos.consistencia == "sempre"
+
+    def test_modo_invalido_e_recusado(self) -> None:
+        with pytest.raises(SystemExit):
+            modulo_eval._analisa_argumentos(["--consistencia", "as-vezes"])
+
+
+class TestConsistenciaComoUnicoBloqueador:
+    def test_documento_limpo_e_fiel_nao_tem_bloqueador_nenhum(self, settings: Settings) -> None:
+        caminho = sorted(CORPUS_LIMPO.glob("*.json"))[0]
+        dados = json.loads(caminho.read_text(encoding="utf-8"))
+        caso = modulo_eval.Caso(caminho.with_suffix(".pdf"), dados, adversarial=False)
+
+        medida = _mede(caso, settings)
+
+        assert medida.auto_aprovado
+        assert not modulo_eval._so_a_consistencia_barrou(medida)
+
+    def test_divergencia_entre_execucoes_isolada_conta(self, settings: Settings) -> None:
+        """O caso que a métrica existe para achar: só a consistência barrou."""
+        caminho = sorted(CORPUS_LIMPO.glob("*.json"))[0]
+        dados = json.loads(caminho.read_text(encoding="utf-8"))
+        caso = modulo_eval.Caso(caminho.with_suffix(".pdf"), dados, adversarial=False)
+        fiel = ProvedorDeGabarito(dict(caso.esperado))
+        instavel = ProvedorDeGabarito(
+            dict(caso.esperado), sobrescreve={"beneficiario_nome": "Outra Empresa Ltda"}
+        )
+
+        resultado = processa(caso.pdf, fiel, settings, provedor_da_segunda=instavel)
+        medida = modulo_eval.Medida(caso, resultado)
+
+        assert modulo_eval._so_a_consistencia_barrou(medida), resultado.decisao.para_revisor()
+
+
 class TestGabaritoSemCriterio:
     def test_corpus_antigo_falha_alto(self) -> None:
         """Sem `efeito_pretendido` não há o que medir, e zero seria mentira."""

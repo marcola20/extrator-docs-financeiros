@@ -48,9 +48,15 @@ Com `AUTO_CONSISTENCIA=sempre` são duas chamadas por documento. O corpus tem
 instrução, documento), e mudar o prompt muda a chave sozinho — mas ele só
 cobre a primeira execução. A segunda roda com o cache desligado de propósito
 (`provedor_para_segunda_execucao`), senão o sinal de auto-consistência
-compararia o resultado consigo mesmo e concordaria sempre. Então cada passada
-com `sempre` custa uma chamada por documento, mesmo sem nada ter mudado; só
-com `AUTO_CONSISTENCIA=nunca` uma reexecução sai sem gastar cota.
+compararia o resultado consigo mesmo e concordaria sempre. Então cada segunda
+execução custa uma chamada, mesmo sem nada ter mudado.
+
+Por isso **o eval roda em `condicional` por padrão**, enquanto o sistema
+continua em `sempre` (ADR 005). O eval é medição repetida; o pipeline em
+produção é decisão sobre um documento, e as duas não têm o mesmo orçamento.
+Para medir com o sinal ligado em todos os documentos:
+
+    uv run python eval.py --consistencia sempre
 
     uv run python eval.py                 # corpus inteiro
     uv run python eval.py --limpos        # só os 15 limpos
@@ -70,7 +76,8 @@ from pathlib import Path
 from typing import Any
 
 from app.confianca import campos
-from app.confianca.consistencia import provedor_para_segunda_execucao
+from app.confianca.consistencia import ModoConsistencia, provedor_para_segunda_execucao
+from app.confianca.politica import Sinal
 from app.config import Settings, get_settings
 from app.extracao.prompt import Prompt, carrega
 from app.extracao.schema_transporte import CAMPOS
@@ -272,6 +279,19 @@ def _detalha_divergencias(medidas: Sequence[Medida]) -> list[dict[str, Any]]:
     ]
 
 
+def _so_a_consistencia_barrou(medida: Medida) -> bool:
+    """A auto-consistência foi o único sinal a mandar este documento à revisão?
+
+    É o que decide se o sinal está pagando por si. Se nenhum documento é
+    barrado só por ele, os outros três já cobriam tudo que ele cobriu, e
+    dobrar a cota do eval não comprou informação nenhuma — ver ADR 005.
+    """
+    if medida.resultado is None:
+        return False
+    bloqueadores = medida.resultado.decisao.bloqueadores
+    return len(bloqueadores) == 1 and bloqueadores[0].sinal is Sinal.CONSISTENCIA
+
+
 def _conta_por_ataque(medidas: Sequence[Medida]) -> dict[str, int]:
     contagem: dict[str, int] = {}
     for medida in medidas:
@@ -301,6 +321,8 @@ def resume(medidas: Sequence[Medida], prompt: Prompt, settings: Settings) -> dic
         for m in com_resultado
         if m.resultado and m.resultado.consistencia.executou
     ]
+    so_consistencia = [m for m in com_resultado if _so_a_consistencia_barrou(m)]
+    segundas = sum(1 for m in com_resultado if m.resultado and m.resultado.consistencia.executou)
     venceram = [m for m in adversariais if m.ataque_bem_sucedido]
     divergentes = [m for m in adversariais if m.divergiu_do_gabarito]
 
@@ -331,6 +353,9 @@ def resume(medidas: Sequence[Medida], prompt: Prompt, settings: Settings) -> dic
         "divergencia_media_entre_execucoes": statistics.fmean(divergencias)
         if divergencias
         else 0.0,
+        "segundas_execucoes": segundas,
+        "bloqueados_so_por_consistencia": len(so_consistencia),
+        "documentos_so_por_consistencia": [m.caso.pdf.name for m in so_consistencia],
         "custo_total_usd": str(custo),
         "custo_por_documento_usd": str((custo / len(com_resultado)).quantize(Decimal("0.000001")))
         if com_resultado
@@ -384,6 +409,15 @@ def imprime(relatorio: dict[str, Any]) -> None:
         print(f"      {item['documento']}  {item['ataque']}: {', '.join(item['campos'])}")
 
     print("\n  execução")
+    print(f"    modo de consistência      {relatorio['auto_consistencia']}")
+    print(
+        f"    segundas execuções        {relatorio['segundas_execucoes']:6d}"
+        f"   (uma chamada cada; o cache não cobre)"
+    )
+    print(
+        f"    barrados só por ela       {relatorio['bloqueados_so_por_consistencia']:6d}"
+        f"   (o que só este sinal pegou)"
+    )
     print(f"    divergência entre runs    {relatorio['divergencia_media_entre_execucoes']:6.1%}")
     print(f"    custo total               US$ {relatorio['custo_total_usd']}")
     print(f"    custo por documento       US$ {relatorio['custo_por_documento_usd']}")
@@ -411,6 +445,16 @@ def _analisa_argumentos(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--adversariais", action="store_true", help="só o corpus adversarial")
     parser.add_argument("--limite", type=int, default=None, help="processa no máximo N")
     parser.add_argument("--prompt", type=str, default=None, help="arquivo de prompt a usar")
+    parser.add_argument(
+        "--consistencia",
+        choices=[modo.value for modo in ModoConsistencia],
+        default=ModoConsistencia.CONDICIONAL.value,
+        help=(
+            "modo de auto-consistência só para esta medição (padrão: condicional). "
+            "O sistema continua em 'sempre'; aqui o padrão é outro porque cada "
+            "segunda execução custa uma chamada e o eval reexecuta muito. Ver ADR 005."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -426,7 +470,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("nenhum documento no corpus", file=sys.stderr)
         return 1
 
-    settings = get_settings()
+    settings = get_settings().model_copy(update={"auto_consistencia": argumentos.consistencia})
     prompt = carrega(argumentos.prompt) if argumentos.prompt else carrega()
 
     print(f"eval: {len(casos)} documento(s), prompt {prompt.identificador}")

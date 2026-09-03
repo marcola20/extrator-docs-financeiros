@@ -233,6 +233,72 @@ continuam concordando, e nenhum escape falso aparece.
 A ordem importa. Só o prompt teria escondido o defeito de medição até a
 próxima vez que as duas regras divergissem, em outro campo.
 
+## O custo medido da auto-consistência, e o modo do eval
+
+*Seção acrescentada em 2026-09-03, depois de medir o que a tabela acima
+estimava.*
+
+A tabela do tradeoff dizia `~50` chamadas para `condicional` num corpus de 43.
+Era estimativa, e estava otimista. Medido, com `--consistencia sempre` sobre
+os 33 documentos que a passada conseguiu processar:
+
+| | medido |
+|---|---|
+| Segundas execuções | 33 — uma por documento, nenhuma coberta por cache |
+| Documentos sem nenhum outro sinal falhando | 14 |
+| **Documentos barrados só pela auto-consistência** | **0** |
+| Divergência média entre execuções | 0,3% |
+
+`condicional` teria feito 19 segundas execuções em vez de 33 — economia de
+14, ou 42%, não a metade. E como nenhum documento foi barrado só por este
+sinal, **as duas rotas teriam sido idênticas**: a economia não custou decisão
+nenhuma, nesta medição.
+
+### A inversão que o modo condicional carrega
+
+Vale nomear com precisão, porque é contraintuitivo. `condicional` roda a
+segunda execução **quando outro sinal já falhou** — ou seja, quando o
+documento já vai para revisão de qualquer jeito e o sinal não muda a rota. E
+a pula quando nenhum outro falhou — ou seja, exatamente onde ela seria a
+única conferência restante e decidiria entre auto-aprovar e revisar.
+
+Então `condicional` paga onde a rota já está decidida e economiza onde ainda
+estaria em jogo. O ponto cego já estava descrito acima; o que a medição
+acrescenta é que a economia é menor do que parecia **e** vem do lado errado.
+Ele continua sendo opção, e continua não sendo o padrão do sistema.
+
+### A decisão: o eval em `condicional`, o sistema em `sempre`
+
+O padrão do sistema **não muda**: `sempre`. Um documento em produção é uma
+decisão de pagamento, tomada uma vez, e abrir mão do único sinal que cobre
+`beneficiario_nome` e `nosso_numero` justamente nos documentos que seriam
+auto-aprovados não se paga.
+
+O **eval** passa a rodar em `condicional` por padrão, com
+`--consistencia sempre` para ligar o sinal em todos os documentos. A razão é
+de orçamento de medição, não de confiança: o eval reexecuta muito, cada
+segunda execução custa uma chamada mesmo quando nada mudou — o cache é
+desligado nela de propósito —, e o tier gratuito tem 500 chamadas por dia. Um
+eval que consome o orçamento do dia numa passada deixa de ser reexecutável, e
+um eval que não se reexecuta não mede.
+
+### Por que o sinal continua existindo, mesmo com zero barrados
+
+Zero é medição, não teorema, e não generaliza:
+
+- É **um** corpus, sintético e homogêneo, gerado por um template só. Documento
+  real tem variação de layout que este corpus não tem, e é dessa variação que
+  leitura instável nasce.
+- É a **temperatura zero** do ADR 003. O sinal mede a não-determinação
+  residual do serviço, que é pequena por construção. Um provedor com
+  amostragem, ou um modelo diferente na comparação final, muda isso.
+- A assimetria continua valendo: divergência é evidência forte. Zero
+  divergências decisivas em 33 documentos não diz que a próxima não decidirá.
+
+Por isso o sinal fica disponível, com o modo `sempre` a uma flag de
+distância, e o custo agora está escrito ao lado da taxa no relatório
+(`segundas_execucoes` e `bloqueados_so_por_consistencia`).
+
 ## Consequências
 
 **Positivas**
@@ -248,7 +314,10 @@ próxima vez que as duas regras divergissem, em outro campo.
 **Negativas / custos aceitos**
 
 - **`sempre` dobra o consumo de cota.** Com 500 RPD, o corpus de 43
-  documentos cabe duas vezes por dia, e não mais.
+  documentos cabe duas vezes por dia, e não mais. Medido depois: o cache não
+  alivia isso, porque a segunda execução o desliga de propósito — reexecutar
+  o eval custa uma chamada por documento para sempre. É a razão de o eval
+  rodar em `condicional` por padrão enquanto o sistema fica em `sempre`.
 - **Concordância entre execuções vale pouco a temperatura zero.** O sinal é
   quase todo unilateral: serve para reprovar, quase não serve para aprovar.
 - **Grounding não pega troca de campo**, que é justamente o erro que um
