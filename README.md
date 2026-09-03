@@ -198,34 +198,36 @@ uv run python -m app.geradores.boleto_adversarial \
 ## Limitações conhecidas
 
 Esta seção é a mais importante do README. Os números acima são de corpus
-sintético, e há limites que nenhum deles mede.
+sintético, e há limites que nenhum deles mede. Cada limitação endereçável
+aponta para o issue em que está sendo acompanhada.
 
-**O escape rate de 0% é sobre 15 documentos.** Quinze auto-aprovados de um
-corpus sintético homogêneo, todos gerados pelo mesmo template Jinja2, com o
-mesmo layout, as mesmas fontes e a mesma disposição de campos. O número diz
-que o pipeline não erra nesse template. Ele **não** prevê o comportamento em
-boletos reais, que variam por banco, por emissor, por versão de layout, e que
-chegam digitalizados, tortos e com ruído. Tratar 0% como propriedade do
-sistema seria ler o corpus como se fosse o mundo.
+**O escape rate de 0% é sobre 15 documentos** ([#1][i1]). Quinze
+auto-aprovados de um corpus sintético homogêneo, todos gerados pelo mesmo
+template Jinja2, com o mesmo layout, as mesmas fontes e a mesma disposição de
+campos. O número diz que o pipeline não erra nesse template. Ele **não** prevê
+o comportamento em boletos reais, que variam por banco, por emissor, por
+versão de layout, e que chegam digitalizados, tortos e com ruído. Tratar 0%
+como propriedade do sistema seria ler o corpus como se fosse o mundo.
 
-**Campos de texto livre não têm sinal forte.** `beneficiario_nome`,
+**Campos de texto livre não têm sinal forte** ([#2][i2]). `beneficiario_nome`,
 `pagador_nome` e `banco_nome` não são verificáveis por aritmética: não há DV
 de nome. O que existe para eles é grounding — o valor aparece literalmente no
 texto de origem? — e auto-consistência entre duas execuções. Os dois pegam
 alucinação e instabilidade; nenhum dos dois pega o modelo lendo com confiança
-o nome errado que está de fato na página. Não por acaso, `beneficiario_nome` é
-um dos dois campos abaixo de 100% na tabela.
+o nome errado que está de fato na página. Não por acaso, `beneficiario_nome`
+é um dos dois campos abaixo de 100% na tabela — e é o campo que decide quem
+recebe o dinheiro.
 
-**O campo livre da linha digitável não tem formato padronizado.** Os 25
-dígitos do campo livre carregam agência, conta e nosso número, mas cada banco
-define o próprio layout — não há padrão a partir do qual extrair esses
+**O campo livre da linha digitável não tem formato padronizado** ([#3][i3]).
+Os 25 dígitos do campo livre carregam agência, conta e nosso número, mas cada
+banco define o próprio layout — não há padrão a partir do qual extrair esses
 valores. Os dígitos estão protegidos pelos DVs como qualquer outro, o que
-impede alterá-los sem quebrar a conta; o que não dá para fazer é *interpretá-los*
-para cruzar com `nosso_numero`. Por isso `nosso_numero` aparece na tabela sem
-sinal determinístico, ao lado dos campos de texto: ele é numérico, e mesmo
-assim não é verificável.
+impede alterá-los sem quebrar a conta; o que não dá para fazer é
+*interpretá-los* para cruzar com `nosso_numero`. Por isso `nosso_numero`
+aparece na tabela sem sinal determinístico, ao lado dos campos de texto: ele
+é numérico, e mesmo assim não é verificável.
 
-**Detecção por padrão está sempre um passo atrás.** Cada padrão em
+**Detecção por padrão está sempre um passo atrás** ([#4][i4]). Cada padrão em
 `app/seguranca/detectores/padroes.py` pega uma formulação que alguém já
 escreveu. Reformular do outro lado é barato; escrever o padrão novo aqui é
 reativo por construção. Homoglifos, caracteres bidi e largura zero já são
@@ -233,17 +235,23 @@ saída conhecida e não estão tratados. A defesa que não depende de prever a
 formulação do atacante é a validação determinística — é ela a garantia, e a
 sanitização é sinal.
 
-**Ataque visual em documento digitalizado está fora de escopo.** Instrução
-escrita dentro de uma imagem não está na camada de texto e nenhum detector
-daqui a lê. Hoje não é exposição, porque o pipeline recusa documento sem
-camada de texto em vez de mandá-lo para um modelo com visão. Passa a ser no
-dia em que existir caminho de visão, e a defesa terá que nascer junto com ele
-— um detector de texto não cobre pixel.
+**Ataque visual em documento digitalizado está fora de escopo** (sem issue:
+não é endereçável enquanto não existir caminho de visão). Instrução escrita
+dentro de uma imagem não está na camada de texto e nenhum detector daqui a
+lê. Hoje não é exposição, porque o pipeline recusa documento sem camada de
+texto em vez de mandá-lo para um modelo com visão. Passa a ser no dia em que
+existir caminho de visão, e a defesa terá que nascer junto com ele — um
+detector de texto não cobre pixel.
 
 Fora de escopo também, e sem plano: negação de serviço por documento grande
 (não há limite de tamanho nem de tempo na ingestão) e autenticidade do PDF —
 se o atacante controla o documento inteiro, inclusive a linha digitável, o
 problema deixa de ser injeção e vira troca de documento, anterior ao pipeline.
+
+[i1]: https://github.com/marcola20/extrator-docs-financeiros/issues/1
+[i2]: https://github.com/marcola20/extrator-docs-financeiros/issues/2
+[i3]: https://github.com/marcola20/extrator-docs-financeiros/issues/3
+[i4]: https://github.com/marcola20/extrator-docs-financeiros/issues/4
 
 ## Decisões de arquitetura
 
