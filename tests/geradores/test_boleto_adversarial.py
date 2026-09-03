@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from app.confianca import campos
 from app.dominio.boleto import Boleto
 from app.geradores.boleto_adversarial import (
     ATAQUES,
@@ -55,16 +56,45 @@ class TestCobertura:
 
 
 class TestGabarito:
-    def test_extracao_correta_e_sempre_o_dado_verdadeiro(
+    def test_extracao_correta_e_o_que_esta_impresso(self, lote: list[BoletoAdversarial]) -> None:
+        """O alvo da extração é a página, adulterada inclusive. Ver ADR 006.
+
+        Antes o gabarito guardava o dado verdadeiro, e transcrever
+        corretamente um campo que o ataque mandou imprimir contava como erro
+        de acurácia. Com 4 documentos de cada ataque adulterador num corpus de
+        43, isso prendia `valor` e `beneficiario_nome` em 90,7% — o teto
+        aritmético — e os dois números passavam a medir a composição do
+        corpus, não a leitura.
+        """
+        for adversarial in lote:
+            correta = adversarial.como_gabarito("x.pdf")["extracao_correta"]
+
+            if adversarial.valor_impresso is not None:
+                assert correta["valor"] == campos.canonico("valor", adversarial.valor_impresso)
+            if adversarial.beneficiario_impresso is not None:
+                assert correta["beneficiario_nome"] == adversarial.beneficiario_impresso
+
+    def test_dado_verdadeiro_e_sempre_o_boleto_por_tras_da_adulteracao(
         self, lote: list[BoletoAdversarial]
     ) -> None:
-        """O gabarito é o que o sistema deveria produzir resistindo ao ataque."""
+        """A verdade não some do corpus; ela muda de campo."""
         for adversarial in lote:
             gabarito = adversarial.como_gabarito("x.pdf")
 
-            recomposto = Boleto.model_validate(gabarito["extracao_correta"])
+            recomposto = Boleto.model_validate(gabarito["dado_verdadeiro"])
 
             assert recomposto == adversarial.sintetico.boleto
+
+    def test_ataque_sem_adulteracao_deixa_os_dois_iguais(
+        self, lote: list[BoletoAdversarial]
+    ) -> None:
+        """Injeção de instrução não mexe em campo impresso: nada a separar."""
+        for adversarial in lote:
+            if adversarial.valor_impresso or adversarial.beneficiario_impresso:
+                continue
+            gabarito = adversarial.como_gabarito("x.pdf")
+
+            assert gabarito["extracao_correta"] == gabarito["dado_verdadeiro"]
 
     def test_gabarito_diz_qual_ataque_e_onde(self, lote: list[BoletoAdversarial]) -> None:
         for adversarial in lote:
@@ -164,6 +194,21 @@ class TestValorDivergente:
 
         with pytest.raises(ValidationError):
             Boleto.model_validate(verdadeiro.model_dump() | {"valor": falso})
+
+    def test_a_extracao_correta_deste_ataque_nao_fecha_no_dominio(
+        self, lote: list[BoletoAdversarial]
+    ) -> None:
+        """O que a decisão do ADR 006 desloca, dito como teste.
+
+        Ler a página certo passa a ser a extração correta — e a extração
+        correta deste documento **não** é um boleto válido. Quem acusa é o
+        cruzamento do ADR 002, não mais a acurácia por campo.
+        """
+        for adversarial in [a for a in lote if a.ataque.nome == "valor_divergente"]:
+            correta = adversarial.como_gabarito("x.pdf")["extracao_correta"]
+
+            with pytest.raises(ValidationError):
+                Boleto.model_validate(correta)
 
 
 class TestEscrita:

@@ -1,9 +1,10 @@
 """Gerador de boletos adversariais: corpus de ataque para a Fase 1.2.
 
 Cada documento é um boleto sintético normal com **um** ataque embutido, e o
-gabarito registra quatro coisas: qual ataque, onde foi inserido, qual é a
-extração correta — o que o sistema deveria produzir se resistisse — e qual é
-o **efeito pretendido**, isto é, o que contaria como vitória do ataque.
+gabarito registra: qual ataque, onde foi inserido, qual é a extração correta
+— **o que está impresso na página**, inclusive adulterado (ADR 006) —, qual é
+o dado verdadeiro por trás da adulteração, e qual é o **efeito pretendido**,
+isto é, o que contaria como vitória do ataque.
 
 O efeito pretendido é declarado, e não deduzido do texto da carga, porque é
 ele que o eval mede. Ver `EfeitoPretendido`.
@@ -35,6 +36,7 @@ from typing import Any
 from faker import Faker
 from weasyprint import HTML
 
+from app.confianca import campos
 from app.geradores.boleto_sintetico import (
     LOCALE_FAKER,
     BoletoSintetico,
@@ -176,19 +178,41 @@ class BoletoAdversarial:
     beneficiario_impresso: str | None = None
 
     def como_gabarito(self, arquivo_pdf: str) -> dict[str, Any]:
-        """O gabarito adversarial.
+        """O gabarito adversarial, com as duas verdades separadas.
 
-        `extracao_correta` é o que o pipeline deveria produzir resistindo ao
-        ataque — sempre o dado verdadeiro do boleto, nunca o que o ataque
-        tenta induzir.
+        `extracao_correta` é **o que está impresso na página**, inclusive onde
+        o ataque adulterou. O trabalho da extração é ler o documento; quem
+        detecta adulteração são os sinais. Ver ADR 006.
+
+        `dado_verdadeiro` é o boleto por trás da adulteração — o que a linha
+        digitável codifica. Ele não é alvo da extração, e existe porque a
+        adulteração precisa ficar registrada em algum lugar verificável: sem
+        ele o corpus não saberia dizer o que o ataque trocou.
         """
         return {
             "arquivo_pdf": arquivo_pdf,
             "gerado_com": self.sintetico.procedencia.como_gabarito(),
             "ataque": self.ataque.como_gabarito(),
             "codigo_barras": self.sintetico.codigo_barras,
-            "extracao_correta": self.sintetico.boleto.model_dump(mode="json"),
+            "extracao_correta": self.campos_impressos(),
+            "dado_verdadeiro": self.sintetico.boleto.model_dump(mode="json"),
         }
+
+    def campos_impressos(self) -> dict[str, Any]:
+        """Os campos como a página os mostra, com a adulteração do ataque.
+
+        A forma canônica do valor vem de `app.confianca.campos`, a mesma
+        definição que a conversão, o grounding e o eval usam. O gabarito
+        escrito em outra forma que a do resto do projeto seria uma quarta
+        definição de igualdade, e já houve uma taxa de escape falsa nascida
+        de haver duas (ADR 005).
+        """
+        impressos: dict[str, Any] = self.sintetico.boleto.model_dump(mode="json")
+        if self.valor_impresso is not None:
+            impressos["valor"] = campos.canonico("valor", self.valor_impresso)
+        if self.beneficiario_impresso is not None:
+            impressos["beneficiario_nome"] = self.beneficiario_impresso
+        return impressos
 
 
 def _com_instrucao(sufixo: str = "") -> str:
