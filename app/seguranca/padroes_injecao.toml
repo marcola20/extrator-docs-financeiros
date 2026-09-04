@@ -66,7 +66,13 @@ regex = "\\b(aprovado|autorizado|validado|verificado|liberado)\\s+(automaticamen
 nome = "dispensa_de_validacao"
 severidade = "alta"
 descricao = "pede para pular conferência"
-regex = "\\b(nao|sem|dispensa[r]?|pule|pular|skip|no need to)\\b[^.]{0,30}\\b(valid|conferir|conferencia|verificar|verificacao|checar|check)"
+# `valid(?!ade)`: "validade" é substantivo sobre a força legal do documento,
+# não o ato de validar. Sem a exceção, "nao tem validade fiscal" e "sem
+# validade sem autenticacao mecanica" — frases de rodapé que todo informe e
+# todo comprovante bancário real trazem — viram achado de injeção. Medido no
+# corpus limpo de informes: era falso positivo em 12 dos 24 documentos.
+# "nao e necessario validar" e "dispensa validacao" continuam casando.
+regex = "\\b(nao|sem|dispensa[r]?|pule|pular|skip|no need to)\\b[^.]{0,30}\\b(valid(?!ade)|conferir|conferencia|verificar|verificacao|checar|check)"
 
 [[padrao]]
 nome = "instrucao_ao_extrator"

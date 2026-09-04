@@ -65,8 +65,25 @@ from app.seguranca.sanitizador import (
     recorta,
 )
 
-DPI_RENDERIZACAO = 200
-"""Resolução do render. Medido: 150 já basta, 200 dá folga sem custar muito."""
+DPI_RENDERIZACAO = 300
+"""Resolução do render.
+
+Era 200, medido contra boletos, onde bastava. O corpus de informes derrubou o
+número: os rótulos de campo do modelo oficial são maiúsculas de 5,5pt com
+espaçamento entre letras, e a 200 DPI o tesseract não lê nenhum deles. Medido
+nos dois blocos que acusavam — `NOME DATA ASSINATURA` e o CNPJ da faixa —, a
+cobertura salta de **0,000 a 200 DPI para 1,000 a 300**, e fica em 1,000 a 400.
+Não é limiar mal escolhido: a 200 DPI o texto simplesmente não é lido.
+
+Conferido também que não era contraste: inverter a imagem antes do OCR não
+muda nada em nenhuma das resoluções, inclusive no bloco de texto branco sobre
+faixa azul escura. O tesseract lê claro-sobre-escuro sem ajuda.
+
+O custo é o render, que sobe com o quadrado da escala — cerca de 2,25 vezes os
+pixels de 200 DPI. Vale: falso positivo em documento honesto custa fila de
+revisão, e a alternativa seria baixar `COBERTURA_MINIMA`, que não resolveria
+nada porque a cobertura medida era zero, não um valor baixo.
+"""
 
 COBERTURA_MINIMA = 0.30
 """Abaixo disto o bloco sumiu da página. Pior bloco limpo medido: 0,857."""

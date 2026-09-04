@@ -25,16 +25,58 @@ que o outro não alcança.
 
 Ancorados no corpus sintético limpo, não escolhidos no chute:
 
-- **Cor.** O texto legítimo mais claro nos 15 boletos é cinza 0,4. O limiar
-  de luminância fica em 0,85, bem acima disso e bem abaixo do branco.
+- **Contraste.** O texto legítimo mais claro nos 15 boletos é cinza 0,4, que
+  sobre página branca dá contraste 0,6. O limiar fica em 0,15: menor que
+  qualquer contraste legítimo do corpus, e maior que o de qualquer par
+  texto/fundo que o olho não separa.
 - **Tamanho.** O menor tamanho legítimo é 5,5pt (rodapé e rótulos de campo).
   O limiar fica em 3,0pt: menor que qualquer texto real do corpus, e muito
   maior que os ~0,4pt que um ataque usa para sumir.
 
-Não existe "cor do fundo" para ler no PDF: fundo é o que estiver pintado
-embaixo. O detector assume página branca, que é o caso de boleto, e confere
-também se há retângulo preenchido claro sob o texto — o que cobre o ataque
-de pintar um bloco branco e escrever branco em cima dele.
+## Por que contraste, e não luminância do texto
+
+A primeira versão perguntava se o texto era claro — `luminância ≥ 0,85` — e,
+separadamente, se ele estava sobre um retângulo claro. Para boleto funciona:
+boleto não tem fundo pintado. Para informe, não. A medição no corpus limpo de
+informes acusou **516 chars em falso positivo num único documento**, por duas
+causas opostas que a mesma regra produz:
+
+- 417 chars **pretos** sinalizados por estarem sobre um retângulo claro — a
+  regra os condenava qualquer que fosse a cor deles. Preto sobre `#f6f8fa` é
+  o contraste máximo, não o mínimo.
+- 99 chars **brancos** sinalizados por serem brancos, dentro de uma faixa azul
+  escura. Branco sobre `#14315c` também se lê perfeitamente.
+
+Nenhuma das duas some mexendo no 0,85: a regra não estava mal calibrada, estava
+perguntando a coisa errada. O que esconde um texto não é a cor dele, é a
+distância entre ela e a do que está pintado embaixo.
+
+## O fundo não é legível com precisão, e a regra é conservadora por isso
+
+Ler o fundo do PDF tem um limite que precisa ficar escrito. O pdfplumber
+reporta o **retângulo antes do recorte**: uma `border-bottom: 2px solid #000`
+do WeasyPrint chega aqui como um retângulo preto cobrindo a caixa inteira do
+elemento, e não a tira de 2pt que foi de fato pintada. Medido no boleto: o
+cabeçalho tem dois retângulos pretos de 17pt de altura por baixo do nome do
+banco, que é preto. Tratá-los como fundo faria todo boleto acusar.
+
+Então o detector não escolhe *um* fundo. Ele reúne os candidatos — a página
+branca, mais cada retângulo preenchido que cobre o char — e fica com o
+**maior contraste** entre eles. A leitura é: se existe alguma pintura plausível
+sob o texto que o torne legível, o texto é legível. Erra para o lado de não
+acusar, que é o lado certo — falso positivo manda documento honesto para a
+fila de revisão, e a defesa tem outros dois detectores.
+
+O número não mudou: `luminância ≥ 0,85` sobre página branca **é** contraste
+abaixo de 0,15, e sem retângulo o único candidato é a página. Boleto se
+comporta exatamente como antes.
+
+**O que esta regra não pega**, e passa a ser responsabilidade da divergência
+texto/imagem: texto escuro sobre retângulo escuro, e texto branco sobre
+retângulo branco quando o atacante põe também um retângulo escuro cobrindo o
+mesmo char — um elemento com borda basta. A versão anterior não pegava o
+primeiro caso de jeito nenhum, então isto não é perda; é um buraco que agora
+está medido e escrito.
 """
 
 from collections.abc import Iterable, Sequence
@@ -49,8 +91,16 @@ from app.seguranca.sanitizador import (
     recorta,
 )
 
-LUMINANCIA_MINIMA_VISIVEL = 0.85
-"""Acima disto o texto é claro demais para ser lido sobre página branca."""
+CONTRASTE_MINIMO = 0.15
+"""Abaixo disto o texto não se separa do fundo que está sob ele.
+
+É o mesmo número da versão anterior, dita de outro jeito: `luminância ≥ 0,85`
+sobre página branca é exatamente `1,0 - luminância < 0,15`. Ancorado no corpus
+limpo de boletos, onde o pior contraste legítimo é 0,6 (cinza 0,4 no branco).
+"""
+
+LUMINANCIA_DA_PAGINA = 1.0
+"""O fundo quando não há retângulo pintado sob o texto: papel branco."""
 
 TAMANHO_MINIMO_PT = 3.0
 """Abaixo disto nenhum texto legítimo do corpus existe."""
@@ -149,25 +199,37 @@ def _agrupa_vizinhos(
     return blocos
 
 
-def _retangulos_claros(rects: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
-    claros = []
+def _cobre(rect: dict[str, Any], char: dict[str, Any]) -> bool:
+    return (
+        float(rect["x0"]) <= float(char["x0"])
+        and float(rect["x1"]) >= float(char["x1"])
+        and float(rect["top"]) <= float(char["top"])
+        and float(rect["bottom"]) >= float(char["bottom"])
+    )
+
+
+def fundos_possiveis(char: dict[str, Any], rects: Iterable[dict[str, Any]]) -> list[float]:
+    """Luminâncias que podem estar sob o char: a página e cada retângulo que o cobre.
+
+    Plural de propósito. O retângulo do pdfplumber vem sem o recorte que o PDF
+    aplica, então a presença de um retângulo cobrindo o char é indício de
+    pintura, não prova — ver a nota do módulo.
+    """
+    candidatos = [LUMINANCIA_DA_PAGINA]
     for rect in rects:
-        lum = luminancia(rect.get("non_stroking_color"))
-        if lum is not None and lum >= LUMINANCIA_MINIMA_VISIVEL:
-            claros.append(rect)
-    return claros
+        if not rect.get("fill", True):
+            continue
+        if _cobre(rect, char) and (lum := luminancia(rect.get("non_stroking_color"))) is not None:
+            candidatos.append(lum)
+    return candidatos
 
 
-def _sobre_retangulo_claro(char: dict[str, Any], claros: Sequence[dict[str, Any]]) -> bool:
-    for rect in claros:
-        if (
-            float(rect["x0"]) <= float(char["x0"])
-            and float(rect["x1"]) >= float(char["x1"])
-            and float(rect["top"]) <= float(char["top"])
-            and float(rect["bottom"]) >= float(char["bottom"])
-        ):
-            return True
-    return False
+def contraste(char: dict[str, Any], rects: Iterable[dict[str, Any]]) -> float | None:
+    """O maior contraste entre o texto e algum fundo plausível sob ele, de 0 a 1."""
+    lum = luminancia(char.get("non_stroking_color"))
+    if lum is None:
+        return None
+    return max(abs(lum - fundo) for fundo in fundos_possiveis(char, rects))
 
 
 def detecta(
@@ -179,20 +241,19 @@ def detecta(
 ) -> list[Achado]:
     """Procura texto invisível nos chars de uma página."""
     achados: list[Achado] = []
-    claros = _retangulos_claros(rects)
 
     quase_invisiveis = [
         c
         for c in chars
-        if (lum := luminancia(c.get("non_stroking_color"))) is not None
-        and (lum >= LUMINANCIA_MINIMA_VISIVEL or _sobre_retangulo_claro(c, claros))
+        if (medido := contraste(c, rects)) is not None
+        and medido < CONTRASTE_MINIMO
         and str(c.get("text", "")).strip()
     ]
     achados += _achados_de(
         quase_invisiveis,
         pagina=pagina,
         tipo=TipoAchado.TEXTO_QUASE_INVISIVEL,
-        detalhe=f"cor de texto com luminância ≥ {LUMINANCIA_MINIMA_VISIVEL} sobre fundo claro",
+        detalhe=f"contraste com o fundo abaixo de {CONTRASTE_MINIMO}",
     )
 
     minusculos = [
