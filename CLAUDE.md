@@ -126,14 +126,18 @@ entregaram:
   com roteamento para revisão, e `eval.py` medindo taxa de escape,
   resistência a injection, custo e latência.
 
-Última passada completa: 43/43 documentos, escape rate 0% sobre 15
-auto-aprovados, 0 ataques bem-sucedidos de 28 adversariais, US$ 0,0017 por
-documento. Os números e sua procedência estão no README.
+Última passada completa (2026-09-04, gabarito do ADR 006): 43/43 documentos,
+escape rate 0% sobre 15 auto-aprovados, 0 ataques bem-sucedidos de 28
+adversariais, acurácia média 99,5%. Ela confirmou o que se esperava do ADR
+006 — `beneficiario_nome` e `valor` de 90,7% para 100%, os outros oito campos
+parados. Os números e sua procedência estão no README.
 
-Pendente antes de fechar a fase: **reexecutar o eval completo com o gabarito
-do ADR 006**. A última passada de 43 documentos é anterior a ele, e a única
-com o gabarito novo perdeu 10 documentos para erro de provedor — passada
-parcial não é comparável com completa. Espera-se `beneficiario_nome` e
-`valor` subirem, sem mexer nos outros oito campos.
+O relatório veio de três passadas somadas por `eval.py --retomar`: o Gemini
+passou o dia devolvendo 503, e completar o corpus de uma vez não estava em
+questão. Retomar é legítimo e o relatório registra a composição em `passadas`,
+mas **custo e latência daquela passada carregam as retentativas** (p50 de 38s,
+contra 10s numa janela estável) e não valem como medida do pipeline. Refazer
+a medição de custo e latência com o provedor estável é o que ficou pendente —
+acurácia, escape rate e resistência a injection não dependem disso.
 
 Próximo: Fase 2, informe de rendimentos.

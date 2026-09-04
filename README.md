@@ -32,36 +32,46 @@ injection, custo e latência contra a API de verdade.
 
 ## Resultados
 
-Fonte: [`resultados/eval-20260903-162652-boleto-v2+7462b7f8.json`](resultados/eval-20260903-162652-boleto-v2+7462b7f8.json).
+Fonte: [`resultados/eval-20260904-171501-boleto-v2+7462b7f8.json`](resultados/eval-20260904-171501-boleto-v2+7462b7f8.json).
 
 | Procedência | |
 |---|---|
-| Data | 2026-09-03 16:26 UTC |
+| Data | 2026-09-04 17:15 UTC |
 | Prompt | `boleto-v2+7462b7f8` |
 | Modelo | `gemini-3.5-flash-lite`, temperatura 0 |
 | Documentos | 43 de 43 processados, sem falhas |
-| Consistência | `--consistencia sempre` (duas execuções por documento) |
+| Consistência | `condicional` (segunda execução só quando outro sinal já falhou) |
+| Passadas | 3 — uma completa e duas retomadas; ver o campo `passadas` |
 
-**Pendente de reexecução.** Esta é a última passada completa de 43 documentos,
-e ela é anterior ao [ADR 006](docs/adr/006-gabarito-do-impresso.md), que
-redefiniu o gabarito para guardar o que está *impresso* na página em vez do
-que é *verdadeiro*. Sob a definição nova, 8 das 9 divergências adversariais
-desta passada deixam de ser erro — são transcrições corretas de um campo que
-o ataque mandou imprimir. Os números de `beneficiario_nome` e `valor` devem
-subir quando o corpus completo rodar de novo; os outros oito campos não mudam.
-A única passada com o gabarito novo até agora perdeu 10 documentos para erro
-de provedor, e uma passada parcial não é comparável com uma completa.
+Passada completa de 43 documentos com o gabarito do
+[ADR 006](docs/adr/006-gabarito-do-impresso.md). Ela confirmou o
+que se esperava da mudança de gabarito: `beneficiario_nome` e `valor` subiram
+de 90,7% para 100% — sob a definição nova, transcrever o campo que o ataque
+mandou imprimir é acerto, não erro — e os outros oito campos ficaram parados.
 
 | Métrica | Valor | Base |
 |---|---|---|
 | **Escape rate** | **0%** | **sobre 15 auto-aprovados, de 43 processados** |
-| Acurácia média | 97,7% | 10 campos sobre 43 documentos |
+| Acurácia média | 99,5% | 10 campos sobre 43 documentos |
 | Taxa de auto-aprovação | 34,9% | 15 de 43 |
 | Ataques bem-sucedidos | 0 | de 28 adversariais |
 | Adversariais auto-aprovados | 0 | de 28 |
-| Divergência entre execuções | 0,5% | 43 segundas execuções |
-| Custo por documento | US$ 0,001702 | preço de tabela, 2 chamadas por documento |
-| Latência p50 / p95 | 10,2s / 46,1s | por documento, incluindo as duas execuções |
+| Divergência entre execuções | 0,0% | 28 segundas execuções, modo condicional |
+| Custo por documento | US$ 0,001408 | preço de tabela; ver a ressalva abaixo |
+| Latência p50 / p95 | 38,4s / 117,0s | **medida durante uma instabilidade do provedor** |
+
+**Custo e latência desta passada não descrevem o pipeline.** Ela rodou durante
+uma janela de 503 do Gemini, e os dois números carregam as retentativas: um
+documento que só passou na quarta tentativa aparece com 117s. A acurácia, o
+escape rate e a resistência a injection não dependem disso — uma extração ou
+está certa ou não —, mas as duas últimas linhas da tabela precisam de uma
+passada em provedor estável para valerem como medida do sistema.
+
+O relatório também registra que veio de **três passadas**: a primeira mediu 40
+dos 43 documentos e as duas retomadas (`eval.py --retomar`) fecharam os três
+que o provedor derrubou. Prompt, modelo, corpus e modo de consistência são os
+mesmos nas três — a retomada recusa somar passadas em que qualquer um deles
+mudou —, e o campo `passadas` do relatório é o que denuncia a composição.
 
 **A métrica principal é a taxa de escape**: dos documentos que o pipeline
 auto-aprovou, quantos divergem do gabarito. Um escape é um pagamento errado
@@ -81,11 +91,11 @@ aritmética são verificáveis sem consultar o modelo; os outros não são.
 |---|---|---|
 | `linha_digitavel` | 95,3% | quatro DVs: três módulo 10 de campo, um módulo 11 geral |
 | `banco_codigo` | 100% | cruzamento com a linha digitável |
-| `valor` | 90,7% | cruzamento com a linha digitável |
+| `valor` | 100% | cruzamento com a linha digitável |
 | `vencimento` | 100% | cruzamento com a linha (fator de vencimento) |
 | `beneficiario_cnpj` | 100% | DV do CNPJ |
 | `pagador_cpf_cnpj` | 100% | DV do CPF/CNPJ |
-| `beneficiario_nome` | 90,7% | nenhum |
+| `beneficiario_nome` | 100% | nenhum |
 | `pagador_nome` | 100% | nenhum |
 | `banco_nome` | 100% | nenhum |
 | `nosso_numero` | 100% | nenhum — vive no campo livre, sem formato padronizado |

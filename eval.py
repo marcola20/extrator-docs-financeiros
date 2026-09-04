@@ -671,7 +671,7 @@ def imprime(relatorio: dict[str, Any]) -> None:
             origem = passada.get("retomada_de")
             print(
                 f"    passada {passada.get('numero')}  {passada.get('data')}  "
-                f"{passada.get('documentos_medidos')} documentos"
+                f"{passada.get('documentos_tentados')} tentados"
                 f"{f'  (retomada de {origem})' if origem else ''}"
             )
         print(
@@ -825,23 +825,39 @@ def _monta_passada_nova(
     passada: dict[str, Any] = {
         "numero": numero,
         "data": datetime.now(UTC).isoformat(timespec="seconds"),
-        "documentos_medidos": quantos,
+        # Quantos documentos esta passada mandou ao modelo, que não é quantos
+        # ela mediu: os que falharam foram tentados e não medidos.
+        "documentos_tentados": quantos,
     }
     if retomada_de is not None:
         passada["retomada_de"] = retomada_de.name
     return passada
 
 
+def _normaliza_passada(passada: dict[str, Any]) -> dict[str, Any]:
+    """Aceita o nome antigo do campo, dos relatórios gravados antes de ele mudar.
+
+    Transitório: some quando não houver mais relatório de 2026-09-04 para
+    retomar. Fica aqui, e não em `imprime`, para o relatório somado sair já com
+    o nome certo em vez de propagar o antigo.
+    """
+    if "documentos_tentados" in passada or "documentos_medidos" not in passada:
+        return passada
+    normalizada = dict(passada)
+    normalizada["documentos_tentados"] = normalizada.pop("documentos_medidos")
+    return normalizada
+
+
 def _passadas_anteriores(relatorio: dict[str, Any]) -> list[dict[str, Any]]:
     """As passadas que o relatório anterior já carregava, ou ele próprio como a primeira."""
     registradas = relatorio.get("passadas")
     if registradas:
-        return list(registradas)
+        return [_normaliza_passada(passada) for passada in registradas]
     return [
         {
             "numero": 1,
             "data": relatorio.get("data"),
-            "documentos_medidos": relatorio.get("documentos", 0),
+            "documentos_tentados": relatorio.get("documentos", 0),
         }
     ]
 
