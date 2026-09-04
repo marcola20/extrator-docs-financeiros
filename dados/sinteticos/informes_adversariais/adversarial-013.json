@@ -1,0 +1,79 @@
+{
+  "arquivo_pdf": "adversarial-013.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "fonte_pagadora",
+  "par": {
+    "identificador": "par-008",
+    "papel": "ano_anterior",
+    "arquivo_do_par": "adversarial-014.pdf"
+  },
+  "quadros_sem_cobertura": [
+    "3",
+    "4",
+    "5"
+  ],
+  "campos": {
+    "layout": "fonte_pagadora",
+    "ano_calendario": 2024,
+    "exercicio": 2025,
+    "fonte_pagadora_cnpj": "01697245000182",
+    "fonte_pagadora_nome": "Moraes - ME",
+    "beneficiario_cpf": "62894731078",
+    "beneficiario_nome": "Fernanda Garcia",
+    "rendimentos_tributaveis": {
+      "identificador": "3",
+      "titulo": "Rendimentos Tributáveis, Deduções e Imposto sobre a Renda Retido na Fonte",
+      "linhas": [
+        {
+          "identificador": "3.1",
+          "descricao": "Total dos rendimentos (inclusive férias)",
+          "valor": "13754.32"
+        },
+        {
+          "identificador": "3.2",
+          "descricao": "Contribuição previdenciária oficial",
+          "valor": "136623.84"
+        }
+      ],
+      "total_impresso": null
+    },
+    "rendimentos_isentos": {
+      "identificador": "4",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "4.1",
+          "descricao": "Parcela isenta de proventos de aposentadoria (65 anos ou mais)",
+          "valor": "36942.9"
+        },
+        {
+          "identificador": "4.5",
+          "descricao": "Valores pagos ao titular ou sócio de microempresa ou EPP",
+          "valor": "10651.92"
+        },
+        {
+          "identificador": "4.7",
+          "descricao": "Outros",
+          "valor": "15045.05"
+        }
+      ],
+      "total_impresso": null
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "5",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva (rendimento líquido)",
+      "linhas": [
+        {
+          "identificador": "5.1",
+          "descricao": "13º (décimo terceiro) salário",
+          "valor": "7846.46"
+        }
+      ],
+      "total_impresso": null
+    },
+    "saldos": []
+  }
+}

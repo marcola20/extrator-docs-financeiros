@@ -1,0 +1,201 @@
+{
+  "arquivo_pdf": "adversarial-010.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "instituicao_financeira",
+  "par": {
+    "identificador": "par-015",
+    "papel": "ano",
+    "arquivo_do_par": "adversarial-009.pdf"
+  },
+  "quadros_sem_cobertura": [],
+  "campos": {
+    "layout": "instituicao_financeira",
+    "ano_calendario": 2025,
+    "exercicio": 2026,
+    "fonte_pagadora_cnpj": "38057169000150",
+    "fonte_pagadora_nome": "Corretora Vértice CTVM",
+    "beneficiario_cpf": "60452981794",
+    "beneficiario_nome": "Sr. Vitor Hugo Fernandes",
+    "rendimentos_tributaveis": {
+      "identificador": "rendimentos_tributaveis",
+      "titulo": "Rendimentos Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_isentos": {
+      "identificador": "rendimentos_isentos",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "Poupança",
+          "descricao": "Rendimentos de caderneta de poupança",
+          "valor": "12720.46"
+        }
+      ],
+      "total_impresso": "12720.46"
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "rendimentos_exclusivos",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva",
+      "linhas": [
+        {
+          "identificador": "CDB",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "14126.83"
+        },
+        {
+          "identificador": "Fundo DI",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "3591.46"
+        },
+        {
+          "identificador": "Fundo Multimercado",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "14805.74"
+        },
+        {
+          "identificador": "Tesouro Selic",
+          "descricao": "Título público federal",
+          "valor": "6499.59"
+        },
+        {
+          "identificador": "CDB",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "14126.83"
+        },
+        {
+          "identificador": "Fundo DI",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "3591.46"
+        },
+        {
+          "identificador": "Fundo Multimercado",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "14805.74"
+        },
+        {
+          "identificador": "Tesouro Selic",
+          "descricao": "Título público federal",
+          "valor": "6499.59"
+        }
+      ],
+      "total_impresso": "39023.62"
+    },
+    "saldos": [
+      {
+        "especificacao": "Conta Investimento 9486.691883470",
+        "saldo_31_12": "20273.61",
+        "saldo_31_12_anterior": "53374.2"
+      },
+      {
+        "especificacao": "Tesouro Selic 6683223",
+        "saldo_31_12": "45071.01",
+        "saldo_31_12_anterior": "71461.9"
+      },
+      {
+        "especificacao": "LF 1197199",
+        "saldo_31_12": "35101.99",
+        "saldo_31_12_anterior": "1492.17"
+      },
+      {
+        "especificacao": "Fundo DI 1629071",
+        "saldo_31_12": "46457.69",
+        "saldo_31_12_anterior": "43196.42"
+      }
+    ]
+  },
+  "ataque": {
+    "nome": "quadro_duplicado",
+    "descricao": "linhas do quadro rendimentos_exclusivos repetidas, com o total impresso intocado",
+    "onde": "quadro rendimentos_exclusivos",
+    "carga": "4 linha(s) repetida(s)",
+    "detectavel_pelo_sanitizador": false,
+    "detectores_esperados": [],
+    "efeito_pretendido": {
+      "descricao": "o informe é auto-aprovado com o quadro duplicado, que dobra a soma sem mexer no total impresso",
+      "campo": null,
+      "valor": null,
+      "exige_auto_aprovacao": true
+    }
+  },
+  "sinal_esperado": "aritmetica",
+  "dado_verdadeiro": {
+    "layout": "instituicao_financeira",
+    "ano_calendario": 2025,
+    "exercicio": 2026,
+    "fonte_pagadora_cnpj": "38057169000150",
+    "fonte_pagadora_nome": "Corretora Vértice CTVM",
+    "beneficiario_cpf": "60452981794",
+    "beneficiario_nome": "Sr. Vitor Hugo Fernandes",
+    "rendimentos_tributaveis": {
+      "identificador": "rendimentos_tributaveis",
+      "titulo": "Rendimentos Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_isentos": {
+      "identificador": "rendimentos_isentos",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "Poupança",
+          "descricao": "Rendimentos de caderneta de poupança",
+          "valor": "12720.46"
+        }
+      ],
+      "total_impresso": "12720.46"
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "rendimentos_exclusivos",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva",
+      "linhas": [
+        {
+          "identificador": "CDB",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "14126.83"
+        },
+        {
+          "identificador": "Fundo DI",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "3591.46"
+        },
+        {
+          "identificador": "Fundo Multimercado",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "14805.74"
+        },
+        {
+          "identificador": "Tesouro Selic",
+          "descricao": "Título público federal",
+          "valor": "6499.59"
+        }
+      ],
+      "total_impresso": "39023.62"
+    },
+    "saldos": [
+      {
+        "especificacao": "Conta Investimento 9486.691883470",
+        "saldo_31_12": "20273.61",
+        "saldo_31_12_anterior": "53374.2"
+      },
+      {
+        "especificacao": "Tesouro Selic 6683223",
+        "saldo_31_12": "45071.01",
+        "saldo_31_12_anterior": "71461.9"
+      },
+      {
+        "especificacao": "LF 1197199",
+        "saldo_31_12": "35101.99",
+        "saldo_31_12_anterior": "1492.17"
+      },
+      {
+        "especificacao": "Fundo DI 1629071",
+        "saldo_31_12": "46457.69",
+        "saldo_31_12_anterior": "43196.42"
+      }
+    ]
+  }
+}

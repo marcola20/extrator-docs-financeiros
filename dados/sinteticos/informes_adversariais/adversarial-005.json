@@ -1,0 +1,95 @@
+{
+  "arquivo_pdf": "adversarial-005.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "instituicao_financeira",
+  "par": {
+    "identificador": "par-003",
+    "papel": "ano_anterior",
+    "arquivo_do_par": "adversarial-006.pdf"
+  },
+  "quadros_sem_cobertura": [],
+  "campos": {
+    "layout": "instituicao_financeira",
+    "ano_calendario": 2024,
+    "exercicio": 2025,
+    "fonte_pagadora_cnpj": "80361942000134",
+    "fonte_pagadora_nome": "Banco Palmares S/A",
+    "beneficiario_cpf": "68790341287",
+    "beneficiario_nome": "Pietra Moraes",
+    "rendimentos_tributaveis": {
+      "identificador": "rendimentos_tributaveis",
+      "titulo": "Rendimentos Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_isentos": {
+      "identificador": "rendimentos_isentos",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "Poupança",
+          "descricao": "Rendimentos de caderneta de poupança",
+          "valor": "11708.71"
+        },
+        {
+          "identificador": "LCI",
+          "descricao": "Letra de Crédito Imobiliário",
+          "valor": "13932.94"
+        },
+        {
+          "identificador": "LCA",
+          "descricao": "Letra de Crédito do Agronegócio",
+          "valor": "19036.75"
+        }
+      ],
+      "total_impresso": "44678.40"
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "rendimentos_exclusivos",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva",
+      "linhas": [
+        {
+          "identificador": "CDB",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "715.06"
+        },
+        {
+          "identificador": "Fundo DI",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "17445.78"
+        },
+        {
+          "identificador": "Fundo Multimercado",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "6093.19"
+        },
+        {
+          "identificador": "Tesouro Selic",
+          "descricao": "Título público federal",
+          "valor": "6650.78"
+        }
+      ],
+      "total_impresso": "30904.81"
+    },
+    "saldos": [
+      {
+        "especificacao": "Conta Corrente 7096.217466371",
+        "saldo_31_12": "73991.01",
+        "saldo_31_12_anterior": "54999.29"
+      },
+      {
+        "especificacao": "Fundo Multimercado 1555481",
+        "saldo_31_12": "67406.4",
+        "saldo_31_12_anterior": "38438.9"
+      },
+      {
+        "especificacao": "CDB 3513960",
+        "saldo_31_12": "30193.6",
+        "saldo_31_12_anterior": "41063.7"
+      }
+    ]
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "arquivo_pdf": "adversarial-017.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "instituicao_financeira",
+  "par": {
+    "identificador": "par-013",
+    "papel": "ano_anterior",
+    "arquivo_do_par": "adversarial-018.pdf"
+  },
+  "quadros_sem_cobertura": [],
+  "campos": {
+    "layout": "instituicao_financeira",
+    "ano_calendario": 2024,
+    "exercicio": 2025,
+    "fonte_pagadora_cnpj": "49103256000113",
+    "fonte_pagadora_nome": "Cooperativa de Crédito Sul-Norte",
+    "beneficiario_cpf": "10579826449",
+    "beneficiario_nome": "Levi Castro",
+    "rendimentos_tributaveis": {
+      "identificador": "rendimentos_tributaveis",
+      "titulo": "Rendimentos Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_isentos": {
+      "identificador": "rendimentos_isentos",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "Poupança",
+          "descricao": "Rendimentos de caderneta de poupança",
+          "valor": "8462.97"
+        },
+        {
+          "identificador": "LCI",
+          "descricao": "Letra de Crédito Imobiliário",
+          "valor": "6588.39"
+        },
+        {
+          "identificador": "LCA",
+          "descricao": "Letra de Crédito do Agronegócio",
+          "valor": "3716.57"
+        }
+      ],
+      "total_impresso": "18767.93"
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "rendimentos_exclusivos",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva",
+      "linhas": [
+        {
+          "identificador": "CDB",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "4130.6"
+        },
+        {
+          "identificador": "Fundo DI",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "16920.96"
+        },
+        {
+          "identificador": "Fundo Multimercado",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "9719.96"
+        }
+      ],
+      "total_impresso": "30771.52"
+    },
+    "saldos": [
+      {
+        "especificacao": "Conta Corrente 5655.088636821",
+        "saldo_31_12": "22255.31",
+        "saldo_31_12_anterior": "26174.65"
+      },
+      {
+        "especificacao": "CDB 9301581",
+        "saldo_31_12": "14121.51",
+        "saldo_31_12_anterior": "18962.27"
+      }
+    ]
+  }
+}

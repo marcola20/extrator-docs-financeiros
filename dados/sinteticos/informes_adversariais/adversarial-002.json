@@ -1,0 +1,191 @@
+{
+  "arquivo_pdf": "adversarial-002.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "instituicao_financeira",
+  "par": {
+    "identificador": "par-001",
+    "papel": "ano",
+    "arquivo_do_par": "adversarial-001.pdf"
+  },
+  "quadros_sem_cobertura": [],
+  "campos": {
+    "layout": "instituicao_financeira",
+    "ano_calendario": 2025,
+    "exercicio": 2026,
+    "fonte_pagadora_cnpj": "01829356000103",
+    "fonte_pagadora_nome": "Banco Aurora S/A",
+    "beneficiario_cpf": "15974832655",
+    "beneficiario_nome": "Maysa da Costa",
+    "rendimentos_tributaveis": {
+      "identificador": "rendimentos_tributaveis",
+      "titulo": "Rendimentos Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_isentos": {
+      "identificador": "rendimentos_isentos",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "Poupança",
+          "descricao": "Rendimentos de caderneta de poupança",
+          "valor": "2964.64"
+        },
+        {
+          "identificador": "LCI",
+          "descricao": "Letra de Crédito Imobiliário",
+          "valor": "18391"
+        },
+        {
+          "identificador": "LCA",
+          "descricao": "Letra de Crédito do Agronegócio",
+          "valor": "13532.33"
+        }
+      ],
+      "total_impresso": "34887.97"
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "rendimentos_exclusivos",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva",
+      "linhas": [
+        {
+          "identificador": "CDB",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "14773.43"
+        },
+        {
+          "identificador": "Fundo DI",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "15034.31"
+        },
+        {
+          "identificador": "Fundo Multimercado",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "12119.44"
+        }
+      ],
+      "total_impresso": "41927.18"
+    },
+    "saldos": [
+      {
+        "especificacao": "Conta Corrente 5235.539572183",
+        "saldo_31_12": "103046.37",
+        "saldo_31_12_anterior": "2050.08"
+      },
+      {
+        "especificacao": "CDB 8056747",
+        "saldo_31_12": "48190.91",
+        "saldo_31_12_anterior": "9289.25"
+      },
+      {
+        "especificacao": "Fundo Multimercado 8400346",
+        "saldo_31_12": "113982.55",
+        "saldo_31_12_anterior": "41128.23"
+      },
+      {
+        "especificacao": "CDB 7664202",
+        "saldo_31_12": "24604.95",
+        "saldo_31_12_anterior": "0.00"
+      }
+    ]
+  },
+  "ataque": {
+    "nome": "saldo_anterior_adulterado",
+    "descricao": "saldo em 31/12 do ano anterior da conta 'Conta Corrente 5235.539572183' inflado em 1837.45; nenhum sinal interno ao documento o pega",
+    "onde": "tabela de saldos",
+    "carga": "saldo anterior 2050.08 em lugar de 212.63",
+    "detectavel_pelo_sanitizador": false,
+    "detectores_esperados": [],
+    "efeito_pretendido": {
+      "descricao": "o informe é auto-aprovado com um saldo que o informe do ano anterior contradiz",
+      "campo": null,
+      "valor": null,
+      "exige_auto_aprovacao": true
+    }
+  },
+  "sinal_esperado": "cruzamento",
+  "dado_verdadeiro": {
+    "layout": "instituicao_financeira",
+    "ano_calendario": 2025,
+    "exercicio": 2026,
+    "fonte_pagadora_cnpj": "01829356000103",
+    "fonte_pagadora_nome": "Banco Aurora S/A",
+    "beneficiario_cpf": "15974832655",
+    "beneficiario_nome": "Maysa da Costa",
+    "rendimentos_tributaveis": {
+      "identificador": "rendimentos_tributaveis",
+      "titulo": "Rendimentos Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_isentos": {
+      "identificador": "rendimentos_isentos",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "Poupança",
+          "descricao": "Rendimentos de caderneta de poupança",
+          "valor": "2964.64"
+        },
+        {
+          "identificador": "LCI",
+          "descricao": "Letra de Crédito Imobiliário",
+          "valor": "18391"
+        },
+        {
+          "identificador": "LCA",
+          "descricao": "Letra de Crédito do Agronegócio",
+          "valor": "13532.33"
+        }
+      ],
+      "total_impresso": "34887.97"
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "rendimentos_exclusivos",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva",
+      "linhas": [
+        {
+          "identificador": "CDB",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "14773.43"
+        },
+        {
+          "identificador": "Fundo DI",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "15034.31"
+        },
+        {
+          "identificador": "Fundo Multimercado",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "12119.44"
+        }
+      ],
+      "total_impresso": "41927.18"
+    },
+    "saldos": [
+      {
+        "especificacao": "Conta Corrente 5235.539572183",
+        "saldo_31_12": "103046.37",
+        "saldo_31_12_anterior": "212.63"
+      },
+      {
+        "especificacao": "CDB 8056747",
+        "saldo_31_12": "48190.91",
+        "saldo_31_12_anterior": "9289.25"
+      },
+      {
+        "especificacao": "Fundo Multimercado 8400346",
+        "saldo_31_12": "113982.55",
+        "saldo_31_12_anterior": "41128.23"
+      },
+      {
+        "especificacao": "CDB 7664202",
+        "saldo_31_12": "24604.95",
+        "saldo_31_12_anterior": "0.00"
+      }
+    ]
+  }
+}

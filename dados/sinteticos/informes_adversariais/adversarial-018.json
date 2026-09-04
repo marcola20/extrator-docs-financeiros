@@ -1,0 +1,161 @@
+{
+  "arquivo_pdf": "adversarial-018.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "instituicao_financeira",
+  "par": {
+    "identificador": "par-013",
+    "papel": "ano",
+    "arquivo_do_par": "adversarial-017.pdf"
+  },
+  "quadros_sem_cobertura": [],
+  "campos": {
+    "layout": "instituicao_financeira",
+    "ano_calendario": 2025,
+    "exercicio": 2026,
+    "fonte_pagadora_cnpj": "49103256000113",
+    "fonte_pagadora_nome": "Cooperativa de Crédito Sul-Norte",
+    "beneficiario_cpf": "10579826449",
+    "beneficiario_nome": "Levi Castro",
+    "rendimentos_tributaveis": {
+      "identificador": "rendimentos_tributaveis",
+      "titulo": "Rendimentos Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_isentos": {
+      "identificador": "rendimentos_isentos",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "Poupança",
+          "descricao": "Rendimentos de caderneta de poupança",
+          "valor": "8602.02"
+        },
+        {
+          "identificador": "LCI",
+          "descricao": "Letra de Crédito Imobiliário",
+          "valor": "17450.36"
+        }
+      ],
+      "total_impresso": "26052.38"
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "rendimentos_exclusivos",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva",
+      "linhas": [
+        {
+          "identificador": "CDB",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "16855.15"
+        },
+        {
+          "identificador": "Fundo DI",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "12380.32"
+        },
+        {
+          "identificador": "Fundo Multimercado",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "8013.31"
+        }
+      ],
+      "total_impresso": "39086.23"
+    },
+    "saldos": [
+      {
+        "especificacao": "Conta Corrente 5655.088636821",
+        "saldo_31_12": "111083.34",
+        "saldo_31_12_anterior": "22255.31"
+      },
+      {
+        "especificacao": "CDB 9301581",
+        "saldo_31_12": "54526.29",
+        "saldo_31_12_anterior": "14121.51"
+      }
+    ]
+  },
+  "ataque": {
+    "nome": "total_adulterado",
+    "descricao": "total do quadro rendimentos_exclusivos inflado em 1837.45, com as linhas intocadas",
+    "onde": "quadro rendimentos_exclusivos",
+    "carga": "total impresso 39086.23",
+    "detectavel_pelo_sanitizador": false,
+    "detectores_esperados": [],
+    "efeito_pretendido": {
+      "descricao": "o informe é auto-aprovado com o total adulterado, que a soma das próprias linhas contradiz",
+      "campo": null,
+      "valor": null,
+      "exige_auto_aprovacao": true
+    }
+  },
+  "sinal_esperado": "aritmetica",
+  "dado_verdadeiro": {
+    "layout": "instituicao_financeira",
+    "ano_calendario": 2025,
+    "exercicio": 2026,
+    "fonte_pagadora_cnpj": "49103256000113",
+    "fonte_pagadora_nome": "Cooperativa de Crédito Sul-Norte",
+    "beneficiario_cpf": "10579826449",
+    "beneficiario_nome": "Levi Castro",
+    "rendimentos_tributaveis": {
+      "identificador": "rendimentos_tributaveis",
+      "titulo": "Rendimentos Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_isentos": {
+      "identificador": "rendimentos_isentos",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "Poupança",
+          "descricao": "Rendimentos de caderneta de poupança",
+          "valor": "8602.02"
+        },
+        {
+          "identificador": "LCI",
+          "descricao": "Letra de Crédito Imobiliário",
+          "valor": "17450.36"
+        }
+      ],
+      "total_impresso": "26052.38"
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "rendimentos_exclusivos",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva",
+      "linhas": [
+        {
+          "identificador": "CDB",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "16855.15"
+        },
+        {
+          "identificador": "Fundo DI",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "12380.32"
+        },
+        {
+          "identificador": "Fundo Multimercado",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "8013.31"
+        }
+      ],
+      "total_impresso": "37248.78"
+    },
+    "saldos": [
+      {
+        "especificacao": "Conta Corrente 5655.088636821",
+        "saldo_31_12": "111083.34",
+        "saldo_31_12_anterior": "22255.31"
+      },
+      {
+        "especificacao": "CDB 9301581",
+        "saldo_31_12": "54526.29",
+        "saldo_31_12_anterior": "14121.51"
+      }
+    ]
+  }
+}

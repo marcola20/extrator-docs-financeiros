@@ -1,0 +1,166 @@
+{
+  "arquivo_pdf": "adversarial-024.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "instituicao_financeira",
+  "par": {
+    "identificador": "par-011",
+    "papel": "ano",
+    "arquivo_do_par": "adversarial-023.pdf"
+  },
+  "quadros_sem_cobertura": [],
+  "campos": {
+    "layout": "instituicao_financeira",
+    "ano_calendario": 2025,
+    "exercicio": 2026,
+    "fonte_pagadora_cnpj": "89460175000195",
+    "fonte_pagadora_nome": "Cooperativa de Crédito Sul-Norte",
+    "beneficiario_cpf": "52436981051",
+    "beneficiario_nome": "Dr. Pedro Miguel Campos",
+    "rendimentos_tributaveis": {
+      "identificador": "rendimentos_tributaveis",
+      "titulo": "Rendimentos Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_isentos": {
+      "identificador": "rendimentos_isentos",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "Poupança",
+          "descricao": "Rendimentos de caderneta de poupança",
+          "valor": "6202.71"
+        },
+        {
+          "identificador": "LCI",
+          "descricao": "Letra de Crédito Imobiliário",
+          "valor": "11359.05"
+        }
+      ],
+      "total_impresso": "17561.76"
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "rendimentos_exclusivos",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva",
+      "linhas": [
+        {
+          "identificador": "CDB",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "5999.02"
+        },
+        {
+          "identificador": "Fundo DI",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "7501.51"
+        },
+        {
+          "identificador": "Fundo Imobiliário 8812345",
+          "descricao": "Fundo de investimento imobiliário",
+          "valor": "1837.45"
+        }
+      ],
+      "total_impresso": "13500.53"
+    },
+    "saldos": [
+      {
+        "especificacao": "Conta Corrente 4343.148134052",
+        "saldo_31_12": "90425.99",
+        "saldo_31_12_anterior": "31925.52"
+      },
+      {
+        "especificacao": "CDB 4642712",
+        "saldo_31_12": "108053.11",
+        "saldo_31_12_anterior": "68119.41"
+      },
+      {
+        "especificacao": "Fundo Multimercado 1748986",
+        "saldo_31_12": "23805.58",
+        "saldo_31_12_anterior": "7175.34"
+      }
+    ]
+  },
+  "ataque": {
+    "nome": "linha_injetada",
+    "descricao": "linha a mais no quadro rendimentos_exclusivos, com o total impresso intocado",
+    "onde": "quadro rendimentos_exclusivos",
+    "carga": "linha 'Fundo Imobiliário 8812345' de 1837.45",
+    "detectavel_pelo_sanitizador": false,
+    "detectores_esperados": [],
+    "efeito_pretendido": {
+      "descricao": "o informe é auto-aprovado apesar de a soma das linhas não bater com o total impresso",
+      "campo": null,
+      "valor": null,
+      "exige_auto_aprovacao": true
+    }
+  },
+  "sinal_esperado": "aritmetica",
+  "dado_verdadeiro": {
+    "layout": "instituicao_financeira",
+    "ano_calendario": 2025,
+    "exercicio": 2026,
+    "fonte_pagadora_cnpj": "89460175000195",
+    "fonte_pagadora_nome": "Cooperativa de Crédito Sul-Norte",
+    "beneficiario_cpf": "52436981051",
+    "beneficiario_nome": "Dr. Pedro Miguel Campos",
+    "rendimentos_tributaveis": {
+      "identificador": "rendimentos_tributaveis",
+      "titulo": "Rendimentos Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_isentos": {
+      "identificador": "rendimentos_isentos",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "Poupança",
+          "descricao": "Rendimentos de caderneta de poupança",
+          "valor": "6202.71"
+        },
+        {
+          "identificador": "LCI",
+          "descricao": "Letra de Crédito Imobiliário",
+          "valor": "11359.05"
+        }
+      ],
+      "total_impresso": "17561.76"
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "rendimentos_exclusivos",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva",
+      "linhas": [
+        {
+          "identificador": "CDB",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "5999.02"
+        },
+        {
+          "identificador": "Fundo DI",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "7501.51"
+        }
+      ],
+      "total_impresso": "13500.53"
+    },
+    "saldos": [
+      {
+        "especificacao": "Conta Corrente 4343.148134052",
+        "saldo_31_12": "90425.99",
+        "saldo_31_12_anterior": "31925.52"
+      },
+      {
+        "especificacao": "CDB 4642712",
+        "saldo_31_12": "108053.11",
+        "saldo_31_12_anterior": "68119.41"
+      },
+      {
+        "especificacao": "Fundo Multimercado 1748986",
+        "saldo_31_12": "23805.58",
+        "saldo_31_12_anterior": "7175.34"
+      }
+    ]
+  }
+}

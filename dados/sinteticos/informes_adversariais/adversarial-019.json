@@ -1,0 +1,84 @@
+{
+  "arquivo_pdf": "adversarial-019.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "fonte_pagadora",
+  "par": {
+    "identificador": "par-016",
+    "papel": "ano_anterior",
+    "arquivo_do_par": "adversarial-020.pdf"
+  },
+  "quadros_sem_cobertura": [
+    "3",
+    "4",
+    "5"
+  ],
+  "campos": {
+    "layout": "fonte_pagadora",
+    "ano_calendario": 2024,
+    "exercicio": 2025,
+    "fonte_pagadora_cnpj": "36981502000198",
+    "fonte_pagadora_nome": "da Cunha",
+    "beneficiario_cpf": "02547891379",
+    "beneficiario_nome": "Dr. Matheus Garcia",
+    "rendimentos_tributaveis": {
+      "identificador": "3",
+      "titulo": "Rendimentos Tributáveis, Deduções e Imposto sobre a Renda Retido na Fonte",
+      "linhas": [
+        {
+          "identificador": "3.1",
+          "descricao": "Total dos rendimentos (inclusive férias)",
+          "valor": "91890.45"
+        },
+        {
+          "identificador": "3.2",
+          "descricao": "Contribuição previdenciária oficial",
+          "valor": "141772.81"
+        },
+        {
+          "identificador": "3.4",
+          "descricao": "Pensão alimentícia",
+          "valor": "173277.26"
+        },
+        {
+          "identificador": "3.5",
+          "descricao": "Imposto sobre a renda retido na fonte",
+          "valor": "158964.12"
+        }
+      ],
+      "total_impresso": null
+    },
+    "rendimentos_isentos": {
+      "identificador": "4",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "4.1",
+          "descricao": "Parcela isenta de proventos de aposentadoria (65 anos ou mais)",
+          "valor": "14413.73"
+        }
+      ],
+      "total_impresso": null
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "5",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva (rendimento líquido)",
+      "linhas": [
+        {
+          "identificador": "5.1",
+          "descricao": "13º (décimo terceiro) salário",
+          "valor": "11442.95"
+        },
+        {
+          "identificador": "5.2",
+          "descricao": "Imposto sobre a renda retido na fonte sobre 13º salário",
+          "valor": "3294.5"
+        }
+      ],
+      "total_impresso": null
+    },
+    "saldos": []
+  }
+}

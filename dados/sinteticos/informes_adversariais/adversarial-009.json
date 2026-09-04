@@ -1,0 +1,95 @@
+{
+  "arquivo_pdf": "adversarial-009.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "instituicao_financeira",
+  "par": {
+    "identificador": "par-015",
+    "papel": "ano_anterior",
+    "arquivo_do_par": "adversarial-010.pdf"
+  },
+  "quadros_sem_cobertura": [],
+  "campos": {
+    "layout": "instituicao_financeira",
+    "ano_calendario": 2024,
+    "exercicio": 2025,
+    "fonte_pagadora_cnpj": "38057169000150",
+    "fonte_pagadora_nome": "Corretora Vértice CTVM",
+    "beneficiario_cpf": "60452981794",
+    "beneficiario_nome": "Sr. Vitor Hugo Fernandes",
+    "rendimentos_tributaveis": {
+      "identificador": "rendimentos_tributaveis",
+      "titulo": "Rendimentos Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_isentos": {
+      "identificador": "rendimentos_isentos",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "Poupança",
+          "descricao": "Rendimentos de caderneta de poupança",
+          "valor": "11312.83"
+        }
+      ],
+      "total_impresso": "11312.83"
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "rendimentos_exclusivos",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva",
+      "linhas": [
+        {
+          "identificador": "CDB",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "16135.81"
+        },
+        {
+          "identificador": "Fundo DI",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "248.93"
+        },
+        {
+          "identificador": "Fundo Multimercado",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "2014.72"
+        },
+        {
+          "identificador": "Tesouro Selic",
+          "descricao": "Título público federal",
+          "valor": "3277.92"
+        },
+        {
+          "identificador": "LF",
+          "descricao": "Letra Financeira",
+          "valor": "6930.25"
+        }
+      ],
+      "total_impresso": "28607.63"
+    },
+    "saldos": [
+      {
+        "especificacao": "Conta Investimento 9486.691883470",
+        "saldo_31_12": "53374.2",
+        "saldo_31_12_anterior": "18444.12"
+      },
+      {
+        "especificacao": "Tesouro Selic 6683223",
+        "saldo_31_12": "71461.9",
+        "saldo_31_12_anterior": "55421.56"
+      },
+      {
+        "especificacao": "LF 1197199",
+        "saldo_31_12": "1492.17",
+        "saldo_31_12_anterior": "27398.34"
+      },
+      {
+        "especificacao": "Fundo DI 1629071",
+        "saldo_31_12": "43196.42",
+        "saldo_31_12_anterior": "38347.39"
+      }
+    ]
+  }
+}
