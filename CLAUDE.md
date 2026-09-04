@@ -26,6 +26,7 @@ aplicada. Preferir código explícito e tipado sobre "pythonices" mágicas.
       — concluída
    3. Extração via LLM com structured output, e eval — concluída
 2. Informe de Rendimentos — seções, listas, validação cruzada entre anos
+   1. Gerador sintético, schema, validadores e métricas de linha — concluída
 3. Extrato de investimento — multi-página, tabela com quebra
 4. Revisão (Next.js) + observabilidade
 
@@ -46,6 +47,8 @@ pytest / ruff / mypy / Docker Compose / Langfuse / Next.js 15
   Nada de comando PowerShell ou caminho Windows. Ver ADR 001.
 - Decisões de arquitetura viram ADR em `docs/adr/`, numerados, no formato
   contexto / decisão / consequências.
+- Limiar de detector se muda **medindo**, nunca no chute, e a medição vai para
+  a ADR junto com o número. Ver ADR 008.
 
 ## Comandos
 
@@ -69,6 +72,13 @@ uv run python -m app.llm.cache --limpar
 # reprocessa só o que caiu num relatório anterior e soma as duas passadas.
 uv run python eval.py
 uv run python eval.py --retomar resultados/eval-AAAAMMDD-HHMMSS-<prompt>.json
+
+# Informes sintéticos, em PARES de anos consecutivos: o cruzamento entre anos
+# precisa de dois documentos, e o gabarito aponta para o par.
+uv run python -m app.geradores.informe_sintetico \
+    --pares 12 --semente 2026 --data-referencia 2026-09-04
+uv run python -m app.geradores.informe_adversarial \
+    --pares 16 --semente 2026 --data-referencia 2026-09-04
 ```
 
 O relatório somado mede o corpus completo e registra em `passadas` de quantas
@@ -140,4 +150,34 @@ contra 10s numa janela estável) e não valem como medida do pipeline. Refazer
 a medição de custo e latência com o provedor estável é o que ficou pendente —
 acurácia, escape rate e resistência a injection não dependem disso.
 
-Próximo: Fase 2, informe de rendimentos.
+**Fase 2.1 (informe) concluída, sem LLM.** Estrutura conferida no Anexo I da IN
+RFB antes de fixar o schema, e o documento desmentiu três suposições do escopo
+inicial — ver ADR 007. O que entregou:
+
+- domínio com a linha identificada e três resultados de conferência de quadro
+  (`CONFERIDO`, `DIVERGENTE`, `SEM_TOTAL`), porque o modelo oficial não imprime
+  total nos quadros 4 e 5;
+- cruzamento entre anos casando conta a conta, o único sinal do projeto que um
+  adversário com controle da página não satisfaz sozinho;
+- gerador em pares de anos consecutivos, dois layouts estruturalmente
+  diferentes, com quadro vazio, quadro de 46 linhas que quebra página, conta
+  aberta e conta encerrada;
+- métricas de linha em `app/avaliacao/` — recall, precisão e acurácia nas
+  linhas casadas, separadas porque as três falhas que elas distinguem pedem
+  correções opostas;
+- corpus adversarial de 16 pares em 8 famílias, com `sinal_esperado` no
+  gabarito;
+- recalibração do sanitizador, medida: 24 falsos positivos viraram 0, sem
+  mexer nos boletos. Ver ADR 008.
+
+Duas coisas ficam registradas como buraco conhecido, não como pendência
+esquecida:
+
+- o layout de fonte pagadora é pobre em sinal, e é do documento: sem total, não
+  há aritmética de soma. `linha_injetada` nele não é pego por nada, e está no
+  corpus declarado como `sinal_esperado: nenhum`;
+- o detector de texto invisível ficou conservador de propósito, e a evasão que
+  ele admite está no ADR 008.
+
+Próximo: Fase 2.2 — extração do informe via LLM, com prompt e schema de
+transporte próprios, e o eval usando as métricas de linha.
