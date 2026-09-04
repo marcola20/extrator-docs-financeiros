@@ -41,6 +41,25 @@ LINHA_IRRF_DECIMO_TERCEIRO = "5.2"
 
 TextoNaoVazio = Annotated[str, Field(min_length=1, max_length=300)]
 
+# Os campos comparáveis do informe, por nível. Ficam aqui porque é o domínio
+# que sabe quais são, e `app.confianca.campos` declara como comparar cada um —
+# a definição de igualdade mora num lugar só (ADR 005).
+CAMPOS_ESCALARES = (
+    "ano_calendario",
+    "exercicio",
+    "fonte_pagadora_cnpj",
+    "fonte_pagadora_nome",
+    "beneficiario_cpf",
+    "beneficiario_nome",
+)
+
+CAMPOS_DE_LINHA = ("descricao", "valor")
+"""`identificador` fica de fora: ele é a chave de casamento, não campo medido.
+Errar a chave não vira erro de campo, vira linha não casada. Ver ADR 007."""
+
+CAMPOS_DE_SALDO = ("saldo_31_12", "saldo_31_12_anterior")
+"""`especificacao` também é chave, pela mesma razão."""
+
 
 class Layout(StrEnum):
     """Qual documento se está lendo. Ver a tabela do ADR 007."""

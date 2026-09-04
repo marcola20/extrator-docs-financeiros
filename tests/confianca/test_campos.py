@@ -16,13 +16,27 @@ from app.confianca.campos import (
     iguais,
     tipo,
 )
+from app.dominio.informe import CAMPOS_DE_LINHA, CAMPOS_DE_SALDO, CAMPOS_ESCALARES
 from app.extracao.schema_transporte import CAMPOS
 
 
 class TestTabelaDeTipos:
-    def test_todo_campo_do_schema_tem_tipo_declarado(self) -> None:
+    def test_todo_campo_do_boleto_tem_tipo_declarado(self) -> None:
         """Campo novo sem tipo é erro na hora, não texto por omissão."""
-        assert set(TIPOS) == set(CAMPOS)
+        assert set(CAMPOS) <= set(TIPOS)
+
+    def test_todo_campo_do_informe_tem_tipo_declarado(self) -> None:
+        """A tabela é uma só para os dois documentos; ver ADR 005."""
+        do_informe = set(CAMPOS_ESCALARES) | set(CAMPOS_DE_LINHA) | set(CAMPOS_DE_SALDO)
+
+        assert do_informe <= set(TIPOS)
+
+    def test_a_tabela_nao_tem_campo_sobrando(self) -> None:
+        """Tipo declarado para campo que não existe é regra órfã, e some sem alarme."""
+        declarados = set(CAMPOS) | set(CAMPOS_ESCALARES) | set(CAMPOS_DE_LINHA)
+        declarados |= set(CAMPOS_DE_SALDO)
+
+        assert set(TIPOS) == declarados
 
     def test_campo_desconhecido_e_erro(self) -> None:
         with pytest.raises(KeyError, match="não tem tipo"):

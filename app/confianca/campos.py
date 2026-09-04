@@ -57,6 +57,21 @@ TIPOS: dict[str, TipoDeCampo] = {
     "banco_codigo": TipoDeCampo.CODIGO_DE_BANCO,
     "banco_nome": TipoDeCampo.TEXTO,
     "nosso_numero": TipoDeCampo.DIGITOS,
+    # Informe de rendimentos (Fase 2). Mesma tabela de propósito: uma segunda
+    # definição de igualdade é exatamente o que produziu a taxa de escape
+    # falsa de 50% que este módulo existe para não repetir.
+    "ano_calendario": TipoDeCampo.DIGITOS,
+    "exercicio": TipoDeCampo.DIGITOS,
+    "fonte_pagadora_cnpj": TipoDeCampo.DIGITOS,
+    "fonte_pagadora_nome": TipoDeCampo.TEXTO,
+    "beneficiario_cpf": TipoDeCampo.DIGITOS,
+    # `beneficiario_nome` já está declarado acima, pelo boleto. Os dois
+    # documentos chamam de beneficiário pessoas diferentes — quem recebe a
+    # cobrança e quem recebe o rendimento —, mas a tabela mapeia nome de campo
+    # para *como comparar*, e os dois são texto livre. Uma entrada basta.
+    "descricao": TipoDeCampo.TEXTO,
+    "saldo_31_12": TipoDeCampo.VALOR,
+    "saldo_31_12_anterior": TipoDeCampo.VALOR,
 }
 
 
