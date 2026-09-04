@@ -25,7 +25,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from app.llm.provedor import ErroDeProvedor, ErroDeTaxa
+from app.llm.provedor import ErroDeProvedor, ErroTransitorio
 
 JANELA_RPM_S = 60.0
 TENTATIVAS_PADRAO = 5
@@ -90,12 +90,17 @@ class LimitadorDeTaxa:
             return max(0, self._cota.rpd - self._consumo_de_hoje())
 
     def executa[T](self, chamada: Callable[[], T]) -> T:
-        """Roda `chamada` respeitando a cota, repetindo com backoff em 429.
+        """Roda `chamada` respeitando a cota, repetindo o que for transitório.
 
-        Levanta `CotaDiariaExcedida` antes de gastar a chamada, e repropaga
-        `ErroDeTaxa` se o backoff esgotar as tentativas.
+        Repete a família `ErroTransitorio` inteira, não só o 429: um 503 do
+        provedor sobrecarregado passa em segundos, e sem repetição ele derruba
+        o documento como se fosse falha de extração — o que num eval vira
+        corpus parcial, não um número pior.
+
+        Levanta `CotaDiariaExcedida` antes de gastar a chamada, e repropaga o
+        último `ErroTransitorio` se o backoff esgotar as tentativas.
         """
-        ultimo_erro: ErroDeTaxa | None = None
+        ultimo_erro: ErroTransitorio | None = None
 
         for tentativa in range(self._tentativas):
             if tentativa > 0:
@@ -108,13 +113,13 @@ class LimitadorDeTaxa:
 
             try:
                 return chamada()
-            except ErroDeTaxa as erro:
+            except ErroTransitorio as erro:
                 ultimo_erro = erro
 
         assert ultimo_erro is not None
         raise ultimo_erro
 
-    def _espera_do_backoff(self, tentativa: int, erro: ErroDeTaxa | None) -> float:
+    def _espera_do_backoff(self, tentativa: int, erro: ErroTransitorio | None) -> float:
         """Backoff exponencial, ou o que o provedor pediu, o que for maior."""
         exponencial = min(self._espera_base_s * 2.0 ** (tentativa - 1), ESPERA_MAXIMA_S)
         if erro is None or erro.espera_sugerida_s is None:

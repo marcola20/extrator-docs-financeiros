@@ -43,16 +43,33 @@ class ErroDeExtracao(ErroDeProvedor):
     """O provedor respondeu, mas a resposta não virou uma instância do schema."""
 
 
-class ErroDeTaxa(ErroDeProvedor):
-    """O provedor recusou por excesso de requisições (HTTP 429).
+class ErroTransitorio(ErroDeProvedor):
+    """A chamada não chegou a produzir resposta, por algo que pode passar sozinho.
 
-    Cada implementação traduz o erro do seu SDK para este, e é isto que o
-    `LimitadorDeTaxa` sabe repetir com backoff.
+    A distinção que importa para o pipeline não é *qual* código HTTP veio, é se
+    repetir a mesma chamada tem chance de dar outro resultado. Um 503 do
+    provedor sobrecarregado tem; um schema inválido não tem. Esta é a família
+    que o `LimitadorDeTaxa` sabe repetir com backoff — cada implementação
+    traduz para cá os erros do seu SDK que se encaixam nisso.
+
+    `espera_sugerida_s` é o que o provedor pediu explicitamente (cabeçalho
+    `Retry-After`), quando pediu. O limitador usa o maior entre ela e o próprio
+    backoff.
     """
 
     def __init__(self, mensagem: str, espera_sugerida_s: float | None = None) -> None:
         super().__init__(mensagem)
         self.espera_sugerida_s: float | None = espera_sugerida_s
+
+
+class ErroDeTaxa(ErroTransitorio):
+    """O provedor recusou por excesso de requisições (HTTP 429).
+
+    Transitório de um tipo específico: a chamada foi recusada por cota, não por
+    indisponibilidade. Vale a pena distinguir no relatório do eval — 429 depois
+    do backoff diz que o corpus não cabe no tier, e 503 diz que o provedor
+    estava fora do ar.
+    """
 
 
 @dataclass(frozen=True)
@@ -130,6 +147,7 @@ class ProvedorLLM(Protocol):
 
         Devolve uma instância já validada — o que significa que os validadores
         do domínio (ver ADR 002) rodaram. Levanta `ErroDeExtracao` se a resposta
-        não validar, e `ErroDeTaxa` em 429.
+        não validar, e `ErroTransitorio` (`ErroDeTaxa` em 429) quando repetir a
+        chamada tem chance de dar outro resultado.
         """
         ...

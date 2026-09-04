@@ -19,6 +19,7 @@ from app.llm.provedor import (
     ErroDeConfiguracao,
     ErroDeExtracao,
     ErroDeTaxa,
+    ErroTransitorio,
     Preco,
     ResultadoExtracao,
     UsoDeTokens,
@@ -41,6 +42,15 @@ MAX_TOKENS = 16_000
 # A Anthropic é paga e não impõe uma cota gratuita fixa. O limite aqui é rede
 # de segurança contra um laço que torre crédito, não uma regra do provedor.
 COTA_PADRAO = Cota(rpm=50, rpd=1_000)
+
+# Erros que dizem "o provedor não estava disponível agora", não "sua requisição
+# está errada". Só estes valem repetição; um 400 repetido dá 400 de novo.
+INDISPONIBILIDADES = (
+    anthropic.InternalServerError,
+    anthropic.ServiceUnavailableError,
+    anthropic.OverloadedError,
+    anthropic.APIConnectionError,
+)
 
 
 class ProvedorAnthropic:
@@ -98,6 +108,11 @@ class ProvedorAnthropic:
                 f"Anthropic recusou por excesso de requisições: {erro}",
                 espera_sugerida_s=float(cabecalho) if cabecalho else None,
             ) from erro
+        except INDISPONIBILIDADES as erro:
+            # Mesma leitura do 503 do Gemini: é o provedor, não a requisição.
+            # Repetir tem chance de dar outro resultado, então vai como
+            # transitório para o limitador tentar de novo.
+            raise ErroTransitorio(f"Anthropic indisponível: {erro}") from erro
         except anthropic.APIError as erro:
             raise ErroDeExtracao(f"falha na chamada à Anthropic: {erro}") from erro
 

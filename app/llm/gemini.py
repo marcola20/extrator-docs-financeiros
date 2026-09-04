@@ -22,6 +22,7 @@ from app.llm.provedor import (
     ErroDeConfiguracao,
     ErroDeExtracao,
     ErroDeTaxa,
+    ErroTransitorio,
     Preco,
     ResultadoExtracao,
     UsoDeTokens,
@@ -119,6 +120,12 @@ class ProvedorGemini:
             if erro.code == HTTP_EXCESSO_DE_REQUISICOES:
                 raise ErroDeTaxa(f"Gemini recusou por excesso de requisições: {erro}") from erro
             raise ErroDeExtracao(f"Gemini recusou a requisição: {erro}") from erro
+        except erros_genai.ServerError as erro:
+            # 5xx é o provedor, não a requisição: o mesmo documento reenviado
+            # em alguns segundos costuma passar. Sai como transitório para o
+            # limitador repetir — sem isso, um 503 de sobrecarga derruba o
+            # documento e o eval termina com corpus parcial.
+            raise ErroTransitorio(f"Gemini indisponível: {erro}") from erro
         except erros_genai.APIError as erro:
             raise ErroDeExtracao(f"falha na chamada ao Gemini: {erro}") from erro
 

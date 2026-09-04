@@ -2,7 +2,8 @@
 
 Não confere se o modelo acerta a extração; confere se o código fala com o SDK
 do jeito certo: que a resposta vira instância do schema, que os tokens saem
-dos campos certos e que 429 vira `ErroDeTaxa` para o limitador repetir.
+dos campos certos e que o que é repetível sai como `ErroTransitorio` — 429 e
+5xx — em vez de derrubar o documento.
 """
 
 from decimal import Decimal
@@ -14,7 +15,12 @@ from google.genai import errors as erros_genai
 from google.genai import types
 
 from app.llm.gemini import MODELO_PADRAO, ProvedorGemini
-from app.llm.provedor import ErroDeConfiguracao, ErroDeExtracao, ErroDeTaxa
+from app.llm.provedor import (
+    ErroDeConfiguracao,
+    ErroDeExtracao,
+    ErroDeTaxa,
+    ErroTransitorio,
+)
 from app.seguranca.delimitadores import envelopa
 from tests.llm.falso import DocumentoFalso
 
@@ -123,6 +129,25 @@ def test_gemini_traduz_429_para_erro_de_taxa() -> None:
     cliente = _ClienteGeminiFalso(erro=erro)
 
     with pytest.raises(ErroDeTaxa, match="excesso de requisições"):
+        _provedor_gemini(cliente).extrai("texto", DocumentoFalso)
+
+
+def test_gemini_traduz_503_para_erro_transitorio() -> None:
+    """Sobrecarga do provedor é repetível; sair como `ErroDeExtracao` perde o documento."""
+    erro = erros_genai.ServerError(503, {"error": {"message": "high demand"}})
+    cliente = _ClienteGeminiFalso(erro=erro)
+
+    with pytest.raises(ErroTransitorio, match="indisponível") as capturado:
+        _provedor_gemini(cliente).extrai("texto", DocumentoFalso)
+
+    assert not isinstance(capturado.value, ErroDeExtracao)
+
+
+def test_gemini_traduz_500_para_erro_transitorio() -> None:
+    erro = erros_genai.ServerError(500, {"error": {"message": "internal"}})
+    cliente = _ClienteGeminiFalso(erro=erro)
+
+    with pytest.raises(ErroTransitorio):
         _provedor_gemini(cliente).extrai("texto", DocumentoFalso)
 
 

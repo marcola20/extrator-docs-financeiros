@@ -57,11 +57,13 @@ Nenhuma das duas mudanças aparece na acurácia. A segunda tem `gerado_com` no
 gabarito para denunciá-la; a primeira não tinha nada, e passa a ter isto.
 
 Por isso o relatório grava o **motivo** de cada falha, não só o nome do
-arquivo. `ErroDeTaxa` depois do backoff esgotado é uma história, e
-`ErroDeExtracao` é outra. Documento que a cota esgotada impediu de chegar ao
-modelo é uma terceira, e vai em `nao_tentados`: ele não falhou, não foi
-tentado — e continua contando em `documentos`, porque o corpus não encolhe
-por a cota ter acabado no meio.
+arquivo. `ErroDeTaxa` depois do backoff esgotado é uma história — o corpus não
+cabe no tier —, `ErroTransitorio` é outra — o provedor estava fora do ar e as
+cinco tentativas não bastaram —, e `ErroDeExtracao` é uma terceira, a única
+que fala do modelo. Documento que a cota esgotada impediu de chegar ao modelo
+é uma quarta, e vai em `nao_tentados`: ele não falhou, não foi tentado — e
+continua contando em `documentos`, porque o corpus não encolhe por a cota ter
+acabado no meio.
 
 ## Cota
 

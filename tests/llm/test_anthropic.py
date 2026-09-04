@@ -4,11 +4,12 @@ from decimal import Decimal
 from typing import Any, cast
 
 import anthropic
+import httpx2
 import pytest
 from anthropic.types import ParsedMessage, ParsedTextBlock, Usage
 
 from app.llm.anthropic import ProvedorAnthropic
-from app.llm.provedor import ErroDeConfiguracao
+from app.llm.provedor import ErroDeConfiguracao, ErroTransitorio
 from app.seguranca.delimitadores import envelopa
 from tests.llm.falso import DocumentoFalso
 
@@ -81,3 +82,15 @@ def test_anthropic_nao_manda_temperature() -> None:
 def test_anthropic_sem_chave_e_sem_cliente_falha_claro() -> None:
     with pytest.raises(ErroDeConfiguracao, match="ANTHROPIC_API_KEY"):
         ProvedorAnthropic("")
+
+
+def test_anthropic_traduz_sobrecarga_para_erro_transitorio() -> None:
+    """Mesma regra do 503 do Gemini: indisponibilidade é repetível."""
+    # httpx2, não httpx: é o cliente HTTP que o SDK da Anthropic usa por dentro.
+    pedido = httpx2.Request("POST", "https://api.anthropic.com")
+    resposta = httpx2.Response(529, request=pedido)
+    erro = anthropic.OverloadedError("overloaded", response=resposta, body=None)
+    cliente = _ClienteAnthropicFalso(erro=erro)
+
+    with pytest.raises(ErroTransitorio, match="indisponível"):
+        _provedor_anthropic(cliente).extrai("texto", DocumentoFalso)

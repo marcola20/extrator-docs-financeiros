@@ -1,4 +1,4 @@
-"""Limitador de taxa: RPM espera, RPD bloqueia, 429 volta com backoff."""
+"""Limitador de taxa: RPM espera, RPD bloqueia, o que é transitório volta com backoff."""
 
 from datetime import date
 from pathlib import Path
@@ -11,7 +11,7 @@ from app.llm.limitador import (
     CotaDiariaExcedida,
     LimitadorDeTaxa,
 )
-from app.llm.provedor import ErroDeTaxa
+from app.llm.provedor import ErroDeExtracao, ErroDeTaxa, ErroTransitorio
 from tests.llm.falso import RelogioFalso
 
 HOJE = date(2026, 9, 2)
@@ -158,6 +158,44 @@ def test_429_sem_fim_repropaga_depois_das_tentativas(tmp_path: Path) -> None:
         limitador.executa(chamada)
 
     assert len(relogio.dormidas) == 2
+
+
+def test_503_tambem_volta_com_backoff(tmp_path: Path) -> None:
+    """Não só o 429: qualquer `ErroTransitorio` é repetível.
+
+    O caso real que motivou isto: 28 documentos de um eval de 43 caíram com
+    503 do Gemini sobrecarregado, todos na primeira tentativa, e a passada
+    terminou com corpus parcial — que não se compara com uma completa.
+    """
+    relogio = RelogioFalso()
+    limitador = _limitador(tmp_path / "cotas.json", Cota(rpm=100, rpd=100), relogio)
+    falhas = [ErroTransitorio("503 UNAVAILABLE"), ErroTransitorio("503 UNAVAILABLE")]
+
+    def chamada() -> str:
+        if falhas:
+            raise falhas.pop(0)
+        return "ok"
+
+    assert limitador.executa(chamada) == "ok"
+    assert relogio.dormidas == [2.0, 4.0]
+
+
+def test_erro_de_extracao_nao_e_repetido(tmp_path: Path) -> None:
+    """Resposta que não virou o schema sai na hora: repetir dá o mesmo erro."""
+    relogio = RelogioFalso()
+    limitador = _limitador(tmp_path / "cotas.json", Cota(rpm=100, rpd=100), relogio)
+    tentativas = 0
+
+    def chamada() -> str:
+        nonlocal tentativas
+        tentativas += 1
+        raise ErroDeExtracao("não virou DocumentoFalso")
+
+    with pytest.raises(ErroDeExtracao):
+        limitador.executa(chamada)
+
+    assert tentativas == 1
+    assert relogio.dormidas == []
 
 
 def test_repetir_por_429_consome_cota_diaria(tmp_path: Path) -> None:
