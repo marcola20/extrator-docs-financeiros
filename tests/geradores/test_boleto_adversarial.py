@@ -10,11 +10,11 @@ from pydantic import ValidationError
 
 from app.confianca import campos
 from app.dominio.boleto import Boleto
+from app.geradores.ataques import EfeitoPretendido
 from app.geradores.boleto_adversarial import (
     ATAQUES,
     VALOR_EXIGIDO_PELA_INJECAO,
     BoletoAdversarial,
-    EfeitoPretendido,
     gera_lote,
     main,
     salva,
