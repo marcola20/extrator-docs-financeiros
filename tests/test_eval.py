@@ -13,7 +13,7 @@ gabarito e não é derrota nenhuma.
 import json
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 from pydantic import BaseModel, SecretStr
@@ -241,12 +241,24 @@ class TestModoDeConsistenciaDoEval:
         """
         argumentos = modulo_eval._analisa_argumentos([])
 
-        assert argumentos.consistencia == "condicional"
+        assert modulo_eval._modo_de_consistencia(argumentos) == "condicional"
 
     def test_a_flag_explicita_liga_o_sinal_em_todos(self) -> None:
         argumentos = modulo_eval._analisa_argumentos(["--consistencia", "sempre"])
 
-        assert argumentos.consistencia == "sempre"
+        assert modulo_eval._modo_de_consistencia(argumentos) == "sempre"
+
+    def test_retomada_herda_o_modo_da_passada_anterior(self) -> None:
+        """Somar duas passadas em modos diferentes daria custo de nenhuma das duas."""
+        argumentos = modulo_eval._analisa_argumentos([])
+
+        assert modulo_eval._modo_de_consistencia(argumentos, "sempre") == "sempre"
+
+    def test_retomada_recusa_modo_diferente_do_anterior(self) -> None:
+        argumentos = modulo_eval._analisa_argumentos(["--consistencia", "nunca"])
+
+        with pytest.raises(modulo_eval.RetomadaInvalida, match="consistência"):
+            modulo_eval._modo_de_consistencia(argumentos, "sempre")
 
     def test_modo_invalido_e_recusado(self) -> None:
         with pytest.raises(SystemExit):
@@ -331,6 +343,12 @@ def _tres_casos_limpos() -> list[modulo_eval.Caso]:
     return casos
 
 
+def _resume(medidas: list[modulo_eval.Medida], settings: Settings) -> dict[str, Any]:
+    """Relatório de uma passada única, que é o caso destes testes."""
+    registros = [modulo_eval.Registro.de_medida(medida, 1) for medida in medidas]
+    return modulo_eval.resume(registros, carrega(), settings, passadas=[], corpus={})
+
+
 def _roda_com(
     provedor: ProvedorQueFalha,
     casos: list[modulo_eval.Caso],
@@ -360,7 +378,7 @@ class TestDocumentoForaDaMedicao:
         provedor = ProvedorQueFalha(ErroDeExtracao("Gemini devolveu resposta vazia"))
 
         medidas = _roda_com(provedor, casos, settings, monkeypatch)
-        relatorio = modulo_eval.resume(medidas, carrega(), settings)
+        relatorio = _resume(medidas, settings)
 
         assert relatorio["processados"] == 0
         assert len(relatorio["falhas"]) == 3
@@ -375,7 +393,7 @@ class TestDocumentoForaDaMedicao:
         provedor = ProvedorQueFalha(ErroDeTaxa("429 depois de cinco tentativas"))
 
         medidas = _roda_com(provedor, casos, settings, monkeypatch)
-        relatorio = modulo_eval.resume(medidas, carrega(), settings)
+        relatorio = _resume(medidas, settings)
 
         assert relatorio["documentos"] == 3
         assert relatorio["nao_tentados"] == []
@@ -396,7 +414,7 @@ class TestCotaEsgotadaNoMeio:
         provedor = ProvedorQueFalha(CotaDiariaExcedida("cota diária de 500 esgotada"))
 
         medidas = _roda_com(provedor, casos, settings, monkeypatch)
-        relatorio = modulo_eval.resume(medidas, carrega(), settings)
+        relatorio = _resume(medidas, settings)
 
         assert relatorio["documentos"] == 3
         assert len(relatorio["falhas"]) == 1
@@ -414,3 +432,292 @@ class TestCotaEsgotadaNoMeio:
 
         assert [m.falhou for m in medidas] == [True, False, False]
         assert [m.tentado for m in medidas] == [True, False, False]
+
+
+class ProvedorIntermitente:
+    """Atende as primeiras `acertos` chamadas e derruba o resto.
+
+    Encena o que o provedor instável faz de verdade: parte do corpus passa,
+    parte cai, e nenhuma das duas partes tem nada de errado.
+    """
+
+    def __init__(self, campos: dict[str, Any], acertos: int) -> None:
+        self.campos = campos
+        self.acertos = acertos
+        self.chamadas = 0
+
+    @property
+    def nome(self) -> str:
+        return "falso"
+
+    @property
+    def modelo(self) -> str:
+        return "falso-1"
+
+    def extrai[TSchema: BaseModel](
+        self,
+        texto: str,
+        schema: type[TSchema],
+        *,
+        instrucao: str = INSTRUCAO_PADRAO,
+    ) -> ResultadoExtracao[TSchema]:
+        self.chamadas += 1
+        if self.chamadas > self.acertos:
+            raise ErroDeExtracao("Gemini indisponível: 503 UNAVAILABLE")
+        return ProvedorDeGabarito(self.campos).extrai(texto, schema, instrucao=instrucao)
+
+
+def _campos_do_primeiro_limpo() -> dict[str, Any]:
+    caminho = sorted(CORPUS_LIMPO.glob("*.json"))[0]
+    dados = json.loads(caminho.read_text(encoding="utf-8"))
+    return {k: ("" if v is None else str(v)) for k, v in dados["campos"].items()}
+
+
+def _roda_main(
+    argv: list[str],
+    provedor: object,
+    settings: Settings,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[int, Path | None]:
+    """Roda o eval de ponta a ponta sem rede e devolve o relatório que ele gravou."""
+    resultados = tmp_path / "resultados"
+    monkeypatch.setattr(modulo_eval, "DIRETORIO_RESULTADOS", resultados)
+    monkeypatch.setattr(modulo_eval, "get_settings", lambda: settings)
+    monkeypatch.setattr(modulo_eval, "cria_provedor", lambda *a, **k: provedor)
+    monkeypatch.setattr(modulo_eval, "provedor_para_segunda_execucao", lambda *a, **k: provedor)
+
+    codigo = modulo_eval.main(argv)
+    gravados = sorted(resultados.glob("*.json")) if resultados.exists() else []
+    return codigo, gravados[-1] if gravados else None
+
+
+def _le(caminho: Path) -> dict[str, Any]:
+    conteudo: dict[str, Any] = json.loads(caminho.read_text(encoding="utf-8"))
+    return conteudo
+
+
+def _reescreve(caminho: Path, **mudancas: Any) -> Path:
+    relatorio = _le(caminho)
+    relatorio.update(mudancas)
+    caminho.write_text(json.dumps(relatorio, ensure_ascii=False, indent=2), encoding="utf-8")
+    return caminho
+
+
+class TestRetomada:
+    """Completar um corpus em duas passadas, sem esconder que foram duas.
+
+    Com o provedor instável, esperar 43 chamadas seguidas darem certo é aposta.
+    Retomar é a alternativa, e o risco dela é o de sempre neste arquivo: somar
+    passadas que não mediram a mesma coisa e reportar uma média que não
+    descreve execução nenhuma. Por isso metade destes testes é sobre o que a
+    retomada **recusa**.
+    """
+
+    ARGV_PRIMEIRA: ClassVar[list[str]] = ["--limpos", "--limite", "3", "--consistencia", "nunca"]
+
+    def _primeira_passada(
+        self,
+        provedor: object,
+        settings: Settings,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> Path:
+        codigo, caminho = _roda_main(self.ARGV_PRIMEIRA, provedor, settings, tmp_path, monkeypatch)
+        assert codigo == 0
+        assert caminho is not None
+        return caminho
+
+    def test_retomada_reprocessa_so_o_que_faltou(
+        self, settings: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        campos = _campos_do_primeiro_limpo()
+        primeira = self._primeira_passada(
+            ProvedorIntermitente(campos, acertos=1), settings, tmp_path, monkeypatch
+        )
+        assert len(_le(primeira)["falhas"]) == 2
+
+        segunda_vez = ProvedorIntermitente(campos, acertos=99)
+        codigo, segunda = _roda_main(
+            ["--retomar", str(primeira)], segunda_vez, settings, tmp_path, monkeypatch
+        )
+
+        assert codigo == 0
+        assert segunda is not None
+        relatorio = _le(segunda)
+        assert segunda_vez.chamadas == 2, "o documento que já tinha dado certo foi rechamado"
+        assert relatorio["documentos"] == 3
+        assert relatorio["processados"] == 3
+        assert relatorio["falhas"] == []
+
+    def test_o_relatorio_somado_diz_de_quantas_passadas_veio(
+        self, settings: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        campos = _campos_do_primeiro_limpo()
+        primeira = self._primeira_passada(
+            ProvedorIntermitente(campos, acertos=1), settings, tmp_path, monkeypatch
+        )
+        _, segunda = _roda_main(
+            ["--retomar", str(primeira)],
+            ProvedorIntermitente(campos, acertos=99),
+            settings,
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert segunda is not None
+        relatorio = _le(segunda)
+        assert [p["numero"] for p in relatorio["passadas"]] == [1, 2]
+        assert relatorio["passadas"][1]["retomada_de"] == primeira.name
+        assert [r["passada"] for r in relatorio["documentos_medidos"]] == [1, 2, 2]
+
+    def test_recusa_relatorio_anterior_a_retomada(
+        self, settings: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Relatório velho guarda as taxas, não o que cada documento mediu."""
+        campos = _campos_do_primeiro_limpo()
+        primeira = self._primeira_passada(
+            ProvedorIntermitente(campos, acertos=1), settings, tmp_path, monkeypatch
+        )
+        relatorio = _le(primeira)
+        del relatorio["documentos_medidos"]
+        primeira.write_text(json.dumps(relatorio, ensure_ascii=False), encoding="utf-8")
+
+        codigo, _ = _roda_main(
+            ["--retomar", str(primeira)],
+            ProvedorIntermitente(campos, acertos=99),
+            settings,
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert codigo == 1
+
+    @pytest.mark.parametrize(
+        ("campo", "valor"),
+        [
+            ("prompt", "outro-prompt+deadbeef"),
+            ("provedor", "anthropic"),
+            ("corpus", {"limpo": {"semente": 1, "data_de_referencia": "2020-01-01"}}),
+        ],
+    )
+    def test_recusa_somar_passadas_que_mediram_outra_coisa(
+        self,
+        campo: str,
+        valor: Any,
+        settings: Settings,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Prompt, provedor, modo e corpus têm que bater; a média somada mentiria."""
+        campos = _campos_do_primeiro_limpo()
+        primeira = self._primeira_passada(
+            ProvedorIntermitente(campos, acertos=1), settings, tmp_path, monkeypatch
+        )
+        _reescreve(primeira, **{campo: valor})
+
+        codigo, _ = _roda_main(
+            ["--retomar", str(primeira)],
+            ProvedorIntermitente(campos, acertos=99),
+            settings,
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert codigo == 1
+
+    def test_a_retomada_herda_o_modo_de_consistencia_da_passada_anterior(
+        self, settings: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A primeira rodou em 'nunca'; a retomada não pode cair no padrão do eval.
+
+        Custo, segundas execuções e divergência entre runs saem somados das
+        duas passadas. Se a segunda rodasse em 'condicional', esses três
+        números descreveriam uma execução que nunca houve.
+        """
+        campos = _campos_do_primeiro_limpo()
+        primeira = self._primeira_passada(
+            ProvedorIntermitente(campos, acertos=1), settings, tmp_path, monkeypatch
+        )
+        assert _le(primeira)["auto_consistencia"] == "nunca"
+
+        _, segunda = _roda_main(
+            ["--retomar", str(primeira)],
+            ProvedorIntermitente(campos, acertos=99),
+            settings,
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert segunda is not None
+        assert _le(segunda)["auto_consistencia"] == "nunca"
+
+    def test_recusa_documento_que_saiu_do_corpus(
+        self, settings: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Corpus regerado entre as passadas: os nomes batem, os documentos não."""
+        campos = _campos_do_primeiro_limpo()
+        primeira = self._primeira_passada(
+            ProvedorIntermitente(campos, acertos=1), settings, tmp_path, monkeypatch
+        )
+        medidos = _le(primeira)["documentos_medidos"]
+        medidos[0]["documento"] = "boleto-999.pdf"
+        _reescreve(primeira, documentos_medidos=medidos)
+
+        codigo, _ = _roda_main(
+            ["--retomar", str(primeira)],
+            ProvedorIntermitente(campos, acertos=99),
+            settings,
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert codigo == 1
+
+    def test_retomar_nao_aceita_recorte_de_corpus(
+        self, settings: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Quem define o corpus da retomada é o relatório, não a linha de comando."""
+        campos = _campos_do_primeiro_limpo()
+        primeira = self._primeira_passada(
+            ProvedorIntermitente(campos, acertos=1), settings, tmp_path, monkeypatch
+        )
+
+        codigo, _ = _roda_main(
+            ["--retomar", str(primeira), "--limpos"],
+            ProvedorIntermitente(campos, acertos=99),
+            settings,
+            tmp_path,
+            monkeypatch,
+        )
+
+        assert codigo == 1
+
+    def test_nada_pendente_nao_gasta_cota(
+        self, settings: Settings, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        campos = _campos_do_primeiro_limpo()
+        completa = self._primeira_passada(
+            ProvedorIntermitente(campos, acertos=99), settings, tmp_path, monkeypatch
+        )
+
+        segunda_vez = ProvedorIntermitente(campos, acertos=99)
+        codigo, _ = _roda_main(
+            ["--retomar", str(completa)], segunda_vez, settings, tmp_path, monkeypatch
+        )
+
+        assert codigo == 1
+        assert segunda_vez.chamadas == 0
+
+    def test_registro_sobrevive_ao_json(
+        self, settings: Settings, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A retomada depende deste ida-e-volta; se ele perder um campo, some do relatório."""
+        casos = _tres_casos_limpos()
+        provedor = ProvedorQueFalha(ErroDeExtracao("503"))
+        medidas = _roda_com(provedor, casos[:1], settings, monkeypatch)
+        registro = modulo_eval.Registro.de_medida(medidas[0], passada=1)
+
+        voltou = modulo_eval.Registro.de_json(registro.para_json())
+
+        assert voltou == registro

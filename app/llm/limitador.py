@@ -9,6 +9,9 @@ As duas cotas têm naturezas diferentes e por isso tratamento diferente:
 - **RPD** zera só na virada do dia. Esperar não é opção, então o limitador
   levanta `CotaDiariaExcedida` e devolve a decisão a quem chamou.
 
+Repetir uma chamada que falhou também gasta cota, então repetição tem
+orçamento e não um número fixo de tentativas — ver `_tentativas_permitidas`.
+
 O contador diário vive em disco porque o processo reinicia — durante o
 desenvolvimento, muitas vezes — e um contador em memória recomeçaria do zero
 achando que tem 500 chamadas quando já gastou 400.
@@ -31,6 +34,10 @@ JANELA_RPM_S = 60.0
 TENTATIVAS_PADRAO = 5
 ESPERA_BASE_S = 2.0
 ESPERA_MAXIMA_S = 60.0
+
+# Fatia da cota restante que um único documento pode gastar repetindo.
+# Ver `_tentativas_permitidas`.
+FRACAO_DE_RETRY = 0.10
 
 
 class CotaDiariaExcedida(ErroDeProvedor):
@@ -97,12 +104,15 @@ class LimitadorDeTaxa:
         o documento como se fosse falha de extração — o que num eval vira
         corpus parcial, não um número pior.
 
+        Quantas vezes repetir sai de `_tentativas_permitidas`, não do teto
+        fixo: repetição é gasto de cota, e gasto de cota tem orçamento.
+
         Levanta `CotaDiariaExcedida` antes de gastar a chamada, e repropaga o
         último `ErroTransitorio` se o backoff esgotar as tentativas.
         """
         ultimo_erro: ErroTransitorio | None = None
 
-        for tentativa in range(self._tentativas):
+        for tentativa in range(self._tentativas_permitidas()):
             if tentativa > 0:
                 self._dorme(self._espera_do_backoff(tentativa, ultimo_erro))
 
@@ -118,6 +128,28 @@ class LimitadorDeTaxa:
 
         assert ultimo_erro is not None
         raise ultimo_erro
+
+    def _tentativas_permitidas(self) -> int:
+        """Quantas tentativas cabem no que sobrou da cota de hoje.
+
+        Cinco tentativas fixas são baratas num modelo de 500 RPD e ruinosas num
+        de 20: lá, quatro documentos instáveis consomem o dia inteiro e a
+        passada morre em `CotaDiariaExcedida` no meio, em vez de terminar com
+        as falhas registradas. Um relatório parcial com o motivo de cada perda
+        é utilizável; uma passada interrompida no décimo documento não é —
+        instabilidade do provedor não deveria virar cota estourada.
+
+        Por isso o teto de repetição é uma fração do que sobrou, não um número:
+        um documento gasta no máximo `FRACAO_DE_RETRY` da cota restante. O
+        orçamento decai geometricamente, então a repetição vai sumindo antes de
+        a cota acabar — com pouca cota, cada documento tem direito a uma
+        chamada e mais nada, que é o certo: gastar a última em retentativa de
+        um documento é perder o próximo.
+
+        O teto fixo continua valendo como limite superior. A regra só aperta.
+        """
+        do_orcamento = 1 + int(self.restante_hoje() * FRACAO_DE_RETRY)
+        return max(1, min(self._tentativas, do_orcamento))
 
     def _espera_do_backoff(self, tentativa: int, erro: ErroTransitorio | None) -> float:
         """Backoff exponencial, ou o que o provedor pediu, o que for maior."""

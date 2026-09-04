@@ -1,4 +1,4 @@
-"""Limitador de taxa: RPM espera, RPD bloqueia, o que é transitório volta com backoff."""
+"""Limitador de taxa: RPM espera, RPD bloqueia, e a repetição cabe no orçamento."""
 
 from datetime import date
 from pathlib import Path
@@ -201,7 +201,7 @@ def test_erro_de_extracao_nao_e_repetido(tmp_path: Path) -> None:
 def test_repetir_por_429_consome_cota_diaria(tmp_path: Path) -> None:
     """O provedor conta a requisição recusada, então o contador local também."""
     relogio = RelogioFalso()
-    limitador = _limitador(tmp_path / "cotas.json", Cota(rpm=100, rpd=5), relogio, tentativas=3)
+    limitador = _limitador(tmp_path / "cotas.json", Cota(rpm=100, rpd=20), relogio, tentativas=3)
 
     def chamada() -> str:
         raise ErroDeTaxa("429 sempre")
@@ -209,4 +209,81 @@ def test_repetir_por_429_consome_cota_diaria(tmp_path: Path) -> None:
     with pytest.raises(ErroDeTaxa):
         limitador.executa(chamada)
 
-    assert limitador.restante_hoje() == 2
+    assert limitador.restante_hoje() == 17
+
+
+def test_cota_grande_permite_o_teto_de_tentativas(tmp_path: Path) -> None:
+    relogio = RelogioFalso()
+    limitador = _limitador(tmp_path / "cotas.json", Cota(rpm=100, rpd=500), relogio, tentativas=5)
+    tentativas = 0
+
+    def chamada() -> str:
+        nonlocal tentativas
+        tentativas += 1
+        raise ErroTransitorio("503 sempre")
+
+    with pytest.raises(ErroTransitorio):
+        limitador.executa(chamada)
+
+    assert tentativas == 5
+
+
+def test_cota_pequena_encolhe_as_tentativas(tmp_path: Path) -> None:
+    """Num modelo de 20 RPD, 10% de 20 dá duas repetições, não quatro."""
+    relogio = RelogioFalso()
+    limitador = _limitador(tmp_path / "cotas.json", Cota(rpm=100, rpd=20), relogio, tentativas=5)
+    tentativas = 0
+
+    def chamada() -> str:
+        nonlocal tentativas
+        tentativas += 1
+        raise ErroTransitorio("503 sempre")
+
+    with pytest.raises(ErroTransitorio):
+        limitador.executa(chamada)
+
+    assert tentativas == 3
+    assert limitador.restante_hoje() == 17
+
+
+def test_cota_quase_no_fim_nao_repete(tmp_path: Path) -> None:
+    """A última chamada do dia é do próximo documento, não da terceira tentativa desta."""
+    relogio = RelogioFalso()
+    limitador = _limitador(tmp_path / "cotas.json", Cota(rpm=100, rpd=4), relogio, tentativas=5)
+    tentativas = 0
+
+    def chamada() -> str:
+        nonlocal tentativas
+        tentativas += 1
+        raise ErroTransitorio("503 sempre")
+
+    with pytest.raises(ErroTransitorio):
+        limitador.executa(chamada)
+
+    assert tentativas == 1
+    assert relogio.dormidas == []
+
+
+def test_documento_instavel_nao_come_a_cota_dos_seguintes(tmp_path: Path) -> None:
+    """A propriedade que motivou o orçamento.
+
+    Com cinco tentativas fixas, quatro documentos contra um provedor fora do
+    ar consomem as 20 chamadas do dia inteiro e o quinto documento morre em
+    `CotaDiariaExcedida` — instabilidade do provedor virou cota estourada, e a
+    passada para no meio em vez de terminar com as falhas registradas.
+
+    Com orçamento, os mesmos quatro gastam nove e sobram onze para o resto do
+    corpus. A cota ainda pode acabar, mas por volume de documentos, que é um
+    limite real, e não por repetição.
+    """
+    relogio = RelogioFalso()
+    limitador = _limitador(tmp_path / "cotas.json", Cota(rpm=1_000, rpd=20), relogio, tentativas=5)
+
+    def chamada() -> str:
+        raise ErroTransitorio("503 sempre")
+
+    for _ in range(4):
+        with pytest.raises(ErroTransitorio):
+            limitador.executa(chamada)
+
+    assert limitador.restante_hoje() == 11

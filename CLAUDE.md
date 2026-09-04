@@ -64,7 +64,17 @@ uv run python -m app.geradores.boleto_sintetico --quantidade 15
 
 # Cache de extrações do LLM, para não gastar cota reexecutando eval igual.
 uv run python -m app.llm.cache --limpar
+
+# Eval. Provedor instável derruba documento sem nada de errado; --retomar
+# reprocessa só o que caiu num relatório anterior e soma as duas passadas.
+uv run python eval.py
+uv run python eval.py --retomar resultados/eval-AAAAMMDD-HHMMSS-<prompt>.json
 ```
+
+O relatório somado mede o corpus completo e registra em `passadas` de quantas
+partes veio. Prompt, provedor, modo de consistência, modelo e corpus têm que
+bater com os da passada anterior — divergir de qualquer um é recusado, porque a
+média somada não descreveria execução nenhuma.
 
 ## Corpus reproduzível
 
