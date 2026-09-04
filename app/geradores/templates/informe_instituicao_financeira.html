@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Informe de Rendimentos Financeiros {{ informe.ano_calendario }}</title>
+<style>
+  /* Layout de instituição financeira: faixa colorida, tabelas zebradas,
+     coluna de especificação e coluna de valor. Nada a ver com a moldura
+     encaixotada do modelo da Receita — a diferença visual é o ponto, e é o
+     que a issue #1 pede. */
+  @page {
+    size: A4;
+    margin: 14mm 13mm 16mm;
+    @bottom-center {
+      content: "Informe de Rendimentos Financeiros — ano-calendário {{ informe.ano_calendario }} — página " counter(page) " de " counter(pages);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 6.5pt;
+      color: #555;
+    }
+  }
+
+  body {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 8pt;
+    color: #1a1a1a;
+  }
+
+  .faixa {
+    background: #14315c;
+    color: #fff;
+    padding: 3mm 4mm;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .faixa .marca {
+    font-size: 14pt;
+    font-weight: bold;
+    letter-spacing: -0.4pt;
+    /* Sem isto o nome da instituição quebra no meio ("Banco Aurora S/" + "A")
+       e o texto extraído sai partido — o que apareceria no eval como erro de
+       leitura do modelo, quando é defeito do gerador. */
+    white-space: nowrap;
+    padding-right: 6mm;
+  }
+
+  .faixa .documento {
+    text-align: right;
+    font-size: 8pt;
+    line-height: 1.35;
+  }
+
+  .identificacao {
+    border: 0.5pt solid #c3c9d2;
+    border-top: none;
+    padding: 3mm 4mm;
+    display: flex;
+    gap: 8mm;
+    background: #f6f8fa;
+  }
+
+  .identificacao .bloco { line-height: 1.45 }
+  .identificacao .rotulo {
+    font-size: 6pt;
+    letter-spacing: 0.6pt;
+    text-transform: uppercase;
+    color: #55606e;
+  }
+  .identificacao .conteudo { font-size: 9pt }
+
+  h2 {
+    font-size: 9pt;
+    margin: 5mm 0 1.5mm;
+    padding-bottom: 1mm;
+    border-bottom: 1.5pt solid #14315c;
+    color: #14315c;
+    page-break-after: avoid;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8pt;
+  }
+
+  thead th {
+    background: #dde4ec;
+    text-align: left;
+    padding: 1.2mm 2mm;
+    font-size: 6.5pt;
+    letter-spacing: 0.4pt;
+    text-transform: uppercase;
+    color: #33404f;
+  }
+
+  thead { display: table-header-group }
+
+  tbody td {
+    padding: 1.2mm 2mm;
+    border-bottom: 0.4pt solid #e2e6eb;
+  }
+
+  tbody tr:nth-child(even) { background: #f6f8fa }
+
+  th.valor, td.valor { text-align: right; white-space: nowrap; width: 30mm }
+
+  tr.total td {
+    border-top: 1pt solid #14315c;
+    border-bottom: none;
+    font-weight: bold;
+    background: #fff;
+  }
+
+  .sem-lancamento {
+    padding: 2mm;
+    font-style: italic;
+    color: #55606e;
+    border-bottom: 0.4pt solid #e2e6eb;
+  }
+
+  .observacao {
+    margin-top: 1.5mm;
+    font-size: 6.5pt;
+    color: #55606e;
+  }
+
+  .rodape-legal {
+    margin-top: 6mm;
+    padding-top: 2mm;
+    border-top: 0.4pt solid #c3c9d2;
+    font-size: 5.2pt;
+    line-height: 1.3;
+    text-align: justify;
+    color: #55606e;
+  }
+</style>
+</head>
+<body>
+
+<div class="faixa">
+  <div class="marca">{{ informe.fonte_pagadora_nome }}</div>
+  <div class="documento">
+    Informe de Rendimentos Financeiros<br>
+    Ano-calendário {{ informe.ano_calendario }} — Exercício {{ informe.exercicio }}<br>
+    CNPJ {{ documento(informe.fonte_pagadora_cnpj) }}
+  </div>
+</div>
+
+<div class="identificacao">
+  <div class="bloco">
+    <div class="rotulo">Titular</div>
+    <div class="conteudo">{{ informe.beneficiario_nome }}</div>
+  </div>
+  <div class="bloco">
+    <div class="rotulo">CPF</div>
+    <div class="conteudo">{{ documento(informe.beneficiario_cpf) }}</div>
+  </div>
+  <div class="bloco">
+    <div class="rotulo">Agência</div>
+    <div class="conteudo">{{ extra.agencia }}</div>
+  </div>
+  <div class="bloco">
+    <div class="rotulo">Emitido em</div>
+    <div class="conteudo">{{ data(extra.data_de_emissao) }}</div>
+  </div>
+</div>
+
+{% for quadro in quadros %}
+<h2>{{ quadro.titulo }}</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Especificação</th>
+      <th>Discriminação</th>
+      <th class="valor">Valor (R$)</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% if quadro.linhas %}
+      {% for linha in quadro.linhas %}
+      <tr>
+        <td>{{ linha.identificador }}</td>
+        <td>{{ linha.descricao }}</td>
+        <td class="valor">{{ moeda(linha.valor) }}</td>
+      </tr>
+      {% endfor %}
+    {% else %}
+      <tr><td colspan="3" class="sem-lancamento">Não houve lançamento nesta categoria no período.</td></tr>
+    {% endif %}
+    {% if quadro.total_impresso is not none %}
+    <tr class="total">
+      <td colspan="2">Total do quadro</td>
+      <td class="valor">{{ moeda(quadro.total_impresso) }}</td>
+    </tr>
+    {% endif %}
+  </tbody>
+</table>
+{% endfor %}
+
+<h2>Saldos e Posições em 31 de Dezembro</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Especificação</th>
+      <th class="valor">Saldo em 31/12/{{ informe.ano_calendario - 1 }}</th>
+      <th class="valor">Saldo em 31/12/{{ informe.ano_calendario }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% if informe.saldos %}
+      {% for saldo in informe.saldos %}
+      <tr>
+        <td>{{ saldo.especificacao }}</td>
+        <td class="valor">{{ moeda(saldo.saldo_31_12_anterior) }}</td>
+        <td class="valor">{{ moeda(saldo.saldo_31_12) }}</td>
+      </tr>
+      {% endfor %}
+    {% else %}
+      <tr><td colspan="3" class="sem-lancamento">Sem saldo a informar em 31 de dezembro.</td></tr>
+    {% endif %}
+  </tbody>
+</table>
+<div class="observacao">
+  Os valores desta seção destinam-se à ficha Bens e Direitos da Declaração de Ajuste Anual.
+</div>
+
+<div class="rodape-legal">
+  Este informe reúne os rendimentos pagos ou creditados ao titular acima no ano-calendário
+  indicado, bem como as posições consolidadas em 31 de dezembro, na forma da legislação do imposto
+  sobre a renda e das instruções normativas da Secretaria da Receita Federal do Brasil. Rendimentos
+  de aplicações financeiras de renda fixa e de fundos de investimento sujeitam-se à tributação
+  exclusiva na fonte, com alíquotas regressivas conforme o prazo da aplicação. Rendimentos de
+  caderneta de poupança, de letras de crédito imobiliário e do agronegócio e de certificados de
+  recebíveis são isentos para a pessoa física. Divergências devem ser comunicadas à instituição
+  em até trinta dias contados do recebimento. Documento fictício, gerado para testes automatizados:
+  não tem validade fiscal e não corresponde a pessoa, instituição ou rendimento reais.
+</div>
+
+{% if ataque_html %}{{ ataque_html|safe }}{% endif %}
+
+</body>
+</html>

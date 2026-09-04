@@ -1,0 +1,310 @@
+{
+  "arquivo_pdf": "informe-006.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "instituicao_financeira",
+  "par": {
+    "identificador": "par-003",
+    "papel": "ano",
+    "arquivo_do_par": "informe-005.pdf"
+  },
+  "quadros_sem_cobertura": [],
+  "campos": {
+    "layout": "instituicao_financeira",
+    "ano_calendario": 2025,
+    "exercicio": 2026,
+    "fonte_pagadora_cnpj": "80361942000134",
+    "fonte_pagadora_nome": "Banco Palmares S/A",
+    "beneficiario_cpf": "68790341287",
+    "beneficiario_nome": "Pietra Moraes",
+    "rendimentos_tributaveis": {
+      "identificador": "rendimentos_tributaveis",
+      "titulo": "Rendimentos Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_isentos": {
+      "identificador": "rendimentos_isentos",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "Poupança",
+          "descricao": "Rendimentos de caderneta de poupança",
+          "valor": "14466.36"
+        },
+        {
+          "identificador": "LCI",
+          "descricao": "Letra de Crédito Imobiliário",
+          "valor": "15036.48"
+        },
+        {
+          "identificador": "LCA",
+          "descricao": "Letra de Crédito do Agronegócio",
+          "valor": "16474.4"
+        }
+      ],
+      "total_impresso": "45977.24"
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "rendimentos_exclusivos",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva",
+      "linhas": [
+        {
+          "identificador": "CDB 01",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "10813.96"
+        },
+        {
+          "identificador": "Fundo DI 02",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "5438.08"
+        },
+        {
+          "identificador": "Fundo Multimercado 03",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "9508.43"
+        },
+        {
+          "identificador": "Tesouro Selic 04",
+          "descricao": "Título público federal",
+          "valor": "19345.12"
+        },
+        {
+          "identificador": "LF 05",
+          "descricao": "Letra Financeira",
+          "valor": "3848.81"
+        },
+        {
+          "identificador": "CDB 06",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "8939.18"
+        },
+        {
+          "identificador": "Fundo DI 07",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "17677.24"
+        },
+        {
+          "identificador": "Fundo Multimercado 08",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "15276.72"
+        },
+        {
+          "identificador": "Tesouro Selic 09",
+          "descricao": "Título público federal",
+          "valor": "10058.42"
+        },
+        {
+          "identificador": "LF 10",
+          "descricao": "Letra Financeira",
+          "valor": "19726.11"
+        },
+        {
+          "identificador": "CDB 11",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "1358.36"
+        },
+        {
+          "identificador": "Fundo DI 12",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "13611.04"
+        },
+        {
+          "identificador": "Fundo Multimercado 13",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "5598.19"
+        },
+        {
+          "identificador": "Tesouro Selic 14",
+          "descricao": "Título público federal",
+          "valor": "18952.81"
+        },
+        {
+          "identificador": "LF 15",
+          "descricao": "Letra Financeira",
+          "valor": "10462.64"
+        },
+        {
+          "identificador": "CDB 16",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "7772.16"
+        },
+        {
+          "identificador": "Fundo DI 17",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "2037.16"
+        },
+        {
+          "identificador": "Fundo Multimercado 18",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "4090.77"
+        },
+        {
+          "identificador": "Tesouro Selic 19",
+          "descricao": "Título público federal",
+          "valor": "15687.28"
+        },
+        {
+          "identificador": "LF 20",
+          "descricao": "Letra Financeira",
+          "valor": "17974.98"
+        },
+        {
+          "identificador": "CDB 21",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "8635.81"
+        },
+        {
+          "identificador": "Fundo DI 22",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "3079.36"
+        },
+        {
+          "identificador": "Fundo Multimercado 23",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "9434.49"
+        },
+        {
+          "identificador": "Tesouro Selic 24",
+          "descricao": "Título público federal",
+          "valor": "19229.99"
+        },
+        {
+          "identificador": "LF 25",
+          "descricao": "Letra Financeira",
+          "valor": "304.28"
+        },
+        {
+          "identificador": "CDB 26",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "1942.91"
+        },
+        {
+          "identificador": "Fundo DI 27",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "14.48"
+        },
+        {
+          "identificador": "Fundo Multimercado 28",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "9472.98"
+        },
+        {
+          "identificador": "Tesouro Selic 29",
+          "descricao": "Título público federal",
+          "valor": "12186.9"
+        },
+        {
+          "identificador": "LF 30",
+          "descricao": "Letra Financeira",
+          "valor": "11472.83"
+        },
+        {
+          "identificador": "CDB 31",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "19559.19"
+        },
+        {
+          "identificador": "Fundo DI 32",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "17549.63"
+        },
+        {
+          "identificador": "Fundo Multimercado 33",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "1752.01"
+        },
+        {
+          "identificador": "Tesouro Selic 34",
+          "descricao": "Título público federal",
+          "valor": "12805.43"
+        },
+        {
+          "identificador": "LF 35",
+          "descricao": "Letra Financeira",
+          "valor": "16656.57"
+        },
+        {
+          "identificador": "CDB 36",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "4178.96"
+        },
+        {
+          "identificador": "Fundo DI 37",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "5207.53"
+        },
+        {
+          "identificador": "Fundo Multimercado 38",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "2543.75"
+        },
+        {
+          "identificador": "Tesouro Selic 39",
+          "descricao": "Título público federal",
+          "valor": "13034.87"
+        },
+        {
+          "identificador": "LF 40",
+          "descricao": "Letra Financeira",
+          "valor": "946.56"
+        },
+        {
+          "identificador": "CDB 41",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "15777.54"
+        },
+        {
+          "identificador": "Fundo DI 42",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "11469.85"
+        },
+        {
+          "identificador": "Fundo Multimercado 43",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "5641.61"
+        },
+        {
+          "identificador": "Tesouro Selic 44",
+          "descricao": "Título público federal",
+          "valor": "14028.98"
+        },
+        {
+          "identificador": "LF 45",
+          "descricao": "Letra Financeira",
+          "valor": "15899.31"
+        },
+        {
+          "identificador": "CDB 46",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "13335.48"
+        }
+      ],
+      "total_impresso": "464338.76"
+    },
+    "saldos": [
+      {
+        "especificacao": "Conta Corrente 7096.217466371",
+        "saldo_31_12": "100205.81",
+        "saldo_31_12_anterior": "73991.01"
+      },
+      {
+        "especificacao": "Fundo Multimercado 1555481",
+        "saldo_31_12": "87726.18",
+        "saldo_31_12_anterior": "67406.4"
+      },
+      {
+        "especificacao": "CDB 3513960",
+        "saldo_31_12": "33527.18",
+        "saldo_31_12_anterior": "30193.6"
+      },
+      {
+        "especificacao": "CDB 9146498",
+        "saldo_31_12": "8352.2",
+        "saldo_31_12_anterior": "0.00"
+      }
+    ]
+  }
+}

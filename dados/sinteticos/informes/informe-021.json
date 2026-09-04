@@ -1,0 +1,79 @@
+{
+  "arquivo_pdf": "informe-021.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "instituicao_financeira",
+  "par": {
+    "identificador": "par-011",
+    "papel": "ano_anterior",
+    "arquivo_do_par": "informe-022.pdf"
+  },
+  "quadros_sem_cobertura": [],
+  "campos": {
+    "layout": "instituicao_financeira",
+    "ano_calendario": 2024,
+    "exercicio": 2025,
+    "fonte_pagadora_cnpj": "89460175000195",
+    "fonte_pagadora_nome": "Cooperativa de Crédito Sul-Norte",
+    "beneficiario_cpf": "52436981051",
+    "beneficiario_nome": "Dr. Pedro Miguel Campos",
+    "rendimentos_tributaveis": {
+      "identificador": "rendimentos_tributaveis",
+      "titulo": "Rendimentos Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_isentos": {
+      "identificador": "rendimentos_isentos",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "rendimentos_exclusivos",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva",
+      "linhas": [
+        {
+          "identificador": "CDB",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "15472.93"
+        },
+        {
+          "identificador": "Fundo DI",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "12440.27"
+        },
+        {
+          "identificador": "Fundo Multimercado",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "13898.7"
+        }
+      ],
+      "total_impresso": "41811.90"
+    },
+    "saldos": [
+      {
+        "especificacao": "Conta Corrente 4343.148134052",
+        "saldo_31_12": "31925.52",
+        "saldo_31_12_anterior": "32990.38"
+      },
+      {
+        "especificacao": "CDB 4642712",
+        "saldo_31_12": "68119.41",
+        "saldo_31_12_anterior": "43335.2"
+      },
+      {
+        "especificacao": "LF 6145748",
+        "saldo_31_12": "13257.68",
+        "saldo_31_12_anterior": "55513.26"
+      },
+      {
+        "especificacao": "Fundo Multimercado 1748986",
+        "saldo_31_12": "7175.34",
+        "saldo_31_12_anterior": "8801.45"
+      }
+    ]
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "arquivo_pdf": "informe-023.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "fonte_pagadora",
+  "par": {
+    "identificador": "par-012",
+    "papel": "ano_anterior",
+    "arquivo_do_par": "informe-024.pdf"
+  },
+  "quadros_sem_cobertura": [
+    "3",
+    "4",
+    "5"
+  ],
+  "campos": {
+    "layout": "fonte_pagadora",
+    "ano_calendario": 2024,
+    "exercicio": 2025,
+    "fonte_pagadora_cnpj": "48392657000178",
+    "fonte_pagadora_nome": "Brito Viana Ltda.",
+    "beneficiario_cpf": "17534908639",
+    "beneficiario_nome": "Sr. Daniel Pinto",
+    "rendimentos_tributaveis": {
+      "identificador": "3",
+      "titulo": "Rendimentos Tributáveis, Deduções e Imposto sobre a Renda Retido na Fonte",
+      "linhas": [
+        {
+          "identificador": "3.1",
+          "descricao": "Total dos rendimentos (inclusive férias)",
+          "valor": "58339.56"
+        },
+        {
+          "identificador": "3.2",
+          "descricao": "Contribuição previdenciária oficial",
+          "valor": "174204.75"
+        }
+      ],
+      "total_impresso": null
+    },
+    "rendimentos_isentos": {
+      "identificador": "4",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "4.3",
+          "descricao": "Pensão e proventos por moléstia grave ou acidente em serviço",
+          "valor": "29643.98"
+        },
+        {
+          "identificador": "4.4",
+          "descricao": "Lucros e dividendos apurados a partir de 1996",
+          "valor": "183.57"
+        },
+        {
+          "identificador": "4.5",
+          "descricao": "Valores pagos ao titular ou sócio de microempresa ou EPP",
+          "valor": "2767.59"
+        }
+      ],
+      "total_impresso": null
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "5",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva (rendimento líquido)",
+      "linhas": [
+        {
+          "identificador": "5.1",
+          "descricao": "13º (décimo terceiro) salário",
+          "valor": "698.15"
+        },
+        {
+          "identificador": "5.2",
+          "descricao": "Imposto sobre a renda retido na fonte sobre 13º salário",
+          "valor": "174.54"
+        },
+        {
+          "identificador": "5.3",
+          "descricao": "Outros",
+          "valor": "7958.69"
+        }
+      ],
+      "total_impresso": null
+    },
+    "saldos": []
+  }
+}

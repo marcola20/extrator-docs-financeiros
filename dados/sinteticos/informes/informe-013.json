@@ -1,0 +1,80 @@
+{
+  "arquivo_pdf": "informe-013.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "instituicao_financeira",
+  "par": {
+    "identificador": "par-007",
+    "papel": "ano_anterior",
+    "arquivo_do_par": "informe-014.pdf"
+  },
+  "quadros_sem_cobertura": [],
+  "campos": {
+    "layout": "instituicao_financeira",
+    "ano_calendario": 2024,
+    "exercicio": 2025,
+    "fonte_pagadora_cnpj": "28374190000126",
+    "fonte_pagadora_nome": "Corretora Vértice CTVM",
+    "beneficiario_cpf": "08456219398",
+    "beneficiario_nome": "Rebeca Sales",
+    "rendimentos_tributaveis": {
+      "identificador": "rendimentos_tributaveis",
+      "titulo": "Rendimentos Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_isentos": {
+      "identificador": "rendimentos_isentos",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "Poupança",
+          "descricao": "Rendimentos de caderneta de poupança",
+          "valor": "3394.61"
+        },
+        {
+          "identificador": "LCI",
+          "descricao": "Letra de Crédito Imobiliário",
+          "valor": "5480.59"
+        }
+      ],
+      "total_impresso": "8875.20"
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "rendimentos_exclusivos",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva",
+      "linhas": [
+        {
+          "identificador": "CDB",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "5381.31"
+        },
+        {
+          "identificador": "Fundo DI",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "1328.66"
+        },
+        {
+          "identificador": "Fundo Multimercado",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "300.88"
+        }
+      ],
+      "total_impresso": "7010.85"
+    },
+    "saldos": [
+      {
+        "especificacao": "Conta Investimento 1580.468208210",
+        "saldo_31_12": "60595.8",
+        "saldo_31_12_anterior": "29884.69"
+      },
+      {
+        "especificacao": "CDB 2013781",
+        "saldo_31_12": "52855.48",
+        "saldo_31_12_anterior": "54185.74"
+      }
+    ]
+  }
+}

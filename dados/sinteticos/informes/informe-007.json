@@ -1,0 +1,94 @@
+{
+  "arquivo_pdf": "informe-007.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "fonte_pagadora",
+  "par": {
+    "identificador": "par-004",
+    "papel": "ano_anterior",
+    "arquivo_do_par": "informe-008.pdf"
+  },
+  "quadros_sem_cobertura": [
+    "3",
+    "4",
+    "5"
+  ],
+  "campos": {
+    "layout": "fonte_pagadora",
+    "ano_calendario": 2024,
+    "exercicio": 2025,
+    "fonte_pagadora_cnpj": "84652931000164",
+    "fonte_pagadora_nome": "Costa",
+    "beneficiario_cpf": "96713802478",
+    "beneficiario_nome": "Olivia Silva",
+    "rendimentos_tributaveis": {
+      "identificador": "3",
+      "titulo": "Rendimentos Tributáveis, Deduções e Imposto sobre a Renda Retido na Fonte",
+      "linhas": [
+        {
+          "identificador": "3.1",
+          "descricao": "Total dos rendimentos (inclusive férias)",
+          "valor": "75802.11"
+        },
+        {
+          "identificador": "3.2",
+          "descricao": "Contribuição previdenciária oficial",
+          "valor": "159706.93"
+        },
+        {
+          "identificador": "3.3",
+          "descricao": "Contribuição a entidades de previdência complementar e a Fapi",
+          "valor": "170356.39"
+        }
+      ],
+      "total_impresso": null
+    },
+    "rendimentos_isentos": {
+      "identificador": "4",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "4.3",
+          "descricao": "Pensão e proventos por moléstia grave ou acidente em serviço",
+          "valor": "24679.84"
+        },
+        {
+          "identificador": "4.6",
+          "descricao": "Indenizações por rescisão de contrato de trabalho e por acidente",
+          "valor": "21911.67"
+        },
+        {
+          "identificador": "4.7",
+          "descricao": "Outros",
+          "valor": "15870.84"
+        }
+      ],
+      "total_impresso": null
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "5",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva (rendimento líquido)",
+      "linhas": [
+        {
+          "identificador": "5.1",
+          "descricao": "13º (décimo terceiro) salário",
+          "valor": "7073.37"
+        },
+        {
+          "identificador": "5.2",
+          "descricao": "Imposto sobre a renda retido na fonte sobre 13º salário",
+          "valor": "1768.34"
+        },
+        {
+          "identificador": "5.3",
+          "descricao": "Outros",
+          "valor": "3328.31"
+        }
+      ],
+      "total_impresso": null
+    },
+    "saldos": []
+  }
+}

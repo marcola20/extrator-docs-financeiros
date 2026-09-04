@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Comprovante de Rendimentos {{ informe.ano_calendario }}</title>
+<style>
+  /* Layout do modelo oficial: quadros com moldura, linhas numeradas, tudo
+     encostado. Denso de propósito — é assim que o formulário da Receita é, e
+     é o que separa este layout do bancário aos olhos do extrator. */
+  @page {
+    size: A4;
+    margin: 12mm 14mm;
+    @bottom-right {
+      content: "Página " counter(page) " de " counter(pages);
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 6pt;
+    }
+  }
+
+  body {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 7pt;
+    color: #000;
+  }
+
+  .orgao {
+    text-align: center;
+    line-height: 1.3;
+    margin-bottom: 2mm;
+  }
+
+  .orgao .ministerio {
+    font-size: 7pt;
+    text-transform: uppercase;
+  }
+
+  .orgao .titulo {
+    font-size: 10pt;
+    font-weight: bold;
+    margin-top: 1mm;
+  }
+
+  .exercicio {
+    display: flex;
+    justify-content: center;
+    gap: 12mm;
+    font-size: 8pt;
+    margin: 2mm 0 3mm;
+  }
+
+  .quadro {
+    border: 0.6pt solid #000;
+    margin-bottom: 2mm;
+  }
+
+  .quadro > .cabeca {
+    background: #e8e8e8;
+    border-bottom: 0.6pt solid #000;
+    padding: 1mm 1.5mm;
+    font-weight: bold;
+    font-size: 7.5pt;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .quadro > .cabeca .unidade {
+    font-weight: normal;
+    font-style: italic;
+  }
+
+  .campos {
+    display: flex;
+  }
+
+  .campo {
+    padding: 1mm 1.5mm;
+    border-right: 0.6pt solid #000;
+  }
+
+  .campo:last-child { border-right: none; flex: 1 }
+
+  .campo .rotulo {
+    font-size: 5.5pt;
+    text-transform: uppercase;
+    color: #333;
+  }
+
+  .campo .valor { font-size: 8pt }
+
+  table.linhas {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  table.linhas td {
+    padding: 0.8mm 1.5mm;
+    border-bottom: 0.3pt solid #bbb;
+    vertical-align: top;
+  }
+
+  table.linhas tr:last-child td { border-bottom: none }
+
+  td.numero { width: 6mm; text-align: right }
+  td.descricao { }
+  td.valor { width: 26mm; text-align: right; white-space: nowrap }
+
+  .vazio {
+    padding: 1.5mm;
+    font-style: italic;
+    color: #444;
+  }
+
+  .complementares {
+    border: 0.6pt solid #000;
+    padding: 1.5mm;
+    min-height: 12mm;
+    margin-bottom: 2mm;
+  }
+
+  .assinatura {
+    border: 0.6pt solid #000;
+    display: flex;
+  }
+
+  .rodape-legal {
+    margin-top: 3mm;
+    font-size: 5pt;
+    color: #444;
+    text-align: justify;
+    line-height: 1.25;
+  }
+</style>
+</head>
+<body>
+
+<div class="orgao">
+  <div class="ministerio">Ministério da Fazenda — Secretaria da Receita Federal do Brasil</div>
+  <div class="titulo">Comprovante de Rendimentos Pagos e de Imposto sobre a Renda Retido na Fonte</div>
+  <div>Imposto sobre a Renda da Pessoa Física</div>
+</div>
+
+<div class="exercicio">
+  <div>Ano-calendário de <strong>{{ informe.ano_calendario }}</strong></div>
+  <div>Exercício de <strong>{{ informe.exercicio }}</strong></div>
+</div>
+
+<div class="quadro">
+  <div class="cabeca"><span>1. Fonte Pagadora Pessoa Jurídica ou Pessoa Física</span></div>
+  <div class="campos">
+    <div class="campo" style="width: 42mm">
+      <div class="rotulo">CNPJ / CPF</div>
+      <div class="valor">{{ documento(informe.fonte_pagadora_cnpj) }}</div>
+    </div>
+    <div class="campo">
+      <div class="rotulo">Nome Empresarial / Nome Completo</div>
+      <div class="valor">{{ informe.fonte_pagadora_nome }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="quadro">
+  <div class="cabeca"><span>2. Pessoa Física Beneficiária dos Rendimentos</span></div>
+  <div class="campos">
+    <div class="campo" style="width: 42mm">
+      <div class="rotulo">CPF</div>
+      <div class="valor">{{ documento(informe.beneficiario_cpf) }}</div>
+    </div>
+    <div class="campo">
+      <div class="rotulo">Nome Completo</div>
+      <div class="valor">{{ informe.beneficiario_nome }}</div>
+    </div>
+  </div>
+  <div class="campos" style="border-top: 0.6pt solid #000">
+    <div class="campo">
+      <div class="rotulo">Natureza do Rendimento</div>
+      <div class="valor">{{ extra.natureza_do_rendimento }}</div>
+    </div>
+  </div>
+</div>
+
+{% for quadro in quadros %}
+<div class="quadro">
+  <div class="cabeca">
+    <span>{{ quadro.identificador }}. {{ quadro.titulo }}</span>
+    <span class="unidade">Valores em reais</span>
+  </div>
+  {% if quadro.linhas %}
+  <table class="linhas">
+    {% for linha in quadro.linhas %}
+    <tr>
+      <td class="numero">{{ linha.identificador.split('.')[-1] }}.</td>
+      <td class="descricao">{{ linha.descricao }}</td>
+      <td class="valor">{{ moeda(linha.valor) }}</td>
+    </tr>
+    {% endfor %}
+    {% if quadro.total_impresso is not none %}
+    <tr>
+      <td class="numero"></td>
+      <td class="descricao"><strong>Total</strong></td>
+      <td class="valor"><strong>{{ moeda(quadro.total_impresso) }}</strong></td>
+    </tr>
+    {% endif %}
+  </table>
+  {% else %}
+  <div class="vazio">Sem valores a declarar neste quadro.</div>
+  {% endif %}
+</div>
+{% endfor %}
+
+<div class="quadro">
+  <div class="cabeca"><span>7. Informações Complementares</span></div>
+  <div class="complementares">{{ extra.informacoes_complementares }}</div>
+</div>
+
+<div class="quadro">
+  <div class="cabeca"><span>8. Responsável pelas Informações</span></div>
+  <div class="campos">
+    <div class="campo" style="width: 70mm">
+      <div class="rotulo">Nome</div>
+      <div class="valor">{{ extra.responsavel_nome }}</div>
+    </div>
+    <div class="campo" style="width: 30mm">
+      <div class="rotulo">Data</div>
+      <div class="valor">{{ data(extra.data_de_emissao) }}</div>
+    </div>
+    <div class="campo">
+      <div class="rotulo">Assinatura</div>
+      <div class="valor">&nbsp;</div>
+    </div>
+  </div>
+</div>
+
+<div class="rodape-legal">
+  Aprovado pela Instrução Normativa RFB que disciplina o comprovante de rendimentos pagos e de
+  imposto sobre a renda retido na fonte. Verifique as condições e o prazo para a apresentação da
+  Declaração do Imposto sobre a Renda da Pessoa Física para este ano-calendário no sítio da
+  Secretaria da Receita Federal do Brasil na Internet. A falta de apresentação deste comprovante
+  ao beneficiário, ou o fornecimento com inexatidão, sujeita a fonte pagadora às penalidades
+  previstas na legislação de regência. Documento fictício, gerado para testes automatizados: não
+  tem validade fiscal e não corresponde a pessoa, empresa ou rendimento reais.
+</div>
+
+{% if ataque_html %}{{ ataque_html|safe }}{% endif %}
+
+</body>
+</html>

@@ -1,0 +1,80 @@
+{
+  "arquivo_pdf": "informe-014.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "instituicao_financeira",
+  "par": {
+    "identificador": "par-007",
+    "papel": "ano",
+    "arquivo_do_par": "informe-013.pdf"
+  },
+  "quadros_sem_cobertura": [],
+  "campos": {
+    "layout": "instituicao_financeira",
+    "ano_calendario": 2025,
+    "exercicio": 2026,
+    "fonte_pagadora_cnpj": "28374190000126",
+    "fonte_pagadora_nome": "Corretora Vértice CTVM",
+    "beneficiario_cpf": "08456219398",
+    "beneficiario_nome": "Rebeca Sales",
+    "rendimentos_tributaveis": {
+      "identificador": "rendimentos_tributaveis",
+      "titulo": "Rendimentos Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_isentos": {
+      "identificador": "rendimentos_isentos",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "Poupança",
+          "descricao": "Rendimentos de caderneta de poupança",
+          "valor": "333.59"
+        },
+        {
+          "identificador": "LCI",
+          "descricao": "Letra de Crédito Imobiliário",
+          "valor": "1211.91"
+        },
+        {
+          "identificador": "LCA",
+          "descricao": "Letra de Crédito do Agronegócio",
+          "valor": "2032.7"
+        }
+      ],
+      "total_impresso": "3578.20"
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "rendimentos_exclusivos",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva",
+      "linhas": [
+        {
+          "identificador": "CDB",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "4943.03"
+        },
+        {
+          "identificador": "Fundo DI",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "491.87"
+        },
+        {
+          "identificador": "Fundo Multimercado",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "6509.46"
+        }
+      ],
+      "total_impresso": "11944.36"
+    },
+    "saldos": [
+      {
+        "especificacao": "Conta Investimento 1580.468208210",
+        "saldo_31_12": "31120.92",
+        "saldo_31_12_anterior": "60595.8"
+      }
+    ]
+  }
+}

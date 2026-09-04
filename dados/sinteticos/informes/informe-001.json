@@ -1,0 +1,84 @@
+{
+  "arquivo_pdf": "informe-001.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "instituicao_financeira",
+  "par": {
+    "identificador": "par-001",
+    "papel": "ano_anterior",
+    "arquivo_do_par": "informe-002.pdf"
+  },
+  "quadros_sem_cobertura": [],
+  "campos": {
+    "layout": "instituicao_financeira",
+    "ano_calendario": 2024,
+    "exercicio": 2025,
+    "fonte_pagadora_cnpj": "01829356000103",
+    "fonte_pagadora_nome": "Banco Aurora S/A",
+    "beneficiario_cpf": "15974832655",
+    "beneficiario_nome": "Maysa da Costa",
+    "rendimentos_tributaveis": {
+      "identificador": "rendimentos_tributaveis",
+      "titulo": "Rendimentos Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_isentos": {
+      "identificador": "rendimentos_isentos",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "rendimentos_exclusivos",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva",
+      "linhas": [
+        {
+          "identificador": "CDB",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "15174.75"
+        },
+        {
+          "identificador": "Fundo DI",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "7148.59"
+        },
+        {
+          "identificador": "Fundo Multimercado",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "1890.41"
+        },
+        {
+          "identificador": "Tesouro Selic",
+          "descricao": "Título público federal",
+          "valor": "11700.58"
+        }
+      ],
+      "total_impresso": "35914.33"
+    },
+    "saldos": [
+      {
+        "especificacao": "Conta Corrente 5235.539572183",
+        "saldo_31_12": "212.63",
+        "saldo_31_12_anterior": "20127.12"
+      },
+      {
+        "especificacao": "CDB 8056747",
+        "saldo_31_12": "9289.25",
+        "saldo_31_12_anterior": "6771.59"
+      },
+      {
+        "especificacao": "Fundo DI 9236009",
+        "saldo_31_12": "37719.78",
+        "saldo_31_12_anterior": "8225.16"
+      },
+      {
+        "especificacao": "Fundo Multimercado 8400346",
+        "saldo_31_12": "41128.23",
+        "saldo_31_12_anterior": "57476.9"
+      }
+    ]
+  }
+}

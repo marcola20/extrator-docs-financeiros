@@ -1,0 +1,100 @@
+{
+  "arquivo_pdf": "informe-018.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "instituicao_financeira",
+  "par": {
+    "identificador": "par-009",
+    "papel": "ano",
+    "arquivo_do_par": "informe-017.pdf"
+  },
+  "quadros_sem_cobertura": [],
+  "campos": {
+    "layout": "instituicao_financeira",
+    "ano_calendario": 2025,
+    "exercicio": 2026,
+    "fonte_pagadora_cnpj": "93148072000161",
+    "fonte_pagadora_nome": "Cooperativa de Crédito Sul-Norte",
+    "beneficiario_cpf": "17846952030",
+    "beneficiario_nome": "Maitê Marques",
+    "rendimentos_tributaveis": {
+      "identificador": "rendimentos_tributaveis",
+      "titulo": "Rendimentos Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_isentos": {
+      "identificador": "rendimentos_isentos",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "Poupança",
+          "descricao": "Rendimentos de caderneta de poupança",
+          "valor": "5542.62"
+        },
+        {
+          "identificador": "LCI",
+          "descricao": "Letra de Crédito Imobiliário",
+          "valor": "6610.67"
+        },
+        {
+          "identificador": "LCA",
+          "descricao": "Letra de Crédito do Agronegócio",
+          "valor": "2917.85"
+        }
+      ],
+      "total_impresso": "15071.14"
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "rendimentos_exclusivos",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva",
+      "linhas": [
+        {
+          "identificador": "CDB",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "19811.89"
+        },
+        {
+          "identificador": "Fundo DI",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "13154.48"
+        },
+        {
+          "identificador": "Fundo Multimercado",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "12459.75"
+        },
+        {
+          "identificador": "Tesouro Selic",
+          "descricao": "Título público federal",
+          "valor": "1885.83"
+        }
+      ],
+      "total_impresso": "47311.95"
+    },
+    "saldos": [
+      {
+        "especificacao": "Conta Corrente 5801.640972994",
+        "saldo_31_12": "40148.88",
+        "saldo_31_12_anterior": "31640.33"
+      },
+      {
+        "especificacao": "Fundo Multimercado 3118925",
+        "saldo_31_12": "36836.94",
+        "saldo_31_12_anterior": "55582.33"
+      },
+      {
+        "especificacao": "CDB 6972209",
+        "saldo_31_12": "91088.04",
+        "saldo_31_12_anterior": "15390.33"
+      },
+      {
+        "especificacao": "Fundo DI 7967545",
+        "saldo_31_12": "90820.22",
+        "saldo_31_12_anterior": "55495.9"
+      }
+    ]
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "arquivo_pdf": "informe-012.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "fonte_pagadora",
+  "par": {
+    "identificador": "par-006",
+    "papel": "ano",
+    "arquivo_do_par": "informe-011.pdf"
+  },
+  "quadros_sem_cobertura": [
+    "3",
+    "4",
+    "5"
+  ],
+  "campos": {
+    "layout": "fonte_pagadora",
+    "ano_calendario": 2025,
+    "exercicio": 2026,
+    "fonte_pagadora_cnpj": "36290541000149",
+    "fonte_pagadora_nome": "Pimenta S.A.",
+    "beneficiario_cpf": "78431690593",
+    "beneficiario_nome": "Maria Eduarda Brito",
+    "rendimentos_tributaveis": {
+      "identificador": "3",
+      "titulo": "Rendimentos Tributáveis, Deduções e Imposto sobre a Renda Retido na Fonte",
+      "linhas": [
+        {
+          "identificador": "3.1",
+          "descricao": "Total dos rendimentos (inclusive férias)",
+          "valor": "62220.55"
+        },
+        {
+          "identificador": "3.2",
+          "descricao": "Contribuição previdenciária oficial",
+          "valor": "10121.69"
+        },
+        {
+          "identificador": "3.5",
+          "descricao": "Imposto sobre a renda retido na fonte",
+          "valor": "73659.58"
+        }
+      ],
+      "total_impresso": null
+    },
+    "rendimentos_isentos": {
+      "identificador": "4",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "4.2",
+          "descricao": "Diárias e ajudas de custo",
+          "valor": "23411.93"
+        },
+        {
+          "identificador": "4.3",
+          "descricao": "Pensão e proventos por moléstia grave ou acidente em serviço",
+          "valor": "30759.12"
+        },
+        {
+          "identificador": "4.7",
+          "descricao": "Outros",
+          "valor": "4355.36"
+        }
+      ],
+      "total_impresso": null
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "5",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva (rendimento líquido)",
+      "linhas": [
+        {
+          "identificador": "5.1",
+          "descricao": "13º (décimo terceiro) salário",
+          "valor": "10023.45"
+        },
+        {
+          "identificador": "5.2",
+          "descricao": "Imposto sobre a renda retido na fonte sobre 13º salário",
+          "valor": "9056.43"
+        }
+      ],
+      "total_impresso": null
+    },
+    "saldos": []
+  }
+}

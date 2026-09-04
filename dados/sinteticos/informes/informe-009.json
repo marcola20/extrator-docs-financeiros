@@ -1,0 +1,95 @@
+{
+  "arquivo_pdf": "informe-009.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "instituicao_financeira",
+  "par": {
+    "identificador": "par-005",
+    "papel": "ano_anterior",
+    "arquivo_do_par": "informe-010.pdf"
+  },
+  "quadros_sem_cobertura": [],
+  "campos": {
+    "layout": "instituicao_financeira",
+    "ano_calendario": 2024,
+    "exercicio": 2025,
+    "fonte_pagadora_cnpj": "76082539000107",
+    "fonte_pagadora_nome": "Banco Palmares S/A",
+    "beneficiario_cpf": "02764389140",
+    "beneficiario_nome": "Sra. Nina Moraes",
+    "rendimentos_tributaveis": {
+      "identificador": "rendimentos_tributaveis",
+      "titulo": "Rendimentos Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_isentos": {
+      "identificador": "rendimentos_isentos",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "Poupança",
+          "descricao": "Rendimentos de caderneta de poupança",
+          "valor": "16481.21"
+        }
+      ],
+      "total_impresso": "16481.21"
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "rendimentos_exclusivos",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva",
+      "linhas": [
+        {
+          "identificador": "CDB",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "18520.85"
+        },
+        {
+          "identificador": "Fundo DI",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "10849.18"
+        },
+        {
+          "identificador": "Fundo Multimercado",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "18771.45"
+        },
+        {
+          "identificador": "Tesouro Selic",
+          "descricao": "Título público federal",
+          "valor": "2898.23"
+        },
+        {
+          "identificador": "LF",
+          "descricao": "Letra Financeira",
+          "valor": "3373.63"
+        }
+      ],
+      "total_impresso": "54413.34"
+    },
+    "saldos": [
+      {
+        "especificacao": "Conta Corrente 5512.492651275",
+        "saldo_31_12": "77297.28",
+        "saldo_31_12_anterior": "54293.62"
+      },
+      {
+        "especificacao": "Fundo DI 7696744",
+        "saldo_31_12": "54377.54",
+        "saldo_31_12_anterior": "3794.72"
+      },
+      {
+        "especificacao": "CDB 1572987",
+        "saldo_31_12": "37901.48",
+        "saldo_31_12_anterior": "4042.25"
+      },
+      {
+        "especificacao": "Fundo Multimercado 4279843",
+        "saldo_31_12": "40587.5",
+        "saldo_31_12_anterior": "15814.98"
+      }
+    ]
+  }
+}

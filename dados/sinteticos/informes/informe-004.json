@@ -1,0 +1,109 @@
+{
+  "arquivo_pdf": "informe-004.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "fonte_pagadora",
+  "par": {
+    "identificador": "par-002",
+    "papel": "ano",
+    "arquivo_do_par": "informe-003.pdf"
+  },
+  "quadros_sem_cobertura": [
+    "3",
+    "4",
+    "5"
+  ],
+  "campos": {
+    "layout": "fonte_pagadora",
+    "ano_calendario": 2025,
+    "exercicio": 2026,
+    "fonte_pagadora_cnpj": "84931720000160",
+    "fonte_pagadora_nome": "Fonseca",
+    "beneficiario_cpf": "75392841023",
+    "beneficiario_nome": "Sra. Aurora Novais",
+    "rendimentos_tributaveis": {
+      "identificador": "3",
+      "titulo": "Rendimentos Tributáveis, Deduções e Imposto sobre a Renda Retido na Fonte",
+      "linhas": [
+        {
+          "identificador": "3.1",
+          "descricao": "Total dos rendimentos (inclusive férias)",
+          "valor": "145085.92"
+        },
+        {
+          "identificador": "3.2",
+          "descricao": "Contribuição previdenciária oficial",
+          "valor": "158719.36"
+        },
+        {
+          "identificador": "3.4",
+          "descricao": "Pensão alimentícia",
+          "valor": "41940.85"
+        },
+        {
+          "identificador": "3.5",
+          "descricao": "Imposto sobre a renda retido na fonte",
+          "valor": "154275.41"
+        }
+      ],
+      "total_impresso": null
+    },
+    "rendimentos_isentos": {
+      "identificador": "4",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "4.1",
+          "descricao": "Parcela isenta de proventos de aposentadoria (65 anos ou mais)",
+          "valor": "30069.27"
+        },
+        {
+          "identificador": "4.2",
+          "descricao": "Diárias e ajudas de custo",
+          "valor": "22985.47"
+        },
+        {
+          "identificador": "4.5",
+          "descricao": "Valores pagos ao titular ou sócio de microempresa ou EPP",
+          "valor": "23091.01"
+        },
+        {
+          "identificador": "4.6",
+          "descricao": "Indenizações por rescisão de contrato de trabalho e por acidente",
+          "valor": "21151.19"
+        },
+        {
+          "identificador": "4.7",
+          "descricao": "Outros",
+          "valor": "33859.71"
+        }
+      ],
+      "total_impresso": null
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "5",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva (rendimento líquido)",
+      "linhas": [
+        {
+          "identificador": "5.1",
+          "descricao": "13º (décimo terceiro) salário",
+          "valor": "3205.3"
+        },
+        {
+          "identificador": "5.2",
+          "descricao": "Imposto sobre a renda retido na fonte sobre 13º salário",
+          "valor": "801.32"
+        },
+        {
+          "identificador": "5.3",
+          "descricao": "Outros",
+          "valor": "2651.18"
+        }
+      ],
+      "total_impresso": null
+    },
+    "saldos": []
+  }
+}

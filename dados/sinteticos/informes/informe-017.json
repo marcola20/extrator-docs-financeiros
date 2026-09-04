@@ -1,0 +1,85 @@
+{
+  "arquivo_pdf": "informe-017.pdf",
+  "gerado_com": {
+    "semente": 2026,
+    "data_de_referencia": "2026-09-04"
+  },
+  "layout": "instituicao_financeira",
+  "par": {
+    "identificador": "par-009",
+    "papel": "ano_anterior",
+    "arquivo_do_par": "informe-018.pdf"
+  },
+  "quadros_sem_cobertura": [],
+  "campos": {
+    "layout": "instituicao_financeira",
+    "ano_calendario": 2024,
+    "exercicio": 2025,
+    "fonte_pagadora_cnpj": "93148072000161",
+    "fonte_pagadora_nome": "Cooperativa de Crédito Sul-Norte",
+    "beneficiario_cpf": "17846952030",
+    "beneficiario_nome": "Maitê Marques",
+    "rendimentos_tributaveis": {
+      "identificador": "rendimentos_tributaveis",
+      "titulo": "Rendimentos Tributáveis",
+      "linhas": [],
+      "total_impresso": "0"
+    },
+    "rendimentos_isentos": {
+      "identificador": "rendimentos_isentos",
+      "titulo": "Rendimentos Isentos e Não Tributáveis",
+      "linhas": [
+        {
+          "identificador": "Poupança",
+          "descricao": "Rendimentos de caderneta de poupança",
+          "valor": "4796.87"
+        }
+      ],
+      "total_impresso": "4796.87"
+    },
+    "rendimentos_exclusivos": {
+      "identificador": "rendimentos_exclusivos",
+      "titulo": "Rendimentos Sujeitos à Tributação Exclusiva",
+      "linhas": [
+        {
+          "identificador": "CDB",
+          "descricao": "Certificado de Depósito Bancário",
+          "valor": "499.93"
+        },
+        {
+          "identificador": "Fundo DI",
+          "descricao": "Fundo de investimento referenciado DI",
+          "valor": "358.03"
+        },
+        {
+          "identificador": "Fundo Multimercado",
+          "descricao": "Fundo de investimento multimercado",
+          "valor": "5815.57"
+        }
+      ],
+      "total_impresso": "6673.53"
+    },
+    "saldos": [
+      {
+        "especificacao": "Conta Corrente 5801.640972994",
+        "saldo_31_12": "31640.33",
+        "saldo_31_12_anterior": "32221.13"
+      },
+      {
+        "especificacao": "Fundo Multimercado 3118925",
+        "saldo_31_12": "55582.33",
+        "saldo_31_12_anterior": "35314.81"
+      },
+      {
+        "especificacao": "CDB 6972209",
+        "saldo_31_12": "15390.33",
+        "saldo_31_12_anterior": "10503.21"
+      },
+      {
+        "especificacao": "Fundo DI 7967545",
+        "saldo_31_12": "55495.9",
+        "saldo_31_12_anterior": "2383.8"
+      }
+    ]
+  }
+}
