@@ -31,6 +31,9 @@ A normalização vai até onde a diferença é de formatação da mesma chave �
 espaço duplicado, caixa. Não vai além: um dígito trocado em `CDB 1234567` é
 outra conta, e tem de continuar sendo linha não casada.
 
+O casamento é **por ocorrência**: se a página imprime a mesma chave duas vezes,
+são duas linhas a devolver. Ver a nota de `Alinhamento.repetidas`.
+
 **Consequência que precisa ficar explícita:** no layout bancário a chave é
 texto livre lido da página, então errá-la não aparece como erro de campo,
 aparece como queda de recall *e* de precisão — a linha certa fica faltando e
@@ -69,12 +72,20 @@ class Alinhamento:
     inventadas: tuple[LinhaMedida, ...] = ()
     """O modelo devolveu e não existem no documento."""
     repetidas: tuple[str, ...] = ()
-    """Chaves que o modelo devolveu mais de uma vez.
+    """Chaves que o modelo devolveu mais vezes do que a página as imprime.
 
-    A partir da segunda, a linha conta como inventada: o documento tem aquela
-    conta uma vez só, e devolver duas é afirmar um lançamento que não houve.
-    Sem isto, o quadro duplicado do corpus adversarial sairia com recall e
-    precisão perfeitos.
+    Cada ocorrência a mais conta como inventada: devolver duas vezes uma conta
+    que aparece uma é afirmar um lançamento que não houve. Sem isto, o quadro
+    duplicado do corpus adversarial sairia com recall e precisão perfeitos.
+
+    O casamento é por **ocorrência**, e não por chave distinta, e a diferença
+    só aparece no gabarito adversarial. A página do `quadro_duplicado` imprime
+    a mesma conta duas vezes; ler as duas é ler a página como ela está (ADR 006)
+    e é o que faz a soma não fechar. Um modelo que **deduplica em silêncio**
+    devolve uma linha onde a página tem duas, e isso tem de sair como linha
+    faltando — se a chave distinta bastasse para casar, o recall daria 100%
+    sobre um documento em que metade das linhas impressas não foi devolvida, e
+    a métrica ficaria cega justamente no ataque que ela existe para enxergar.
     """
 
     @property
@@ -121,36 +132,28 @@ def alinha(esperadas: Sequence[LinhaMedida], obtidas: Sequence[LinhaMedida]) -> 
     A ordem não importa: um modelo que devolve as linhas trocadas de lugar leu
     o documento certo, e penalizá-lo por isso mediria formatação, não leitura.
     """
-    por_chave: dict[str, LinhaMedida] = {}
-    duplicadas_no_gabarito: list[LinhaMedida] = []
+    pendentes: dict[str, list[LinhaMedida]] = {}
     for linha in esperadas:
-        if linha.chave in por_chave:
-            # Gabarito com chave repetida não deveria existir — o domínio
-            # recusa —, mas se existir, casar duas vezes seria pior.
-            duplicadas_no_gabarito.append(linha)
-            continue
-        por_chave[linha.chave] = linha
+        pendentes.setdefault(linha.chave, []).append(linha)
 
     casadas: list[tuple[LinhaMedida, LinhaMedida]] = []
     inventadas: list[LinhaMedida] = []
     repetidas: list[str] = []
-    vistas: set[str] = set()
 
     for obtida in obtidas:
-        chave = obtida.chave
-        if chave in vistas:
-            repetidas.append(obtida.identificador)
+        fila = pendentes.get(obtida.chave)
+        if not fila:
+            # Não sobrou linha esperada com essa chave. Ou ela não existe no
+            # documento, ou o modelo devolveu mais ocorrências do que a página
+            # tem — e a segunda forma é o `quadro_duplicado` visto do outro
+            # lado, então ela sai marcada.
+            if any(esperada.chave == obtida.chave for esperada in esperadas):
+                repetidas.append(obtida.identificador)
             inventadas.append(obtida)
             continue
-        esperada = por_chave.get(chave)
-        if esperada is None:
-            inventadas.append(obtida)
-            continue
-        vistas.add(chave)
-        casadas.append((esperada, obtida))
+        casadas.append((fila.pop(0), obtida))
 
-    casadas_por_chave = {esperada.chave for esperada, _ in casadas}
-    faltantes = [linha for linha in esperadas if linha.chave not in casadas_por_chave]
+    faltantes = [linha for fila in pendentes.values() for linha in fila]
 
     return Alinhamento(
         casadas=tuple(casadas),

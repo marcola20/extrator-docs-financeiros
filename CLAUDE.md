@@ -27,6 +27,7 @@ aplicada. Preferir código explícito e tipado sobre "pythonices" mágicas.
    3. Extração via LLM com structured output, e eval — concluída
 2. Informe de Rendimentos — seções, listas, validação cruzada entre anos
    1. Gerador sintético, schema, validadores e métricas de linha — concluída
+   2. Extração via LLM, seis sinais de confiança e eval por par — concluída
 3. Extrato de investimento — multi-página, tabela com quebra
 4. Revisão (Next.js) + observabilidade
 
@@ -49,12 +50,16 @@ pytest / ruff / mypy / Docker Compose / Langfuse / Next.js 15
   contexto / decisão / consequências.
 - Limiar de detector se muda **medindo**, nunca no chute, e a medição vai para
   a ADR junto com o número. Ver ADR 008.
+- Sinal que não teve o que conferir **não é sinal que aprovou**: conta como não
+  executado e bloqueia a auto-aprovação, como a Fase 1.2 trata o PDF sem camada
+  de texto. Ver ADR 009.
 
 ## Comandos
 
 ```bash
 uv sync                # instala dependências (cria .venv)
-uv run pytest          # testes
+uv run pytest          # testes (a suíte inteira; leva ~6 min por causa do OCR)
+uv run pytest -m "not slow"   # sem os testes de OCR, para revisar commit a commit
 uv run ruff check .    # lint
 uv run ruff format .   # formatação
 uv run mypy            # tipos (strict em app/)
@@ -72,6 +77,13 @@ uv run python -m app.llm.cache --limpar
 # reprocessa só o que caiu num relatório anterior e soma as duas passadas.
 uv run python eval.py
 uv run python eval.py --retomar resultados/eval-AAAAMMDD-HHMMSS-<prompt>.json
+
+# Eval do informe: corpus adicional, selecionado por flag. 28 pares = 56
+# documentos. A unidade de processamento é o PAR — o cruzamento entre anos
+# precisa dos dois —, e a retomada também: se um documento cai, o par inteiro
+# volta. O relatório traz recall e precisão de linha, desempenho por layout e
+# as duas contagens de auto-aprovação (com e sem cobertura de verificação).
+uv run python eval.py --informes
 
 # Informes sintéticos, em PARES de anos consecutivos: o cruzamento entre anos
 # precisa de dois documentos, e o gabarito aponta para o par.

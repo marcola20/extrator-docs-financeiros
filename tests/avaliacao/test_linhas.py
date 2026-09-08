@@ -193,3 +193,47 @@ class TestAgregacao:
 
         assert total.recall == 1.0
         assert total.precisao == 1.0
+
+
+class TestGabaritoComChaveRepetida:
+    """A página do `quadro_duplicado` imprime a mesma conta duas vezes.
+
+    Ler as duas é ler a página como ela está (ADR 006), e é o que faz a soma
+    não fechar. Deduplicar em silêncio é deixar de devolver uma linha impressa,
+    e a métrica precisa enxergar isso — era o ponto cego que o eval de
+    2026-09-08 encontrou.
+    """
+
+    def test_devolver_as_duas_ocorrencias_e_ler_certo(self) -> None:
+        duplicado = (*TRES, TRES[0])
+
+        metricas = mede(duplicado, duplicado, CAMPOS, iguais)
+
+        assert metricas.recall == 1.0
+        assert metricas.precisao == 1.0
+        assert metricas.alinhamento.repetidas == ()
+
+    def test_deduplicar_em_silencio_conta_como_linha_faltando(self) -> None:
+        duplicado = (*TRES, TRES[0])
+
+        metricas = mede(duplicado, TRES, CAMPOS, iguais)
+
+        assert metricas.alinhamento.esperadas == 4
+        assert len(metricas.alinhamento.faltantes) == 1
+        assert metricas.recall == 3 / 4
+        assert metricas.precisao == 1.0, "as três devolvidas existem mesmo"
+
+    def test_quadro_inteiro_deduplicado_derruba_o_recall_pela_metade(self) -> None:
+        metricas = mede((*TRES, *TRES), TRES, CAMPOS, iguais)
+
+        assert metricas.recall == 0.5
+        assert metricas.acuracia("valor") == 1.0, "as casadas continuam certas"
+
+    def test_a_acuracia_de_campo_conta_as_duas_ocorrencias(self) -> None:
+        duplicado = (*TRES, TRES[0])
+
+        metricas = mede(duplicado, duplicado, CAMPOS, iguais)
+
+        assert metricas.alinhamento.esperadas == 4
+        for medida in metricas.por_campo:
+            assert medida.avaliados == 4
