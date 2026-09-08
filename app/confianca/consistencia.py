@@ -21,6 +21,7 @@ não um defeito do código, e está registrada no ADR 005: **concordância aqui
 é evidência fraca; divergência é evidência forte.**
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -45,7 +46,12 @@ class ModoConsistencia(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class Divergencia:
-    """Um campo em que as duas execuções não concordaram."""
+    """Um campo em que as duas execuções não concordaram.
+
+    No boleto `campo` é o nome do campo. No informe é o **lugar** —
+    `rendimentos_isentos[LCI].valor` —, porque o mesmo campo aparece dezenas
+    de vezes e "valor divergiu" não diria qual.
+    """
 
     campo: str
     primeira: str
@@ -59,6 +65,10 @@ class ResultadoConsistencia:
     executou: bool
     divergencias: tuple[Divergencia, ...] = ()
     motivo_de_nao_executar: str = ""
+    campos_comparados: int = len(CAMPOS)
+    """Denominador da taxa de divergência. Dez no boleto; no informe depende
+    de quantas linhas o documento tem, e um número fixo diria outra coisa."""
+
     dispensado: bool = False
     """Não rodou por decisão do operador, e não por falha.
 
@@ -73,7 +83,9 @@ class ResultadoConsistencia:
 
     @property
     def taxa_de_divergencia(self) -> float:
-        return len(self.divergencias) / len(CAMPOS) if self.executou else 0.0
+        if not self.executou or not self.campos_comparados:
+            return 0.0
+        return len(self.divergencias) / self.campos_comparados
 
     def descricao(self) -> str:
         if not self.executou:
@@ -93,14 +105,31 @@ def falha(motivo: str) -> ResultadoConsistencia:
     return ResultadoConsistencia(executou=False, motivo_de_nao_executar=motivo, dispensado=False)
 
 
-def compara(primeira: BoletoExtraido, segunda: BoletoExtraido) -> ResultadoConsistencia:
-    """Compara duas extrações campo a campo. Função pura, sem rede."""
+def compara_mapas(primeira: Mapping[str, str], segunda: Mapping[str, str]) -> ResultadoConsistencia:
+    """Compara duas execuções lugar a lugar. Função pura, sem rede.
+
+    Lugar que só uma das duas devolveu conta como divergência, com o lado que
+    faltou em branco. É o caso que importa no documento multi-registro: uma
+    execução que devolve trinta linhas e outra que devolve vinte e nove não
+    "concordam nos campos comuns" — elas leram documentos diferentes.
+    """
+    lugares = list(dict.fromkeys([*primeira, *segunda]))
     divergencias = tuple(
-        Divergencia(campo, a, b)
-        for campo in CAMPOS
-        if (a := getattr(primeira, campo).strip()) != (b := getattr(segunda, campo).strip())
+        Divergencia(lugar, a, b)
+        for lugar in lugares
+        if (a := primeira.get(lugar, "").strip()) != (b := segunda.get(lugar, "").strip())
     )
-    return ResultadoConsistencia(executou=True, divergencias=divergencias)
+    return ResultadoConsistencia(
+        executou=True, divergencias=divergencias, campos_comparados=len(lugares)
+    )
+
+
+def compara(primeira: BoletoExtraido, segunda: BoletoExtraido) -> ResultadoConsistencia:
+    """Compara duas extrações de boleto campo a campo."""
+    return compara_mapas(
+        {campo: getattr(primeira, campo) for campo in CAMPOS},
+        {campo: getattr(segunda, campo) for campo in CAMPOS},
+    )
 
 
 def deve_executar(modo: ModoConsistencia, *, algum_sinal_falhou: bool) -> tuple[bool, str]:

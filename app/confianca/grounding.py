@@ -21,16 +21,47 @@ lê o resultado vê a diferença entre conferido e dispensado.
 Presença literal não é correção. Um CNPJ que aparece na página mas pertence ao
 pagador, e não ao beneficiário, passa aqui — o campo está trocado e o texto
 contém os dois. Grounding pega invenção, não troca de campo.
+
+## O documento multi-registro
+
+O informe não tem dez campos planos: tem três quadros de linhas, os totais
+deles e a tabela de saldos. A conferência é a mesma — o valor está escrito na
+página? —, mas cada resposta precisa dizer **de qual linha** ela fala, senão o
+relatório diz "valor não aparece" sobre um documento com quarenta valores.
+Por isso `Conferencia` carrega `local`, e a função que percorre uma lista de
+itens (`confere_itens`) é a mesma para os dois documentos.
+
+Vale marcar o que isso compra de graça: `total_impresso` é conferido como
+qualquer outro valor, então um modelo que **soma as linhas** em vez de
+transcrever o total — o que tornaria o sinal de aritmética uma tautologia —
+devolve um número que não está na página, e cai aqui.
 """
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from app.confianca import campos, normalizacao
 from app.extracao.schema_transporte import CAMPOS, BoletoExtraido
 
+if TYPE_CHECKING:
+    from app.extracao.schema_transporte_informe import InformeExtraido
+
 CAMPOS_ISENTOS: dict[str, str] = {
     "banco_nome": ("derivável de banco_codigo; o cabeçalho pode trazer só a marca do banco"),
+}
+
+CAMPOS_ISENTOS_DO_INFORME: dict[str, str] = {
+    "layout": (
+        "é a classificação do documento, não texto impresso nele; quem diz se "
+        "o modelo acertou é a acurácia contra o gabarito"
+    ),
+    "identificador": (
+        "no comprovante a página imprime o número do quadro e o da linha "
+        "separados, então `3.1` não aparece literalmente; a chave é medida por "
+        "recall e precisão de linha, e não aqui"
+    ),
 }
 
 # A classificação dos campos não mora aqui: ela é a mesma que a conversão
@@ -55,6 +86,17 @@ class Conferencia:
     situacao: Situacao
     valor: str
     motivo: str = ""
+    local: str = ""
+    """Onde no documento, quando o documento tem mais de um valor por campo.
+
+    Vazio no boleto, onde campo e lugar são a mesma coisa. No informe é
+    `rendimentos_isentos[LCI].valor`, e sem ele o relatório diria "valor não
+    aparece" sobre um documento com quarenta valores.
+    """
+
+    @property
+    def onde(self) -> str:
+        return self.local or self.campo
 
     @property
     def reprova(self) -> bool:
@@ -88,7 +130,7 @@ class ResultadoGrounding:
     def descricao(self) -> str:
         if self.aprovado:
             return "todos os campos conferíveis aparecem no documento"
-        return "; ".join(f"{c.campo} não aparece no documento ({c.valor!r})" for c in self.ausentes)
+        return "; ".join(f"{c.onde} não aparece no documento ({c.valor!r})" for c in self.ausentes)
 
 
 def _aparece(campo: str, valor: str, texto: str, texto_digitos: str) -> bool:
@@ -132,23 +174,54 @@ def _aparece(campo: str, valor: str, texto: str, texto_digitos: str) -> bool:
             return forma in texto
 
 
-def confere(bruto: BoletoExtraido, texto_de_origem: str) -> ResultadoGrounding:
-    """Confere cada campo extraído contra o texto de onde ele deveria ter saído."""
+def confere_itens(
+    itens: Sequence[tuple[str, str, str]],
+    texto_de_origem: str,
+    *,
+    isentos: Mapping[str, str],
+) -> ResultadoGrounding:
+    """Confere uma lista de `(campo, valor, local)` contra o texto de origem.
+
+    É o percurso, sem saber de qual documento os itens vieram. O boleto passa
+    dez itens de local vazio; o informe passa os escalares, os valores de
+    linha, os totais e os saldos, cada um com o endereço de onde saiu.
+    """
     texto = normalizacao.texto_comparavel(texto_de_origem)
     texto_digitos = normalizacao.digitos(texto_de_origem)
 
     conferencias = []
-    for campo in CAMPOS:
-        valor = getattr(bruto, campo).strip()
+    for campo, escrito, local in itens:
+        valor = escrito.strip()
 
-        if campo in CAMPOS_ISENTOS:
-            conferencias.append(Conferencia(campo, Situacao.ISENTO, valor, CAMPOS_ISENTOS[campo]))
+        if campo in isentos:
+            conferencias.append(Conferencia(campo, Situacao.ISENTO, valor, isentos[campo], local))
         elif not valor:
-            conferencias.append(Conferencia(campo, Situacao.VAZIO, valor, "o modelo não preencheu"))
+            conferencias.append(
+                Conferencia(campo, Situacao.VAZIO, valor, "o modelo não preencheu", local)
+            )
         elif _aparece(campo, valor, texto, texto_digitos):
-            conferencias.append(Conferencia(campo, Situacao.ENCONTRADO, valor))
+            conferencias.append(Conferencia(campo, Situacao.ENCONTRADO, valor, "", local))
         else:
             conferencias.append(
-                Conferencia(campo, Situacao.AUSENTE, valor, "não aparece no texto de origem")
+                Conferencia(campo, Situacao.AUSENTE, valor, "não aparece no texto de origem", local)
             )
     return ResultadoGrounding(tuple(conferencias))
+
+
+def confere(bruto: BoletoExtraido, texto_de_origem: str) -> ResultadoGrounding:
+    """Confere cada campo extraído contra o texto de onde ele deveria ter saído."""
+    itens = [(campo, getattr(bruto, campo), "") for campo in CAMPOS]
+    return confere_itens(itens, texto_de_origem, isentos=CAMPOS_ISENTOS)
+
+
+def confere_informe(bruto: "InformeExtraido", texto_de_origem: str) -> ResultadoGrounding:
+    """Confere o informe inteiro: escalares, valores de linha, totais e saldos.
+
+    O achatamento vem de `app.extracao.extrator_informe.valores_extraidos`, e
+    não daqui, porque quem sabe a forma do documento é quem o extraiu. Este
+    módulo sabe conferir presença, e é só isso que ele faz.
+    """
+    from app.extracao.extrator_informe import valores_extraidos
+
+    itens = [(v.campo, v.valor, v.local) for v in valores_extraidos(bruto)]
+    return confere_itens(itens, texto_de_origem, isentos=CAMPOS_ISENTOS_DO_INFORME)
