@@ -19,6 +19,8 @@ import pytest
 from pydantic import BaseModel, SecretStr
 
 import eval as modulo_eval
+from app.avaliacao import relatorio as modulo_relatorio
+from app.avaliacao.relatorio import RetomadaInvalida
 from app.config import Settings
 from app.extracao.prompt import carrega
 from app.llm.limitador import CotaDiariaExcedida
@@ -257,7 +259,7 @@ class TestModoDeConsistenciaDoEval:
     def test_retomada_recusa_modo_diferente_do_anterior(self) -> None:
         argumentos = modulo_eval._analisa_argumentos(["--consistencia", "nunca"])
 
-        with pytest.raises(modulo_eval.RetomadaInvalida, match="consistência"):
+        with pytest.raises(RetomadaInvalida, match="consistência"):
             modulo_eval._modo_de_consistencia(argumentos, "sempre")
 
     def test_modo_invalido_e_recusado(self) -> None:
@@ -482,7 +484,7 @@ def _roda_main(
 ) -> tuple[int, Path | None]:
     """Roda o eval de ponta a ponta sem rede e devolve o relatório que ele gravou."""
     resultados = tmp_path / "resultados"
-    monkeypatch.setattr(modulo_eval, "DIRETORIO_RESULTADOS", resultados)
+    monkeypatch.setattr(modulo_relatorio, "DIRETORIO_RESULTADOS", resultados)
     monkeypatch.setattr(modulo_eval, "get_settings", lambda: settings)
     monkeypatch.setattr(modulo_eval, "cria_provedor", lambda *a, **k: provedor)
     monkeypatch.setattr(modulo_eval, "provedor_para_segunda_execucao", lambda *a, **k: provedor)

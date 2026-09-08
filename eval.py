@@ -116,6 +116,19 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from app.avaliacao.relatorio import (
+    RetomadaInvalida,
+    confere_compatibilidade,
+    imprime_cabecalho,
+    imprime_fora_da_medicao,
+    imprime_origem,
+    monta_passada_nova,
+    passadas_anteriores,
+    percentil,
+    procedencia_do_corpus,
+    registros_do_relatorio,
+    salva,
+)
 from app.confianca import campos
 from app.confianca.consistencia import ModoConsistencia, provedor_para_segunda_execucao
 from app.confianca.politica import Sinal
@@ -129,7 +142,6 @@ from app.pipeline import ResultadoPipeline, processa
 
 CORPUS_LIMPO = Path("dados/sinteticos/boletos")
 CORPUS_ADVERSARIAL = Path("dados/sinteticos/boletos_adversariais")
-DIRETORIO_RESULTADOS = Path("resultados")
 
 
 @dataclass(slots=True)
@@ -320,6 +332,16 @@ class Registro:
         )
 
 
+def _procedencia(casos: Sequence[Caso]) -> dict[str, Any]:
+    """A procedência de cada corpus de boleto, na forma que o relatório grava."""
+    return procedencia_do_corpus(
+        [
+            ("adversarial" if caso.adversarial else "limpo", caso.gabarito.get("gerado_com"))
+            for caso in casos
+        ]
+    )
+
+
 def carrega_casos(*, limpos: bool, adversariais: bool, limite: int | None) -> list[Caso]:
     casos: list[Caso] = []
     if limpos:
@@ -338,70 +360,6 @@ def carrega_casos(*, limpos: bool, adversariais: bool, limite: int | None) -> li
                 )
             )
     return casos[:limite] if limite else casos
-
-
-class RetomadaInvalida(Exception):
-    """O relatório apontado não pode ser somado com esta execução."""
-
-
-def _procedencia_do_corpus(casos: Sequence[Caso]) -> dict[str, Any]:
-    """Semente e data de referência de cada corpus carregado.
-
-    Reproduzir um lote precisa das duas, e a mesma semente em outro dia gera
-    outro corpus em silêncio — ver a seção de corpus reproduzível no CLAUDE.md.
-    O relatório grava isso para que somar duas passadas possa ser recusado
-    quando o corpus mudou entre elas.
-    """
-    procedencia: dict[str, Any] = {}
-    for caso in casos:
-        chave = "adversarial" if caso.adversarial else "limpo"
-        procedencia.setdefault(chave, caso.gabarito.get("gerado_com"))
-    return procedencia
-
-
-def _registros_do_relatorio(relatorio: dict[str, Any], caminho: Path) -> list[Registro]:
-    brutos = relatorio.get("documentos_medidos")
-    if brutos is None:
-        raise RetomadaInvalida(
-            f"{caminho.name} não tem 'documentos_medidos': é anterior à retomada e "
-            f"guarda só as taxas, não o que cada documento mediu. Não dá para somar "
-            f"o que ele não registrou — rode a passada inteira; a partir dela, "
-            f"retomar funciona."
-        )
-    return [Registro.de_json(bruto) for bruto in brutos]
-
-
-def _confere_compatibilidade(
-    relatorio: dict[str, Any],
-    caminho: Path,
-    *,
-    prompt: Prompt,
-    settings: Settings,
-    corpus: dict[str, Any],
-) -> None:
-    """Recusa somar duas passadas que não mediram a mesma coisa.
-
-    Retomar é útil justamente quando o provedor está instável, e é exatamente
-    aí que o risco aparece: entre a primeira passada e a retomada dá tempo de
-    trocar o prompt, o provedor, o modo de consistência ou o corpus, e o
-    relatório somado esconderia a troca dentro de uma média — o erro que este
-    arquivo inteiro existe para não cometer de novo.
-    """
-    divergencias = [
-        f"{campo}: {relatorio.get(campo)!r} antes, {agora!r} agora"
-        for campo, agora in (
-            ("prompt", prompt.identificador),
-            ("provedor", settings.llm_provedor),
-            ("auto_consistencia", settings.auto_consistencia),
-            ("corpus", corpus),
-        )
-        if relatorio.get(campo) != agora
-    ]
-    if divergencias:
-        raise RetomadaInvalida(
-            f"{caminho.name} mediu outra coisa; somar as duas passadas daria um "
-            f"número que não corresponde a execução nenhuma:\n    " + "\n    ".join(divergencias)
-        )
 
 
 def _casos_do_relatorio(
@@ -513,22 +471,6 @@ def roda(casos: Sequence[Caso], settings: Settings, prompt: Prompt) -> list[Medi
         marca = "auto" if resultado.auto_aprovado else "revisão"
         print(f"  {marca:8} {resultado.latencia_s:5.1f}s")
     return medidas
-
-
-def _resumo_do_erro(mensagem: str | None, limite: int = 96) -> str:
-    """Uma linha. A mensagem inteira fica no JSON, que é onde se investiga."""
-    if not mensagem:
-        return "sem mensagem"
-    achatada = " ".join(mensagem.split())
-    return achatada if len(achatada) <= limite else achatada[: limite - 1] + "…"
-
-
-def _percentil(valores: Sequence[float], fracao: float) -> float:
-    if not valores:
-        return 0.0
-    ordenados = sorted(valores)
-    indice = min(len(ordenados) - 1, round(fracao * (len(ordenados) - 1)))
-    return ordenados[indice]
 
 
 def _detalha_divergencias(registros: Sequence[Registro]) -> list[dict[str, Any]]:
@@ -647,8 +589,8 @@ def resume(
         "custo_por_documento_usd": str((custo / len(com_resultado)).quantize(Decimal("0.000001")))
         if com_resultado
         else "0",
-        "latencia_p50_s": round(_percentil(latencias, 0.50), 2),
-        "latencia_p95_s": round(_percentil(latencias, 0.95), 2),
+        "latencia_p50_s": round(percentil(latencias, 0.50), 2),
+        "latencia_p95_s": round(percentil(latencias, 0.95), 2),
         # Por documento, o suficiente para uma retomada somar esta passada com
         # a próxima. É também o que torna cada taxa acima conferível a mão.
         "documentos_medidos": [r.para_json() for r in registros],
@@ -656,47 +598,9 @@ def resume(
 
 
 def imprime(relatorio: dict[str, Any]) -> None:
-    print("\n" + "=" * 62)
-    print(f"  prompt {relatorio['prompt']}   modelo {relatorio['modelo']}")
-    print(f"  {relatorio['processados']}/{relatorio['documentos']} documentos processados")
-    print("=" * 62)
-
-    # Um relatório somado mede o corpus inteiro, mas não num instante só. A
-    # taxa é legítima; a leitura "isto é uma passada" não é, e quem lê tem que
-    # ver de quantas partes o número foi feito antes de compará-lo com outro.
-    passadas = relatorio.get("passadas") or []
-    if len(passadas) > 1:
-        print("\n  origem")
-        for passada in passadas:
-            origem = passada.get("retomada_de")
-            print(
-                f"    passada {passada.get('numero')}  {passada.get('data')}  "
-                f"{passada.get('documentos_tentados')} tentados"
-                f"{f'  (retomada de {origem})' if origem else ''}"
-            )
-        print(
-            f"    RELATÓRIO SOMADO de {len(passadas)} passadas em momentos "
-            f"diferentes; mesmo prompt, modelo e corpus."
-        )
-
-    # Antes de qualquer taxa, o que ficou de fora dela. Uma passada que perdeu
-    # documentos pode reportar acurácia melhor que uma completa — perder os
-    # difíceis sobe a média — e quem lê precisa ver isso antes dos números,
-    # não depois de tirar uma conclusão deles.
-    if relatorio["falhas"] or relatorio["nao_tentados"]:
-        print("\n  fora da medição")
-        for falha in relatorio["falhas"]:
-            print(
-                f"    {falha['documento']:24} {falha['tipo'] or 'erro'}: "
-                f"{_resumo_do_erro(falha['erro'])}"
-            )
-        if relatorio["nao_tentados"]:
-            print(
-                f"    {len(relatorio['nao_tentados'])} não tentados "
-                f"(a cota acabou): {', '.join(relatorio['nao_tentados'][:4])}"
-                f"{', …' if len(relatorio['nao_tentados']) > 4 else ''}"
-            )
-        print("    CORPUS PARCIAL: não compare estas taxas com as de uma passada completa.")
+    imprime_cabecalho(relatorio)
+    imprime_origem(relatorio)
+    imprime_fora_da_medicao(relatorio)
 
     print("\n  acurácia por campo")
     for campo, taxa in relatorio["acuracia_por_campo"].items():
@@ -755,14 +659,6 @@ def imprime(relatorio: dict[str, Any]) -> None:
     print()
 
 
-def salva(relatorio: dict[str, Any]) -> Path:
-    DIRETORIO_RESULTADOS.mkdir(parents=True, exist_ok=True)
-    carimbo = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-    caminho = DIRETORIO_RESULTADOS / f"eval-{carimbo}-{relatorio['prompt']}.json"
-    caminho.write_text(json.dumps(relatorio, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return caminho
-
-
 def _analisa_argumentos(argv: Sequence[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="python eval.py",
@@ -819,49 +715,6 @@ def _modo_de_consistencia(argumentos: argparse.Namespace, herdado: str | None = 
     return herdado
 
 
-def _monta_passada_nova(
-    numero: int, quantos: int, retomada_de: Path | None = None
-) -> dict[str, Any]:
-    passada: dict[str, Any] = {
-        "numero": numero,
-        "data": datetime.now(UTC).isoformat(timespec="seconds"),
-        # Quantos documentos esta passada mandou ao modelo, que não é quantos
-        # ela mediu: os que falharam foram tentados e não medidos.
-        "documentos_tentados": quantos,
-    }
-    if retomada_de is not None:
-        passada["retomada_de"] = retomada_de.name
-    return passada
-
-
-def _normaliza_passada(passada: dict[str, Any]) -> dict[str, Any]:
-    """Aceita o nome antigo do campo, dos relatórios gravados antes de ele mudar.
-
-    Transitório: some quando não houver mais relatório de 2026-09-04 para
-    retomar. Fica aqui, e não em `imprime`, para o relatório somado sair já com
-    o nome certo em vez de propagar o antigo.
-    """
-    if "documentos_tentados" in passada or "documentos_medidos" not in passada:
-        return passada
-    normalizada = dict(passada)
-    normalizada["documentos_tentados"] = normalizada.pop("documentos_medidos")
-    return normalizada
-
-
-def _passadas_anteriores(relatorio: dict[str, Any]) -> list[dict[str, Any]]:
-    """As passadas que o relatório anterior já carregava, ou ele próprio como a primeira."""
-    registradas = relatorio.get("passadas")
-    if registradas:
-        return [_normaliza_passada(passada) for passada in registradas]
-    return [
-        {
-            "numero": 1,
-            "data": relatorio.get("data"),
-            "documentos_tentados": relatorio.get("documentos", 0),
-        }
-    ]
-
-
 def _corpus_completo(argumentos: argparse.Namespace) -> list[Caso]:
     so_um = argumentos.limpos or argumentos.adversariais
     return carrega_casos(
@@ -888,7 +741,7 @@ def _prepara_retomada(
     except json.JSONDecodeError as erro:
         raise RetomadaInvalida(f"{caminho.name} não é um JSON válido: {erro}") from erro
 
-    anteriores = _registros_do_relatorio(relatorio, caminho)
+    anteriores = registros_do_relatorio(relatorio, caminho, Registro.de_json)
     casos = _casos_do_relatorio(anteriores, _corpus_completo(argumentos), caminho)
 
     herdado = _modo_de_consistencia(argumentos, relatorio.get("auto_consistencia"))
@@ -903,8 +756,8 @@ def _prepara_retomada(
         casos,
         pendentes,
         anteriores,
-        _passadas_anteriores(relatorio),
-        _procedencia_do_corpus(casos),
+        passadas_anteriores(relatorio),
+        _procedencia(casos),
         herdado,
         numero,
     )
@@ -938,7 +791,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     else:
         casos = _corpus_completo(argumentos)
         a_rodar = casos[: argumentos.limite] if argumentos.limite else casos
-        corpus = _procedencia_do_corpus(casos)
+        corpus = _procedencia(casos)
         passadas = []
         consistencia = _modo_de_consistencia(argumentos)
         passada = 1
@@ -953,12 +806,15 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if argumentos.retomar:
         try:
-            _confere_compatibilidade(
+            confere_compatibilidade(
                 json.loads(argumentos.retomar.read_text(encoding="utf-8")),
                 argumentos.retomar,
-                prompt=prompt,
-                settings=settings,
-                corpus=corpus,
+                esperado=(
+                    ("prompt", prompt.identificador),
+                    ("provedor", settings.llm_provedor),
+                    ("auto_consistencia", settings.auto_consistencia),
+                    ("corpus", corpus),
+                ),
             )
         except RetomadaInvalida as erro:
             print(f"\nnão dá para retomar: {erro}", file=sys.stderr)
@@ -997,7 +853,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 1
 
-    passadas = [*passadas, _monta_passada_nova(passada, len(a_rodar), argumentos.retomar)]
+    passadas = [*passadas, monta_passada_nova(passada, len(a_rodar), argumentos.retomar)]
     relatorio = resume(registros, prompt, settings, passadas=passadas, corpus=corpus)
     relatorio["duracao_total_s"] = round(time.monotonic() - inicio, 1)
 
