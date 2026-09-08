@@ -12,7 +12,7 @@ from app.confianca.consistencia import (
     falha,
 )
 from app.confianca.grounding import Conferencia, ResultadoGrounding, Situacao
-from app.confianca.politica import Rota, Sinal, decide
+from app.confianca.politica import SINAIS_DO_BOLETO, Rota, Sinal, decide
 from app.dominio.boleto import Boleto
 from app.extracao.extrator import Extracao
 from app.extracao.prompt import carrega
@@ -154,5 +154,5 @@ class TestRelatorio:
             consistencia=CONSISTENCIA_OK,
         ).para_revisor()
 
-        for sinal in Sinal:
+        for sinal in SINAIS_DO_BOLETO:
             assert sinal.value in relatorio

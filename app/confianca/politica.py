@@ -39,10 +39,34 @@ class Rota(StrEnum):
 
 
 class Sinal(StrEnum):
+    """Os sinais do projeto, num vocabulário só.
+
+    Os quatro primeiros são os do boleto (ADR 005). Os três últimos entram com
+    o informe: um documento multi-registro tem aritmética de quadro, e um par
+    de anos consecutivos tem a única verificação do projeto que um adversário
+    com controle da página não satisfaz sozinho. Ver ADR 009.
+    """
+
     SANITIZACAO = "sanitizacao"
     DIGITO_VERIFICADOR = "digito_verificador"
     GROUNDING = "grounding"
     CONSISTENCIA = "consistencia"
+    DOMINIO = "dominio"
+    """No informe, o que o boleto chama de DV: CNPJ, CPF, exercício e somas."""
+
+    ARITMETICA = "aritmetica"
+    CRUZAMENTO = "cruzamento"
+
+
+SINAIS_DO_BOLETO = (
+    Sinal.SANITIZACAO,
+    Sinal.DIGITO_VERIFICADOR,
+    Sinal.GROUNDING,
+    Sinal.CONSISTENCIA,
+)
+"""Os quatro que `decide` produz. O `Sinal` cobre os dois documentos; um teste
+que comparasse a decisão de um boleto com o enum inteiro passaria a falhar toda
+vez que outro documento ganhasse um sinal, sem nada do boleto ter mudado."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +109,26 @@ class DecisaoFinal:
     @property
     def bloqueadores(self) -> tuple[Veredito, ...]:
         return tuple(v for v in self.vereditos if v.bloqueia)
+
+    @property
+    def bloqueadores_por_falta_de_cobertura(self) -> tuple[Veredito, ...]:
+        """Sinais que bloquearam por não terem tido o que conferir.
+
+        Não é a mesma coisa que reprovar, e a diferença é o que separa "o
+        documento não fecha" de "ninguém conferiu este documento". As duas
+        mandam para revisão — é a regra da Fase 1.2 —, mas quem lê o relatório
+        precisa das duas contagens separadas: um corpus onde a segunda domina
+        tem acurácia alta barata.
+        """
+        return tuple(v for v in self.bloqueadores if not v.executou and not v.dispensado)
+
+    @property
+    def so_falta_de_cobertura(self) -> bool:
+        """Nada reprovou este documento; só não houve o que conferir."""
+        bloqueadores = self.bloqueadores
+        return bool(bloqueadores) and len(self.bloqueadores_por_falta_de_cobertura) == len(
+            bloqueadores
+        )
 
     def para_revisor(self) -> str:
         linhas = [f"rota: {self.rota.value}"]

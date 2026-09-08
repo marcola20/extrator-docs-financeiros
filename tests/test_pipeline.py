@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 from pydantic import BaseModel, SecretStr
 
-from app.confianca.politica import Rota, Sinal
+from app.confianca.politica import SINAIS_DO_BOLETO, Rota, Sinal
 from app.config import Settings
 from app.extracao.extrator import ExtracaoPorVisaoNaoSuportada
 from app.ingestao.documento import CaminhoDeLeitura
@@ -93,7 +93,7 @@ class TestDocumentoLimpoEExtracaoFiel:
 
         resultado = processa(LIMPO, provedor, settings, provedor_da_segunda=provedor, com_ocr=False)
 
-        assert {v.sinal for v in resultado.decisao.vereditos} == set(Sinal)
+        assert {v.sinal for v in resultado.decisao.vereditos} == set(SINAIS_DO_BOLETO)
         assert resultado.consistencia.executou
 
     def test_a_extracao_fecha_no_dominio(self, settings: Settings) -> None:
