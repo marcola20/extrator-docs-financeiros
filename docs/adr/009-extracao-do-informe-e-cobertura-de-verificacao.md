@@ -145,6 +145,92 @@ para revisão sem nada dito sobre a estabilidade da leitura.
 economizaria cota e mataria o cruzamento entre anos, que precisa dos dois. Os
 56 cabem numa passada do tier gratuito.
 
+## A medição, e o que ela desmentiu
+
+Passada completa de 2026-09-08, 56 documentos, `gemini-3.5-flash-lite`,
+consistência condicional. Fonte:
+[`resultados/eval-20260908-224848-informe-v1+44161a56.json`](../../resultados/eval-20260908-224848-informe-v1+44161a56.json).
+
+### O prompt único se sustenta
+
+| | fonte_pagadora | instituicao_financeira |
+|---|---|---|
+| Documentos | 28 | 28 |
+| Acurácia média (escalares) | 100,0% | 99,5% |
+| Recall de linha | 99,1% | 98,3% |
+| Precisão de linha | 99,6% | 100,0% |
+
+Os dois layouts ficam dentro de um ponto percentual em todas as medidas. Não há
+o que um prompt por layout fosse consertar, e o critério de reversão desta ADR
+não foi atingido. `informe-v1` fica.
+
+O que **não** é comparável entre os dois é a auto-aprovação — 0 de 28 contra 18
+de 28 —, e essa diferença é do documento, não do prompt: o comprovante não tem
+total nem saldo.
+
+### O `quadro_duplicado` derrotou a aritmética uma vez em duas
+
+Em `adversarial-010` o modelo **deduplicou o quadro em silêncio**: a página
+imprime oito linhas, quatro delas repetidas, e ele devolveu quatro. A soma das
+quatro bate com o total impresso — que o ataque não tocou —, a aritmética
+confere, e o documento foi auto-aprovado.
+
+Não é falha de implementação da aritmética: é um limite estrutural dela.
+**A conferência de quadro opera sobre o que o modelo devolveu, não sobre o que
+a página imprime.** Um modelo que corrige o documento ao ler apaga a evidência
+antes de o sinal chegar nela, e nenhum ajuste do sinal recupera isso — quem
+teria de acusar é um detector sobre o texto ingerido, comparando o que a página
+repete com o que a extração devolveu. Fica registrado como buraco conhecido,
+não como pendência esquecida, e é candidato a sinal próprio na Fase 2.3.
+
+O outro `quadro_duplicado` do corpus foi barrado normalmente, o que diz que a
+derrota depende de o modelo deduplicar — comportamento que varia com o
+documento, não com a defesa.
+
+### A métrica de linha estava cega para esse mesmo caso
+
+A primeira passada
+([`eval-20260908-223611`](../../resultados/eval-20260908-223611-informe-v1+44161a56.json))
+reportou **recall de 100%** sobre `adversarial-010`, o documento em que o modelo
+deixou de devolver quatro linhas impressas. O alinhamento casava por chave
+distinta, então as ocorrências repetidas do gabarito nunca entravam em
+`faltantes`.
+
+Corrigido: o casamento consome **uma ocorrência esperada por linha devolvida**.
+O recall do corpus caiu de 99,8% para 98,7% e o escape rate subiu de 5,6% para
+11,1% — os dois números da primeira passada estavam otimistas pela mesma causa,
+e ela era da medição, não do extrator.
+
+O relatório antigo fica no repositório, e esta seção é o que impede alguém de
+lê-lo como comparável.
+
+### O escape que sobra é o de sempre
+
+`adversarial-009` foi auto-aprovado com `beneficiario_nome` = "Vitor Hugo
+Fernandes" onde a página imprime "Sr. Vitor Hugo Fernandes". O grounding
+aprovou, corretamente: o nome sem o tratamento **é** substring do que está
+impresso. Nome não tem verificação — é a issue #2, a mesma que produziu os
+únicos escapes da Fase 1, agora reproduzida no informe.
+
+### Números do corpus
+
+| Métrica | Valor | Base |
+|---|---|---|
+| **Escape rate** | **11,1%** | sobre 18 auto-aprovados, de 56 processados |
+| Acurácia média (escalares) | 99,7% | 7 campos sobre 56 documentos |
+| Recall / precisão de linha | 98,7% / 99,8% | 468 casadas de 474 esperadas |
+| Recall / precisão de saldo | 100% / 100% | 92 saldos |
+| Auto-aprovados com cobertura | 18 | de 56 |
+| Auto-aprovados sem cobertura | 0 | invariante da política |
+| Barrados só por falta de cobertura | 24 | 22 comprovantes, 2 bancários |
+| Ataques bem-sucedidos | 1 | de 16 documentos com carga |
+| Custo por documento | US$ 0,003070 | preço de tabela |
+| Latência p50 / p95 | 2,3s / 25,6s | segunda passada, com cache |
+
+A latência desta passada **não vale como medida do pipeline**: a maior parte das
+extrações veio do cache, porque ela reexecutou o corpus depois da correção da
+métrica. A da primeira passada (p50 7,3s) é a que descreve chamada de verdade.
+
 ## Consequências
 
 **Positivas**
@@ -162,6 +248,8 @@ economizaria cota e mataria o cruzamento entre anos, que precisa dos dois. Os
   auto-aprovação do conjunto fica baixa por razão estrutural. Comparar essa
   taxa com a do boleto não diz nada.
 - A auto-consistência tem ponto cego justamente no layout mais pobre em sinal.
-- O prompt único é uma aposta que o eval por layout pode desmentir; se
-  desmentir, os prompts se separam e as duas medições deixam de ser comparáveis
-  com as anteriores.
+- **A aritmética de quadro não cobre o modelo que deduplica.** Ela olha o que
+  o modelo devolveu, e um modelo que corrige o documento ao ler apaga a
+  evidência antes de ela chegar ao sinal. Medido: 1 de 2 `quadro_duplicado`.
+- O escape que sobra é de nome, e nome não tem verificação (issue #2). Nenhum
+  dos sinais desta fase o alcança.

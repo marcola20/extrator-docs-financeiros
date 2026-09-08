@@ -191,5 +191,40 @@ esquecida:
 - o detector de texto invisível ficou conservador de propósito, e a evasão que
   ele admite está no ADR 008.
 
-Próximo: Fase 2.2 — extração do informe via LLM, com prompt e schema de
-transporte próprios, e o eval usando as métricas de linha.
+**Fase 2.2 (extração do informe) concluída e medida contra a API.** Ver ADR 009.
+O que entregou:
+
+- transporte em texto e prompt `informe-v1`, **um só para os dois layouts** — a
+  medição por layout sustentou a escolha: acurácia 100% contra 99,5% e recall de
+  linha 99,1% contra 98,3%, dentro de um ponto percentual em tudo que depende de
+  leitura;
+- pipeline por par (`app/pipeline_informe.py`), em duas fases: `le` é por
+  documento e é onde a cota é gasta, `decide_par` cruza os anos e conclui as duas
+  decisões sem tocar em rede. Cada PDF é extraído uma vez;
+- seis sinais, com a regra que a fase existe para fixar: **sinal que não teve o
+  que conferir conta como não executado, e não executado bloqueia**. Consequência
+  assumida: nenhum comprovante de fonte pagadora é auto-aprovável, porque não tem
+  total nem saldo;
+- eval por par atrás de `--informes`, com recall e precisão de linha, desempenho
+  por layout, as oito famílias contra o `sinal_esperado`, e as três contagens de
+  auto-aprovação que não podem virar uma.
+
+Passada de 2026-09-08: 56/56 documentos, acurácia média 99,7%, recall de linha
+98,7%, escape rate 11,1% sobre 18 auto-aprovados, 1 ataque bem-sucedido de 16.
+
+Três buracos conhecidos, registrados e não esquecidos:
+
+- **a aritmética de quadro não pega o modelo que deduplica.** Medido: 1 dos 2
+  `quadro_duplicado` passou, porque o modelo devolveu quatro linhas onde a página
+  imprime oito e a soma das quatro bate com o total. O sinal olha o que o modelo
+  devolveu, não o que a página imprime. Candidato a sinal próprio na 2.3;
+- **o escape que sobra é de nome** (`Vitor Hugo Fernandes` onde a página imprime
+  `Sr. Vitor Hugo Fernandes`), e o grounding aprova corretamente — é a issue #2;
+- `linha_injetada` no comprovante continua sem sinal, declarada no gabarito.
+
+A métrica de linha tinha um ponto cego que a própria passada encontrou: casava
+por chave distinta, e reportava recall de 100% no documento em que o modelo
+deixou de devolver quatro linhas impressas. Corrigida para casar por ocorrência;
+o recall caiu de 99,8% para 98,7% e o escape de 5,6% para 11,1%.
+
+Próximo: Fase 3 — extrato de investimento, multi-página com tabela que quebra.
