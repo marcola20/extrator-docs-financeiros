@@ -16,8 +16,26 @@ from app.confianca.campos import (
     iguais,
     tipo,
 )
-from app.dominio.informe import CAMPOS_DE_LINHA, CAMPOS_DE_SALDO, CAMPOS_ESCALARES
+from app.dominio.informe import (
+    CAMPOS_DE_LINHA,
+    CAMPOS_DE_SALDO,
+    CAMPOS_ESCALARES,
+    CHAVES,
+    TOTAL_DO_QUADRO,
+)
 from app.extracao.schema_transporte import CAMPOS
+from app.extracao.schema_transporte_informe import CAMPOS as CAMPOS_DO_INFORME
+
+
+def _do_informe() -> set[str]:
+    return (
+        set(CAMPOS_DO_INFORME)
+        | set(CAMPOS_ESCALARES)
+        | set(CAMPOS_DE_LINHA)
+        | set(CAMPOS_DE_SALDO)
+        | set(CHAVES)
+        | set(TOTAL_DO_QUADRO)
+    )
 
 
 class TestTabelaDeTipos:
@@ -27,16 +45,16 @@ class TestTabelaDeTipos:
 
     def test_todo_campo_do_informe_tem_tipo_declarado(self) -> None:
         """A tabela é uma só para os dois documentos; ver ADR 005."""
-        do_informe = set(CAMPOS_ESCALARES) | set(CAMPOS_DE_LINHA) | set(CAMPOS_DE_SALDO)
+        assert _do_informe() <= set(TIPOS)
 
-        assert do_informe <= set(TIPOS)
+    def test_as_chaves_de_casamento_tambem_sao_comparaveis(self) -> None:
+        """Não são campos medidos, mas o grounding confere a especificação
+        impressa e a auto-consistência compara as duas chaves entre execuções."""
+        assert set(CHAVES) <= set(TIPOS)
 
     def test_a_tabela_nao_tem_campo_sobrando(self) -> None:
         """Tipo declarado para campo que não existe é regra órfã, e some sem alarme."""
-        declarados = set(CAMPOS) | set(CAMPOS_ESCALARES) | set(CAMPOS_DE_LINHA)
-        declarados |= set(CAMPOS_DE_SALDO)
-
-        assert set(TIPOS) == declarados
+        assert set(TIPOS) == set(CAMPOS) | _do_informe()
 
     def test_campo_desconhecido_e_erro(self) -> None:
         with pytest.raises(KeyError, match="não tem tipo"):

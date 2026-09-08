@@ -23,6 +23,7 @@ O que não é: os nomes. Entram por serem a identidade legível do documento, e
 o cruzamento entre anos nunca casa por eles — ver a issue #2.
 """
 
+from collections.abc import Iterable
 from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 from typing import Annotated, Any, Self
@@ -59,6 +60,19 @@ Errar a chave não vira erro de campo, vira linha não casada. Ver ADR 007."""
 
 CAMPOS_DE_SALDO = ("saldo_31_12", "saldo_31_12_anterior")
 """`especificacao` também é chave, pela mesma razão."""
+
+CHAVES = ("identificador", "especificacao")
+"""As chaves de casamento, que não são campos medidos.
+
+Ficam fora de `CAMPOS_DE_LINHA` e `CAMPOS_DE_SALDO` porque errar uma chave não
+vira erro de campo, vira linha não casada (ADR 007). Mas elas continuam sendo
+texto que se compara: o grounding confere se a especificação de uma conta está
+mesmo impressa na página, e a auto-consistência confere se as duas execuções
+leram a mesma chave. Então `app.confianca.campos` precisa saber compará-las.
+"""
+
+TOTAL_DO_QUADRO = ("total_impresso",)
+"""Não é campo de linha nem escalar: é o número contra o qual a soma fecha."""
 
 
 class Layout(StrEnum):
@@ -155,6 +169,39 @@ class ConferenciaDeQuadro(BaseModel):
         )
 
 
+def confere_soma(
+    quadro: str, valores: Iterable[Decimal], total_impresso: Decimal | None
+) -> ConferenciaDeQuadro:
+    """A aritmética de um quadro, num lugar só.
+
+    Mora fora do `Quadro` porque tem dois chamadores, e eles não têm um
+    `Quadro` em comum. O domínio chama daqui (`Quadro.confere`), sobre linhas
+    já validadas. A extração chama daqui também, sobre os números que o modelo
+    escreveu — e precisa poder chamar **mesmo quando o `Quadro` não instancia**:
+    o ataque `quadro_duplicado` repete linhas com o mesmo identificador, que
+    `_identificadores_unicos` recusa. Se a conferência só existisse dentro do
+    `Quadro`, o sinal de aritmética ficaria mudo justamente no ataque que ele
+    é o único a pegar.
+
+    Uma segunda implementação da soma era a alternativa, e é o erro que o
+    ADR 005 registra sobre a definição de igualdade de campo: enquanto a regra
+    morar em dois lugares, ela diverge.
+    """
+    soma = sum(valores, Decimal("0"))
+    if total_impresso is None:
+        cobertura = Cobertura.SEM_TOTAL
+    elif total_impresso == soma:
+        cobertura = Cobertura.CONFERIDO
+    else:
+        cobertura = Cobertura.DIVERGENTE
+    return ConferenciaDeQuadro(
+        quadro=quadro,
+        cobertura=cobertura,
+        soma_das_linhas=soma,
+        total_impresso=total_impresso,
+    )
+
+
 class Quadro(BaseModel):
     """Um quadro do informe: linhas identificadas e, quando a página traz, o total."""
 
@@ -196,18 +243,10 @@ class Quadro(BaseModel):
 
     def confere(self) -> ConferenciaDeQuadro:
         """Compara a soma das linhas com o total impresso, se houver um."""
-        soma = self.soma_das_linhas
-        if self.total_impresso is None:
-            cobertura = Cobertura.SEM_TOTAL
-        elif self.total_impresso == soma:
-            cobertura = Cobertura.CONFERIDO
-        else:
-            cobertura = Cobertura.DIVERGENTE
-        return ConferenciaDeQuadro(
-            quadro=self.identificador,
-            cobertura=cobertura,
-            soma_das_linhas=soma,
-            total_impresso=self.total_impresso,
+        return confere_soma(
+            self.identificador,
+            (linha.valor for linha in self.linhas),
+            self.total_impresso,
         )
 
     def linha(self, identificador: str) -> LinhaDeQuadro | None:
