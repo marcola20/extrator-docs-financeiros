@@ -35,6 +35,7 @@ def test_o_corpus_limpo_existe() -> None:
     assert len(_boletos_limpos()) >= 15
 
 
+@pytest.mark.slow
 @tem_tesseract
 @pytest.mark.parametrize("boleto", _boletos_limpos(), ids=lambda p: p.stem)
 def test_boleto_limpo_nao_e_sinalizado(boleto: Path) -> None:
@@ -46,6 +47,7 @@ def test_boleto_limpo_nao_e_sinalizado(boleto: Path) -> None:
     )
 
 
+@pytest.mark.slow
 @tem_tesseract
 def test_boleto_limpo_e_auto_aprovavel() -> None:
     """Ponta a ponta: documento honesto sai elegível a seguir sem revisão."""

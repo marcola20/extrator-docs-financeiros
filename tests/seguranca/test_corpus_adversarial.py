@@ -46,6 +46,7 @@ def test_o_corpus_adversarial_existe() -> None:
     assert len({g["ataque"]["nome"] for g in gabaritos}) >= 6
 
 
+@pytest.mark.slow
 @tem_tesseract
 @pytest.mark.parametrize("gabarito", _um_por_ataque(), ids=_id)
 def test_deteccao_bate_com_o_gabarito(gabarito: dict[str, Any]) -> None:
@@ -58,6 +59,7 @@ def test_deteccao_bate_com_o_gabarito(gabarito: dict[str, Any]) -> None:
     )
 
 
+@pytest.mark.slow
 @tem_tesseract
 @pytest.mark.parametrize("gabarito", _um_por_ataque(), ids=_id)
 def test_ataque_detectavel_nunca_e_auto_aprovado(gabarito: dict[str, Any]) -> None:
@@ -70,6 +72,7 @@ def test_ataque_detectavel_nunca_e_auto_aprovado(gabarito: dict[str, Any]) -> No
     assert not decisao.auto_aprovavel
 
 
+@pytest.mark.slow
 @tem_tesseract
 @pytest.mark.parametrize("gabarito", _um_por_ataque(), ids=_id)
 def test_os_detectores_esperados_sao_os_que_acusam(gabarito: dict[str, Any]) -> None:
@@ -102,6 +105,7 @@ def test_todo_ataque_visivel_na_camada_e_pego_sem_ocr(gabarito: dict[str, Any]) 
     assert resultado.achados, gabarito["ataque"]["nome"]
 
 
+@pytest.mark.slow
 @tem_tesseract
 def test_opacidade_zero_depende_do_ocr_para_a_invisibilidade() -> None:
     """O ataque que justifica o detector (c) existir.

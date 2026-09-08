@@ -72,3 +72,10 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+    # A suíte inteira passou de dez minutos, quase toda em OCR: cada teste
+    # marcado renderiza o PDF e roda tesseract sobre a página. Rodar isso a
+    # cada revisão de commit não paga — a verificação commit-a-commit usa
+    # `pytest -m "not slow"`, e a verificação final e o CI rodam tudo.
+    "slow: renderiza página e chama OCR; fora de `pytest -m \"not slow\"`",
+]

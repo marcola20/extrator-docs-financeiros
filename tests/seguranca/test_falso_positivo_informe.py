@@ -70,6 +70,7 @@ def test_o_rodape_legal_nao_e_lido_como_injecao() -> None:
     assert achados == []
 
 
+@pytest.mark.slow
 @tem_tesseract
 @pytest.mark.parametrize("informe", _informes_limpos(), ids=lambda p: p.stem)
 def test_informe_limpo_nao_e_sinalizado(informe: Path) -> None:
@@ -81,6 +82,7 @@ def test_informe_limpo_nao_e_sinalizado(informe: Path) -> None:
     )
 
 
+@pytest.mark.slow
 @tem_tesseract
 def test_informe_limpo_e_auto_aprovavel() -> None:
     """Ponta a ponta: documento honesto sai elegível a seguir sem revisão."""
@@ -92,6 +94,7 @@ def test_informe_limpo_e_auto_aprovavel() -> None:
     assert decisao.rota is Rota.AUTOMATICO
 
 
+@pytest.mark.slow
 @tem_tesseract
 def test_os_dois_layouts_passam_limpos() -> None:
     """Um corpus em que só um layout passa não teria medido o outro."""
