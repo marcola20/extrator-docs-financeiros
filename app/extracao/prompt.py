@@ -15,6 +15,9 @@ PROMPT_BOLETO = "boleto-v2.md"
 """A versão em uso. As anteriores ficam no diretório: um relatório de eval
 carimbado com `boleto-v1` tem que continuar reproduzível."""
 
+PROMPT_INFORME = "informe-v1.md"
+"""Um prompt para os dois layouts do informe, não um por layout. Ver ADR 009."""
+
 _CABECALHO = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
 
 

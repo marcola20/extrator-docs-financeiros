@@ -72,6 +72,12 @@ TIPOS: dict[str, TipoDeCampo] = {
     "descricao": TipoDeCampo.TEXTO,
     "saldo_31_12": TipoDeCampo.VALOR,
     "saldo_31_12_anterior": TipoDeCampo.VALOR,
+    "total_impresso": TipoDeCampo.VALOR,
+    # `layout` não está escrito na página com essas palavras: é a
+    # classificação que o modelo faz do documento que está lendo. Entra como
+    # texto porque é assim que a acurácia contra o gabarito o compara, e o
+    # grounding o isenta em vez de procurá-lo no documento.
+    "layout": TipoDeCampo.TEXTO,
 }
 
 
