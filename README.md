@@ -199,13 +199,14 @@ declara `sinal_esperado: nenhum`. É um buraco de cobertura **declarado**, e o
 relatório o imprime como tal — um buraco declarado é informação, um buraco
 silencioso é armadilha.
 
-**`quadro_duplicado` foi barrado em 1 de 2.** Em `adversarial-010` o modelo
-deduplicou o quadro em silêncio: a página imprime oito linhas, quatro delas
-repetidas, e ele devolveu quatro. A soma das quatro bate com o total impresso, a
-aritmética confere, e o documento foi auto-aprovado. Não é falha de
+**`quadro_duplicado` foi barrado em 1 de 2** ([#5][i5]). Em `adversarial-010` o
+modelo deduplicou o quadro em silêncio: a página imprime oito linhas, quatro
+delas repetidas, e ele devolveu quatro. A soma das quatro bate com o total
+impresso, a aritmética confere, e o documento foi auto-aprovado. Não é falha de
 implementação — é o limite estrutural do sinal: **a conferência opera sobre o
 que o modelo devolveu, não sobre o que a página imprime**, e um modelo que
-corrige o documento ao ler apaga a evidência antes de o sinal chegar nela.
+corrige o documento ao ler apaga a evidência antes de o sinal chegar nela. Vale
+para omissão coerente em geral, não só para este ataque; ver as limitações.
 
 ### O escape que sobra é de nome, de novo
 
@@ -213,7 +214,8 @@ Dos dois escapes, um é `adversarial-010` acima. O outro é `adversarial-009`,
 auto-aprovado com `beneficiario_nome` = "Vitor Hugo Fernandes" onde a página
 imprime "Sr. Vitor Hugo Fernandes". O grounding aprovou, e corretamente: o nome
 sem o tratamento **é** substring do que está impresso. Nome não tem verificação
-determinística — é a mesma issue #2 que produziu os únicos escapes da Fase 1.
+determinística — é a mesma [issue #2][i2] que produziu os únicos escapes da Fase
+1, reproduzida no informe apesar dos seis sinais.
 
 ### A medição encontrou um erro na própria medição
 
@@ -399,6 +401,16 @@ o nome errado que está de fato na página. Não por acaso, `beneficiario_nome`
 é um dos dois campos abaixo de 100% na tabela — e é o campo que decide quem
 recebe o dinheiro.
 
+**A limitação se reproduziu no informe**, e é o que sobra da Fase 2 depois de
+todos os sinais novos. `adversarial-009.pdf` foi auto-aprovado com
+`beneficiario_nome` = "Vitor Hugo Fernandes" onde a página imprime "Sr. Vitor
+Hugo Fernandes" — e o grounding aprovou **corretamente**, porque o nome sem o
+tratamento é substring do que está impresso. É o único escape do corpus de
+informes que não vem da omissão coerente descrita abaixo. Seis sinais em vez de
+quatro, aritmética de quadro e uma verificação que precisa de dois documentos
+não movem esse campo: nome continua sem sinal determinístico, nos dois
+documentos.
+
 **O campo livre da linha digitável não tem formato padronizado** ([#3][i3]).
 Os 25 dígitos do campo livre carregam agência, conta e nosso número, mas cada
 banco define o próprio layout — não há padrão a partir do qual extrair esses
@@ -416,14 +428,52 @@ saída conhecida e não estão tratados. A defesa que não depende de prever a
 formulação do atacante é a validação determinística — é ela a garantia, e a
 sanitização é sinal.
 
-**A aritmética de quadro não cobre o modelo que deduplica** (sem issue: pede
-sinal novo, não ajuste). Medido: 1 dos 2 `quadro_duplicado` foi auto-aprovado
-porque o modelo devolveu quatro linhas onde a página imprime oito, e a soma das
-quatro bate com o total. A conferência opera sobre o que o modelo devolveu, não
-sobre o que a página imprime, e um modelo que corrige o documento ao ler apaga a
-evidência antes de o sinal chegar nela. Quem acusaria é um detector sobre o
-texto ingerido, comparando o que a página repete com o que a extração devolveu —
-candidato a sinal próprio, e a decisão vai medida para uma ADR.
+**Sinais que operam sobre a saída extraída não detectam omissão coerente**
+([#5][i5]). É uma limitação estrutural, não um defeito de implementação: a
+conferência de quadro soma as linhas que a extração devolveu e compara com o
+total que a extração transcreveu. Ela pega o modelo que lê **errado**; não pega o
+modelo que lê **a menos**, de forma coerente — porque "a página tinha quatro
+linhas" e "a página tinha oito e o modelo devolveu quatro" produzem exatamente a
+mesma entrada para o sinal. O modelo é ao mesmo tempo o que está sendo
+verificado e a única fonte do que se verifica.
+
+Medido: 1 dos 2 `quadro_duplicado` foi auto-aprovado. Em `adversarial-010.pdf`
+o modelo deduplicou o quadro em silêncio — devolveu quatro linhas onde a página
+imprime oito —, a soma das quatro bateu com o total impresso, e todos os sinais
+aprovaram.
+
+O alcance é maior que esse ataque. Omissão coerente de linha, de quadro inteiro
+ou de página inteira passa por qualquer sinal que só olhe a saída, e nenhum dos
+outros cobre a lacuna: o **grounding** pergunta se o que voltou está na página,
+nunca se o que está na página voltou — é unidirecional por construção; a
+**auto-consistência** compara duas execuções do mesmo modelo, que tendem a
+deduplicar igual; o **cruzamento entre anos** é o único sinal com fonte
+independente do modelo, e cobre saldos, não linhas de quadro.
+
+O candidato a endereçamento é contar linhas na página independentemente da
+extração — o texto ingerido já está disponível e não custa chamada — e comparar
+com o que a extração devolveu. Seria sinal novo, com limiar decidido medindo
+(ADR 008), e o corpus limpo tem o caso que faria uma contagem ingênua errar
+primeiro: o quadro de 46 linhas que quebra página e repete cabeçalho.
+
+**Os primeiros números da Fase 2.2 estavam otimistas, e a causa era a medição**
+(corrigido; fica registrado porque o relatório antigo continua no repositório).
+A primeira passada reportou recall de linha de 99,8% e escape rate de 5,6%. Os
+dois estavam errados para o mesmo lado, e pela mesma causa: o alinhamento de
+linha casava por **chave distinta**, então as ocorrências repetidas do gabarito
+nunca entravam em "faltantes". O efeito é que a métrica dava recall de 100%
+justamente sobre o documento em que o modelo deixou de devolver quatro linhas
+impressas — ficava cega no ataque que ela existe para enxergar, e o escape
+correspondente não era contado.
+
+Corrigido para casar **por ocorrência**: recall 99,8% → 98,7%, escape rate
+5,6% → 11,1%. Os números desta página são os corrigidos. O relatório
+`eval-20260908-223611` continua em `resultados/` e **não é comparável** com o
+`eval-20260908-224848` nessas duas linhas — as demais são as mesmas.
+
+A lição de método é a que interessa: uma métrica pode falhar exatamente no caso
+que ela foi escrita para medir, e o eval sobre corpus adversarial é o que
+expõe isso. Foi a passada contra a API que encontrou o erro, não a suíte.
 
 **Metade do corpus de informes não tem cobertura de verificação** (é do
 documento, não endereçável por código). O comprovante de fonte pagadora não
@@ -457,6 +507,7 @@ problema deixa de ser injeção e vira troca de documento, anterior ao pipeline.
 [i2]: https://github.com/marcola20/extrator-docs-financeiros/issues/2
 [i3]: https://github.com/marcola20/extrator-docs-financeiros/issues/3
 [i4]: https://github.com/marcola20/extrator-docs-financeiros/issues/4
+[i5]: https://github.com/marcola20/extrator-docs-financeiros/issues/5
 
 ## Decisões de arquitetura
 

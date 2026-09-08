@@ -180,8 +180,12 @@ Não é falha de implementação da aritmética: é um limite estrutural dela.
 a página imprime.** Um modelo que corrige o documento ao ler apaga a evidência
 antes de o sinal chegar nela, e nenhum ajuste do sinal recupera isso — quem
 teria de acusar é um detector sobre o texto ingerido, comparando o que a página
-repete com o que a extração devolveu. Fica registrado como buraco conhecido,
-não como pendência esquecida, e é candidato a sinal próprio na Fase 2.3.
+repete com o que a extração devolveu. Fica registrado como buraco conhecido, não
+como pendência esquecida, e está na
+[issue #5](https://github.com/marcola20/extrator-docs-financeiros/issues/5) —
+**sinais que operam sobre a saída extraída não detectam omissão coerente**, que
+é mais geral do que este ataque: vale para linha, quadro ou página inteira que
+o modelo deixe de devolver de forma consistente.
 
 O outro `quadro_duplicado` do corpus foi barrado normalmente, o que diz que a
 derrota depende de o modelo deduplicar — comportamento que varia com o
@@ -251,5 +255,7 @@ métrica. A da primeira passada (p50 7,3s) é a que descreve chamada de verdade.
 - **A aritmética de quadro não cobre o modelo que deduplica.** Ela olha o que
   o modelo devolveu, e um modelo que corrige o documento ao ler apaga a
   evidência antes de ela chegar ao sinal. Medido: 1 de 2 `quadro_duplicado`.
+  Issue #5, como limitação estrutural de todo sinal que roda sobre a saída
+  extraída — não como bug desta implementação.
 - O escape que sobra é de nome, e nome não tem verificação (issue #2). Nenhum
-  dos sinais desta fase o alcança.
+  dos seis sinais desta fase o alcança: a issue #2 se reproduz no informe.

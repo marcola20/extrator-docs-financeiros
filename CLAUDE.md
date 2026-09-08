@@ -48,6 +48,9 @@ pytest / ruff / mypy / Docker Compose / Langfuse / Next.js 15
   Nada de comando PowerShell ou caminho Windows. Ver ADR 001.
 - Decisões de arquitetura viram ADR em `docs/adr/`, numerados, no formato
   contexto / decisão / consequências.
+- Relatório de eval é versionado em `resultados/`, e por isso não pode carregar
+  valor extraído — só taxa, contagem e booleano. `tests/test_relatorios_versionados.py`
+  é a trava.
 - Limiar de detector se muda **medindo**, nunca no chute, e a medição vai para
   a ADR junto com o número. Ver ADR 008.
 - Sinal que não teve o que conferir **não é sinal que aprovou**: conta como não
@@ -214,12 +217,16 @@ Passada de 2026-09-08: 56/56 documentos, acurácia média 99,7%, recall de linha
 
 Três buracos conhecidos, registrados e não esquecidos:
 
-- **a aritmética de quadro não pega o modelo que deduplica.** Medido: 1 dos 2
-  `quadro_duplicado` passou, porque o modelo devolveu quatro linhas onde a página
-  imprime oito e a soma das quatro bate com o total. O sinal olha o que o modelo
-  devolveu, não o que a página imprime. Candidato a sinal próprio na 2.3;
+- **sinal que roda sobre a saída extraída não pega omissão coerente** (issue #5).
+  Medido: 1 dos 2 `quadro_duplicado` passou, porque o modelo devolveu quatro
+  linhas onde a página imprime oito e a soma das quatro bate com o total. É
+  limitação estrutural, não bug: "a página tinha quatro linhas" e "a página tinha
+  oito e o modelo devolveu quatro" são a mesma entrada para o sinal. Vale para
+  linha, quadro ou página inteira. O candidato é contar na página, sem passar
+  pela extração;
 - **o escape que sobra é de nome** (`Vitor Hugo Fernandes` onde a página imprime
-  `Sr. Vitor Hugo Fernandes`), e o grounding aprova corretamente — é a issue #2;
+  `Sr. Vitor Hugo Fernandes`), e o grounding aprova corretamente, porque é
+  substring — a issue #2 se reproduz no informe, apesar dos seis sinais;
 - `linha_injetada` no comprovante continua sem sinal, declarada no gabarito.
 
 A métrica de linha tinha um ponto cego que a própria passada encontrou: casava
