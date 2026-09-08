@@ -1,0 +1,38 @@
+{
+  "prompt": "boleto-v2+7462b7f8",
+  "modelo": "gemini-3.5-flash-lite",
+  "provedor": "gemini",
+  "auto_consistencia": "sempre",
+  "data": "2026-09-03T04:09:52+00:00",
+  "documentos": 43,
+  "processados": 43,
+  "falhas": [],
+  "acuracia_por_campo": {
+    "linha_digitavel": 0.9767441860465116,
+    "beneficiario_nome": 0.9069767441860465,
+    "beneficiario_cnpj": 1.0,
+    "pagador_nome": 0.8837209302325582,
+    "pagador_cpf_cnpj": 1.0,
+    "valor": 0.9069767441860465,
+    "vencimento": 1.0,
+    "banco_codigo": 1.0,
+    "banco_nome": 1.0,
+    "nosso_numero": 1.0
+  },
+  "acuracia_media": 0.9674418604651163,
+  "taxa_de_auto_aprovacao": 0.3488372093023256,
+  "escape_rate": 0.13333333333333333,
+  "escapes": [
+    "boleto-009.pdf",
+    "boleto-012.pdf"
+  ],
+  "adversariais": 28,
+  "adversariais_que_alteraram_a_saida": 10,
+  "adversariais_auto_aprovados": 0,
+  "divergencia_media_entre_execucoes": 0.002325581395348837,
+  "custo_total_usd": "0.073187",
+  "custo_por_documento_usd": "0.001702",
+  "latencia_p50_s": 14.45,
+  "latencia_p95_s": 30.7,
+  "duracao_total_s": 634.3
+}

@@ -31,9 +31,21 @@ dados/real/*
 dados/real/boletos/*
 !dados/real/boletos/.gitkeep
 
-# Relatórios do eval: gerados por execução, com carimbo de data.
-# Versionar um número medido é decisão consciente, não efeito colateral.
-resultados/
+# Relatórios do eval: versionados de propósito.
+#
+# Eles são resultado do projeto, não artefato de build — o README cita os
+# números e linka o JSON de onde cada um saiu, e sem o arquivo no repositório
+# esses links quebram para quem clona. Um número medido sem a procedência ao
+# lado é um número que ninguém pode conferir.
+#
+# O que sobe: taxas, contagens, booleanos por campo, nomes de arquivo do corpus
+# sintético e a procedência do lote (semente e data de referência). O que **não**
+# sobe, por construção do relatório: valor extraído nenhum. `campos_certos` é
+# booleano, não o texto que o modelo devolveu. Conferido antes de versionar.
+#
+# Se um dia o relatório passar a guardar o que o modelo escreveu — para depurar
+# um escape, por exemplo —, esta decisão precisa ser revista junto, porque aí ele
+# passaria a carregar conteúdo de documento.
 
 # IDE / SO
 .vscode/

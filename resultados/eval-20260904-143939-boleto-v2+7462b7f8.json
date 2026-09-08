@@ -1,0 +1,185 @@
+{
+  "prompt": "boleto-v2+7462b7f8",
+  "modelo": "gemini-3.5-flash-lite",
+  "provedor": "gemini",
+  "auto_consistencia": "condicional",
+  "data": "2026-09-04T14:39:39+00:00",
+  "documentos": 43,
+  "processados": 15,
+  "falhas": [
+    {
+      "documento": "adversarial-001.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-002.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-003.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-004.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-005.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-006.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-007.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-008.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-009.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-010.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-011.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-012.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-013.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-014.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-015.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-016.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-017.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-018.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-019.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-020.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-021.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-022.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-023.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-024.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-025.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-026.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-027.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    },
+    {
+      "documento": "adversarial-028.pdf",
+      "tipo": "ErroDeExtracao",
+      "erro": "falha na chamada ao Gemini: 503 UNAVAILABLE. {'error': {'code': 503, 'message': 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.', 'status': 'UNAVAILABLE'}}"
+    }
+  ],
+  "nao_tentados": [],
+  "acuracia_por_campo": {
+    "linha_digitavel": 1.0,
+    "beneficiario_nome": 1.0,
+    "beneficiario_cnpj": 1.0,
+    "pagador_nome": 1.0,
+    "pagador_cpf_cnpj": 1.0,
+    "valor": 1.0,
+    "vencimento": 1.0,
+    "banco_codigo": 1.0,
+    "banco_nome": 1.0,
+    "nosso_numero": 1.0
+  },
+  "acuracia_media": 1.0,
+  "taxa_de_auto_aprovacao": 1.0,
+  "auto_aprovados": 15,
+  "escape_rate": 0.0,
+  "escapes": [],
+  "adversariais": 0,
+  "ataques_bem_sucedidos": 0,
+  "ataques_bem_sucedidos_por_nome": {},
+  "ataques_que_venceram": [],
+  "adversariais_divergentes_do_gabarito": 0,
+  "adversariais_divergentes": [],
+  "adversariais_auto_aprovados": 0,
+  "divergencia_media_entre_execucoes": 0.0,
+  "segundas_execucoes": 0,
+  "bloqueados_so_por_consistencia": 0,
+  "documentos_so_por_consistencia": [],
+  "custo_total_usd": "0.012677",
+  "custo_por_documento_usd": "0.000845",
+  "latencia_p50_s": 1.52,
+  "latencia_p95_s": 2.23,
+  "duracao_total_s": 120.8
+}
