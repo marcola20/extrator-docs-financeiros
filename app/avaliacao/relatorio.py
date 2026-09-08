@@ -146,6 +146,41 @@ def passadas_anteriores(relatorio: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def modo_de_consistencia(escolhido: str | None, herdado: str | None = None) -> str:
+    """Qual modo de auto-consistência esta medição usa.
+
+    Sem retomada o padrão é `condicional`: o sistema fica em `sempre`, mas cada
+    segunda execução custa uma chamada e o eval reexecuta muito — é escolha de
+    orçamento da medição, não mudança do pipeline. Ver ADR 005.
+
+    Retomando, o modo vem da passada anterior, porque custo, número de segundas
+    execuções e divergência entre runs saem somados das duas: misturar modos
+    produziria números que não descrevem nem uma passada nem a outra.
+    """
+    from app.confianca.consistencia import ModoConsistencia
+
+    if herdado is None:
+        return escolhido or ModoConsistencia.CONDICIONAL.value
+    if escolhido is not None and escolhido != herdado:
+        raise RetomadaInvalida(
+            f"a passada anterior rodou com consistência {herdado!r} e --consistencia "
+            f"pede {escolhido!r}; somar as duas daria um custo e uma "
+            f"divergência que não descrevem nem uma nem outra."
+        )
+    return herdado
+
+
+def le_relatorio(caminho: Path) -> dict[str, Any]:
+    """O relatório de uma passada anterior, com as duas falhas de leitura nomeadas."""
+    try:
+        lido: dict[str, Any] = json.loads(caminho.read_text(encoding="utf-8"))
+    except FileNotFoundError as erro:
+        raise RetomadaInvalida(f"relatório não encontrado: {caminho}") from erro
+    except json.JSONDecodeError as erro:
+        raise RetomadaInvalida(f"{caminho.name} não é um JSON válido: {erro}") from erro
+    return lido
+
+
 def imprime_cabecalho(relatorio: dict[str, Any]) -> None:
     print("\n" + "=" * 62)
     print(f"  prompt {relatorio['prompt']}   modelo {relatorio['modelo']}")

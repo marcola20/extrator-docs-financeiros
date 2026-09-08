@@ -20,7 +20,7 @@ from pydantic import BaseModel, SecretStr
 
 import eval as modulo_eval
 from app.avaliacao import relatorio as modulo_relatorio
-from app.avaliacao.relatorio import RetomadaInvalida
+from app.avaliacao.relatorio import RetomadaInvalida, modo_de_consistencia
 from app.config import Settings
 from app.extracao.prompt import carrega
 from app.llm.limitador import CotaDiariaExcedida
@@ -243,24 +243,24 @@ class TestModoDeConsistenciaDoEval:
         """
         argumentos = modulo_eval._analisa_argumentos([])
 
-        assert modulo_eval._modo_de_consistencia(argumentos) == "condicional"
+        assert modo_de_consistencia(argumentos.consistencia) == "condicional"
 
     def test_a_flag_explicita_liga_o_sinal_em_todos(self) -> None:
         argumentos = modulo_eval._analisa_argumentos(["--consistencia", "sempre"])
 
-        assert modulo_eval._modo_de_consistencia(argumentos) == "sempre"
+        assert modo_de_consistencia(argumentos.consistencia) == "sempre"
 
     def test_retomada_herda_o_modo_da_passada_anterior(self) -> None:
         """Somar duas passadas em modos diferentes daria custo de nenhuma das duas."""
         argumentos = modulo_eval._analisa_argumentos([])
 
-        assert modulo_eval._modo_de_consistencia(argumentos, "sempre") == "sempre"
+        assert modo_de_consistencia(argumentos.consistencia, "sempre") == "sempre"
 
     def test_retomada_recusa_modo_diferente_do_anterior(self) -> None:
         argumentos = modulo_eval._analisa_argumentos(["--consistencia", "nunca"])
 
         with pytest.raises(RetomadaInvalida, match="consistência"):
-            modulo_eval._modo_de_consistencia(argumentos, "sempre")
+            modo_de_consistencia(argumentos.consistencia, "sempre")
 
     def test_modo_invalido_e_recusado(self) -> None:
         with pytest.raises(SystemExit):

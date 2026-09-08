@@ -116,12 +116,15 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from app.avaliacao.informe import main as main_informe
 from app.avaliacao.relatorio import (
     RetomadaInvalida,
     confere_compatibilidade,
     imprime_cabecalho,
     imprime_fora_da_medicao,
     imprime_origem,
+    le_relatorio,
+    modo_de_consistencia,
     monta_passada_nova,
     passadas_anteriores,
     percentil,
@@ -664,6 +667,15 @@ def _analisa_argumentos(argv: Sequence[str] | None) -> argparse.Namespace:
         prog="python eval.py",
         description="Mede o pipeline de extração contra os corpora sintéticos.",
     )
+    parser.add_argument(
+        "--informes",
+        action="store_true",
+        help=(
+            "mede o corpus de informes de rendimentos em vez do de boletos. São "
+            "corpora diferentes, com métricas diferentes — o informe é "
+            "multi-registro —, e nunca se misturam num relatório só."
+        ),
+    )
     parser.add_argument("--limpos", action="store_true", help="só o corpus limpo")
     parser.add_argument("--adversariais", action="store_true", help="só o corpus adversarial")
     parser.add_argument("--limite", type=int, default=None, help="processa no máximo N")
@@ -693,28 +705,6 @@ def _analisa_argumentos(argv: Sequence[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _modo_de_consistencia(argumentos: argparse.Namespace, herdado: str | None = None) -> str:
-    """Qual modo de auto-consistência esta medição usa.
-
-    Sem retomada o padrão é `condicional`: o sistema fica em `sempre`, mas cada
-    segunda execução custa uma chamada e o eval reexecuta muito — é escolha de
-    orçamento da medição, não mudança do pipeline. Ver ADR 005.
-
-    Retomando, o modo vem da passada anterior, porque custo, número de segundas
-    execuções e divergência entre runs saem somados das duas: misturar modos
-    produziria números que não descrevem nem uma passada nem a outra.
-    """
-    if herdado is None:
-        return argumentos.consistencia or ModoConsistencia.CONDICIONAL.value
-    if argumentos.consistencia is not None and argumentos.consistencia != herdado:
-        raise RetomadaInvalida(
-            f"a passada anterior rodou com consistência {herdado!r} e --consistencia "
-            f"pede {argumentos.consistencia!r}; somar as duas daria um custo e uma "
-            f"divergência que não descrevem nem uma nem outra."
-        )
-    return herdado
-
-
 def _corpus_completo(argumentos: argparse.Namespace) -> list[Caso]:
     so_um = argumentos.limpos or argumentos.adversariais
     return carrega_casos(
@@ -734,17 +724,12 @@ def _prepara_retomada(
     do corpus, o modo de consistência herdado e o número desta passada.
     """
     caminho = argumentos.retomar
-    try:
-        relatorio = json.loads(caminho.read_text(encoding="utf-8"))
-    except FileNotFoundError as erro:
-        raise RetomadaInvalida(f"relatório não encontrado: {caminho}") from erro
-    except json.JSONDecodeError as erro:
-        raise RetomadaInvalida(f"{caminho.name} não é um JSON válido: {erro}") from erro
+    relatorio = le_relatorio(caminho)
 
     anteriores = registros_do_relatorio(relatorio, caminho, Registro.de_json)
     casos = _casos_do_relatorio(anteriores, _corpus_completo(argumentos), caminho)
 
-    herdado = _modo_de_consistencia(argumentos, relatorio.get("auto_consistencia"))
+    herdado = modo_de_consistencia(argumentos.consistencia, relatorio.get("auto_consistencia"))
 
     pendentes_por_nome = {r.documento for r in anteriores if r.pendente}
     pendentes = [caso for caso in casos if caso.pdf.name in pendentes_por_nome]
@@ -765,6 +750,13 @@ def _prepara_retomada(
 
 def main(argv: Sequence[str] | None = None) -> int:
     argumentos = _analisa_argumentos(argv)
+
+    if argumentos.informes:
+        # Corpus adicional, não substituto: o de informe tem métricas de linha,
+        # cobertura de verificação e duas contagens de auto-aprovação que o
+        # relatório de boleto não tem. Um relatório só para os dois teria metade
+        # dos campos vazios em cada passada. Ver ADR 009.
+        return main_informe(argumentos)
 
     if argumentos.retomar and (argumentos.limpos or argumentos.adversariais):
         print(
@@ -793,7 +785,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         a_rodar = casos[: argumentos.limite] if argumentos.limite else casos
         corpus = _procedencia(casos)
         passadas = []
-        consistencia = _modo_de_consistencia(argumentos)
+        consistencia = modo_de_consistencia(argumentos.consistencia)
         passada = 1
         casos = a_rodar
 
