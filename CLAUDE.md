@@ -80,6 +80,11 @@ docker compose --profile observabilidade up -d   # + Langfuse (5 contêineres)
 # banco. Só a fila de revisão precisa dele.
 #   PERSISTENCIA_ATIVA=1 no .env, e então:
 uv run alembic upgrade head          # aplica as migrações
+
+# Verificação contra Postgres de verdade: tipo de coluna, CHECK, timestamptz,
+# e o ida-e-volta dos enums — o que o SQLite não prova. APAGA as tabelas ao
+# terminar, e por isso exige a variável. Ver ADR 010.
+PYTEST_POSTGRES=1 uv run pytest -m postgres
 # Alembic não detecta CHECK no autogenerate: restrição de enum se escreve à
 # mão, em batch_alter_table (o SQLite não sabe alterar constraint). Ver ADR 010.
 uv run python -m app.avaliacao.exporta_realimentacao --simular

@@ -169,12 +169,41 @@ Esta seção começou dizendo que nada tinha rodado contra Postgres, porque o
 Docker não estava disponível. Rodou depois, e vale registrar o que a execução
 mudou — foi ela que justificou a migração `a4ac89d142f4`.
 
+**Como ela é repetível.** A verificação virou `tests/persistencia/test_postgres.py`,
+sob o marcador `postgres`, em vez de um script descartável — um ensaio que
+ninguém consegue repetir prova o dia em que foi feito, e nada depois dele:
+
+```bash
+docker compose up -d
+PYTEST_POSTGRES=1 uv run pytest -m postgres
+```
+
+Ele pula em duas situações, e as duas são deliberadas. Sem Postgres alcançável,
+porque a Fase 4 decidiu que persistência é opcional e uma suíte que exigisse o
+serviço contradiria a decisão. E sem `PYTEST_POSTGRES` ligado, porque o teardown
+**apaga as seis tabelas**: se bastasse haver um banco de pé, um `uv run pytest`
+comum — a suíte completa, que se roda antes de commitar — apagaria os dados de
+quem estivesse usando a fila de revisão, sem ter pedido nada.
+
 **O que se confirmou.** `payload` é JSONB de verdade e as colunas de data são
-`timestamptz`; as duas variantes que o SQLite não podia provar. O ciclo
-`upgrade` → `downgrade base` → `upgrade head` funciona, e o schema resultante
-bate com os modelos tabela a tabela e coluna a coluna. Um ensaio de ponta a
-ponta gravou dois documentos, listou a fila, abriu o diagnóstico, baixou o PDF,
-submeteu uma correção e exportou o caso de realimentação.
+`timestamptz` — as duas variantes que o SQLite não podia provar. `custo_usd` é
+`NUMERIC`, e não ponto flutuante. Nenhum tipo ENUM nativo foi criado. Na leitura
+de volta, `EstadoDoSinal`, `Rota` e `TipoDeDocumento` voltam como **enum**, e não
+como `str` parecida; as datas voltam **com fuso**; `custo_usd` volta `Decimal`; e
+o payload atravessa o JSONB sem conversão (`'99.999,99'` continua sendo o texto
+que o modelo escreveu). Foram os dois defeitos que os testes tinham pego em
+SQLite, agora conferidos onde eles importam.
+
+O ciclo `upgrade` → `downgrade base` → `upgrade head` funciona, e o schema
+resultante bate com os modelos tabela a tabela e coluna a coluna. Um processamento
+de ponta a ponta gravou documento, extração, sinais, achados e decisão; a fila
+listou; o diagnóstico trouxe os quatro estados; uma correção submetida pela API
+persistiu e o exportador de realimentação a registrou com procedência.
+
+E o eval continua sem depender de nada disso: importar `eval.py` num interpretador
+limpo **não carrega SQLAlchemy, psycopg nem `app.persistencia`**. Isso agora é
+teste, e é mais forte que conferir o texto dos pipelines — pega o dia em que
+alguém importar persistência de um módulo que o eval alcança por transitividade.
 
 **O que se descobriu.** As três colunas de enum tinham sido criadas como VARCHAR
 **sem restrição nenhuma**. A causa é um padrão do SQLAlchemy 2:

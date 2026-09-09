@@ -1,6 +1,8 @@
 """Do resultado do pipeline para as linhas do banco, sem tocar nos pipelines."""
 
 import shutil
+import subprocess
+import sys
 from decimal import Decimal
 from pathlib import Path
 
@@ -264,3 +266,37 @@ class TestCorrecao:
 
         assert correcao.valor_anterior == "99.999,99"
         assert correcao.documento_id == decisao.documento_id
+
+
+class TestOEvalNaoDependeDeBanco:
+    """A restrição da Fase 4, conferida no lugar onde ela quebraria em silêncio.
+
+    O eval processa 56 documentos e é o instrumento de medição do projeto. Se
+    ele passasse a exigir Postgres, "rodar o eval" viraria tarefa de
+    infraestrutura — e a tarefa apareceria justamente quando alguém quisesse
+    conferir um número.
+
+    `TestOsPipelinesNaoMudaram` confere o texto dos dois pipelines; este confere
+    o **grafo de imports**, que é mais forte: pega o dia em que alguém importar
+    persistência de um módulo que o eval alcança por transitividade.
+    """
+
+    def test_importar_o_eval_nao_carrega_sqlalchemy(self) -> None:
+        codigo = (
+            "import sys; import eval;"
+            "print(sorted(m for m in sys.modules "
+            "if m.startswith(('sqlalchemy', 'psycopg', 'app.persistencia'))))"
+        )
+        saida = subprocess.run(
+            [sys.executable, "-c", codigo],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=Path(__file__).resolve().parents[2],
+        ).stdout.strip()
+
+        assert saida == "[]", f"o eval passou a arrastar banco junto: {saida}"
+
+    def test_processar_com_persistencia_desligada_e_o_padrao(self) -> None:
+        """Desligada por padrão, e é assim que o eval roda."""
+        assert Settings(_env_file=None).persistencia_ativa is False

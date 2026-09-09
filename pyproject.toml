@@ -80,4 +80,9 @@ markers = [
     # cada revisão de commit não paga — a verificação commit-a-commit usa
     # `pytest -m "not slow"`, e a verificação final e o CI rodam tudo.
     "slow: renderiza página e chama OCR; fora de `pytest -m \"not slow\"`",
+    # Roda contra um Postgres de verdade, e **pula** quando não há um de pé.
+    # Pular é o comportamento certo: a Fase 4 decidiu que persistência é
+    # opcional, e uma suíte que exigisse o serviço contradiria isso. Serve para
+    # a conferência que o SQLite não faz — tipo de coluna, CHECK, timestamptz.
+    "postgres: exige um Postgres de pé em DATABASE_URL; pula sem ele",
 ]
