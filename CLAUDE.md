@@ -93,6 +93,11 @@ docker run --rm -v "$PWD/web":/app -w /app -u "$(id -u):$(id -g)" \
 #   PERSISTENCIA_ATIVA=1 no .env, e então:
 uv run alembic upgrade head          # aplica as migrações
 
+# Povoa a fila para demonstrar a tela (gravar GIF, mostrar numa entrevista).
+# NÃO gasta cota: o provedor lê o gabarito ao lado de cada PDF do corpus
+# sintético, e não chama a API do modelo. --limpar apaga a fila antes.
+PERSISTENCIA_ATIVA=1 uv run python -m app.geradores.semeia_fila --limpar
+
 # Verificação contra Postgres de verdade: tipo de coluna, CHECK, timestamptz,
 # e o ida-e-volta dos enums — o que o SQLite não prova. APAGA as tabelas ao
 # terminar, e por isso exige a variável. Ver ADR 010.

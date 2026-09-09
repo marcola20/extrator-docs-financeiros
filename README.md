@@ -361,11 +361,25 @@ de documento não é versionado.**
 
 ```bash
 docker compose --profile revisao up -d   # banco + API + interface
+PERSISTENCIA_ATIVA=1 uv run python -m app.geradores.semeia_fila --limpar
 # http://localhost:3001
 ```
 
 Fora do profile, `docker compose up -d` continua subindo só o Postgres: o
 pipeline e o eval rodam sem nada disso.
+
+O segundo comando popula a fila com seis cenários — e **não gasta cota**. O
+provedor dele lê o gabarito que está ao lado de cada PDF do corpus sintético e
+devolve aqueles campos, como um extrator perfeito devolveria; quando o cenário
+precisa que a leitura esteja errada, ele sobrescreve o campo antes. É o que
+permite abrir a tela numa entrevista, ou gravar um GIF dela, sem consumir as 500
+chamadas diárias do tier gratuito e sem depender de o provedor estar no ar.
+
+Os cenários foram escolhidos para cair em quadrantes diferentes do que a
+interface tem a dizer — valor alucinado, nome trocado, leitura fiel, ataque com
+texto invisível, um par de comprovantes sem cobertura e um par bancário com
+cobertura. O quinto é o mais importante: um documento lido com 100% de acurácia
+que vai para a revisão porque **ninguém conseguiu conferi-lo**.
 
 ### O que ela mostra, e por que não é um CRUD
 
