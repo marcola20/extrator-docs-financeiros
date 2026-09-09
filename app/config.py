@@ -36,6 +36,13 @@ class Settings(BaseSettings):
     llm_cache_ativo: bool = True
     llm_cache_diretorio: Path = Path("dados/cache-llm")
 
+    # Observabilidade (Fase 4). Sem chave pública, o observador é mudo e nada
+    # acontece — o eval processa 56 documentos e não pode passar a depender de
+    # um serviço. Ver `app/observabilidade.py`.
+    langfuse_public_key: SecretStr = SecretStr("")
+    langfuse_secret_key: SecretStr = SecretStr("")
+    langfuse_host: str = "http://localhost:3000"
+
     # Trava de rede. Ligada, `cria_provedor` recusa montar qualquer provedor
     # que fale com a API. Existe para o CI: nenhum job dele chama o modelo, e
     # sem a trava essa promessa dependeria de nenhum teste novo esquecer de

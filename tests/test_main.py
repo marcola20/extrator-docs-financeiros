@@ -38,3 +38,17 @@ def test_as_rotas_de_revisao_estao_no_contrato() -> None:
         "/revisao/{decisao_id}/pdf",
         "/revisao/{decisao_id}/correcoes",
     } <= caminhos
+
+
+def test_health_diz_o_que_esta_ligado() -> None:
+    """Os dois opcionais da Fase 4, visíveis sem abrir a configuração."""
+    corpo = client.get("/health").json()
+
+    assert corpo["persistencia"] is False
+    assert corpo["observabilidade"] is False
+
+
+def test_o_middleware_de_trace_nao_atrapalha_sem_langfuse() -> None:
+    """Sem chave o observador é mudo, e o middleware custa uma chamada vazia."""
+    assert client.get("/health").status_code == 200
+    assert client.get("/revisao/99999").status_code in (404, 503)
