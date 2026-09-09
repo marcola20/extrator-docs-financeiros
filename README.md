@@ -1,6 +1,6 @@
 # Extrator de Documentos Financeiros
 
-![Tela de revisão de um boleto cujo valor impresso diverge do codificado na linha digitável](docs/valor-divergente.gif)
+![Tela de revisão de um boleto cujo valor impresso diverge do codificado na linha digitável](docs/valor-divergente1.gif)
 
 A extração está **correta**: o modelo leu `91,01`, que é o que a página imprime.
 Quem mente é o documento — a linha digitável codifica `R$ 9.100,99`. Sanitização
