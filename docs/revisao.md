@@ -197,10 +197,24 @@ bloqueada pelo mesmo sinal, com o caso "boleto limpo" virando mentira.
 
 Então: migra, `exec` no uvicorn, e semeia em segundo plano. A tela sobe em
 segundos e a fila se enche atrás dela — só na primeira implantação, porque no
-despertar seguinte `--se-vazia` acha a fila cheia e sai em 1,8 s. Quem visitar no
+despertar seguinte não há o que fazer e o comando sai em 1,8 s. Quem visitar no
 meio vê os casos ainda não semeados como indisponíveis, e a entrada diz que a
 instância está se povoando.
 
+A semeadura é **por cenário faltante** (`--completar`), e não tudo-ou-nada. A
+primeira forma era "não faça nada se a fila tiver qualquer decisão", e o modo de
+falha dela era ruim: uma semeadura interrompida no meio deixa parte dos
+documentos gravados, a partida seguinte trata isso como concluído, e a
+demonstração fica pela metade **em silêncio** — o buraco só aparece para quem
+abre o link e não acha um caso. Agora ela compara documento a documento, retoma
+só o que falta, e termina listando no log quais dos cinco casos da entrada estão
+no banco e quais não estão.
+
+Duas lições registradas junto ([ADR 012](adr/012-demonstracao-publica-somente-leitura.md)):
+a semeadura **não pode derrubar a partida** — fila vazia é degradação, página que
+não abre é queda —, e o log precisa de `PYTHONUNBUFFERED=1` e de uma linha por
+documento, ao começar e ao terminar. Sem isso o log fica em branco enquanto o
+processo trabalha, e um processo lento é indistinguível de um travado.
 
 ### Cold start
 
@@ -214,7 +228,7 @@ sozinha.
 ### O banco público é descartável
 
 E isso é propriedade, não risco: nada nele é original. Tudo veio do corpus
-sintético versionado, e `semeia_fila --se-vazia` o reconstrói na próxima
+sintético versionado, e `semeia_fila --completar` o reconstrói na próxima
 partida. Quando o Postgres gratuito expirar, a fila volta sozinha. É o mesmo
 raciocínio do ADR 010 — o que carrega conteúdo de documento não é versionado, e
 o que não é versionado precisa ser descartável.

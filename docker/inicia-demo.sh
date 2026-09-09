@@ -35,6 +35,20 @@
 # tabela, a API responde erro e o semeador não tem onde gravar. Aqui o `set -e`
 # vale: subir sem schema não é degradação, é um serviço que não funciona.
 #
+# ## Por que `--completar` e não "só se a fila estiver vazia"
+#
+# Este script roda a cada despertar, e a semeadura precisa ser segura de
+# repetir. A primeira forma disso foi "não faça nada se a fila tiver qualquer
+# decisão", e ela tem um modo de falha ruim: uma semeadura interrompida no meio
+# — o contêiner ficou sem memória, a instância foi reciclada — deixa parte dos
+# documentos gravados, e a partida seguinte trata isso como trabalho concluído.
+# A demonstração fica pela metade **em silêncio**, e o buraco só aparece para
+# quem abre o link e não acha um caso.
+#
+# `--completar` compara documento a documento e semeia só o que falta. Uma
+# semeadura interrompida se conserta sozinha no despertar seguinte, e no caso
+# normal — nada faltando — ele sai em menos de dois segundos.
+#
 # ## Por que a semeadura não pode derrubar o deploy
 #
 # Ela é enfeite: sem ela a API sobe, a entrada mostra os casos como
@@ -56,7 +70,7 @@ alembic upgrade head
 # quem precisa dele para encerrar as conexões abertas.
 echo "==> semeadura em segundo plano (não bloqueia a porta)"
 {
-    python -m app.geradores.semeia_fila --se-vazia \
+    python -m app.geradores.semeia_fila --completar \
         || echo "!! a semeadura falhou; a API continua no ar com a fila como está"
 } &
 

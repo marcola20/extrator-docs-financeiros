@@ -399,7 +399,7 @@ class TestCli:
         """Sem OCR a sanitização barra tudo e a fila sai sem contraste."""
         assert semeia_fila._analisa_argumentos([]).sem_ocr is False
 
-    def test_se_vazia_nao_faz_nada_com_a_fila_povoada(
+    def test_completar_nao_refaz_o_que_ja_esta_no_banco(
         self,
         settings: Settings,
         abre_sessao: semeia_fila.AbreSessao,
@@ -408,19 +408,24 @@ class TestCli:
     ) -> None:
         """É o que torna a partida do contêiner segura de repetir.
 
-        O plano gratuito reinicia o serviço a cada despertar, e um comando de
-        partida que semeasse sempre duplicaria a fila visita após visita.
+        O plano gratuito reinicia o serviço a cada despertar; um comando que
+        semeasse tudo de novo duplicaria a fila visita após visita.
         """
         boletos, _ = semeia_fila.cenarios_padrao()
         semeia_fila.semeia(
             settings, boletos=boletos[:1], informes=[], com_ocr=False, sessao=abre_sessao
         )
         monkeypatch.setattr(semeia_fila, "get_settings", lambda: settings)
+        monkeypatch.setattr(semeia_fila, "_sessao_padrao", abre_sessao)
+        monkeypatch.setattr(semeia_fila, "cenarios_padrao", lambda: (boletos[:1], []))
 
-        assert semeia_fila.main(["--se-vazia"]) == 0
-        assert "já tem decisões" in capsys.readouterr().out
+        assert semeia_fila.main(["--completar", "--sem-ocr"]) == 0
 
-    def test_se_vazia_com_limpar_e_recusado(
+        saida = capsys.readouterr().out
+        assert "0 de 1 cenário(s) faltando" in saida
+        assert "0 documento(s) gravado(s)" in saida
+
+    def test_completar_com_limpar_e_recusado(
         self,
         capsys: pytest.CaptureFixture[str],
         monkeypatch: pytest.MonkeyPatch,
@@ -429,17 +434,125 @@ class TestCli:
         """As duas flags se contradizem; obedecer a uma calada seria pior."""
         monkeypatch.setattr(semeia_fila, "get_settings", lambda: settings)
 
-        assert semeia_fila.main(["--limpar", "--se-vazia"]) == 2
+        assert semeia_fila.main(["--limpar", "--completar"]) == 2
         assert "contradizem" in capsys.readouterr().err
 
-    def test_ha_decisoes_e_falso_na_fila_vazia(self, settings: Settings) -> None:
-        from sqlalchemy import create_engine
 
-        from app.persistencia.modelos import Base
+class TestSemeaduraIncremental:
+    """Semear o que falta, e não tudo-ou-nada.
 
-        Base.metadata.create_all(create_engine(settings.database_url))
+    O modo de falha que isto existe para cobrir: uma semeadura interrompida no
+    meio — contêiner sem memória, instância reciclada — deixava parte dos
+    documentos gravados, e um "a fila não está vazia" tratava isso como trabalho
+    concluído. A demonstração ficava pela metade **sem erro nenhum**, e o buraco
+    só aparecia para quem abrisse o link e não achasse um caso.
+    """
 
-        assert semeia_fila.ha_decisoes(settings) is False
+    def test_arquivos_com_decisao_lista_o_que_ja_foi_gravado(
+        self, settings: Settings, abre_sessao: semeia_fila.AbreSessao
+    ) -> None:
+        boletos, _ = semeia_fila.cenarios_padrao()
+        semeia_fila.semeia(
+            settings, boletos=boletos[:2], informes=[], com_ocr=False, sessao=abre_sessao
+        )
+
+        gravados = semeia_fila.arquivos_com_decisao(abre_sessao)
+
+        assert gravados == {str(boletos[0].pdf), str(boletos[1].pdf)}
+
+    def test_pendentes_devolve_so_o_que_falta(self) -> None:
+        boletos, informes = semeia_fila.cenarios_padrao()
+        ja = {str(boletos[0].pdf)}
+
+        faltando_boletos, faltando_informes = semeia_fila.pendentes(
+            boletos, informes, ja_gravados=ja
+        )
+
+        assert boletos[0] not in faltando_boletos
+        assert faltando_boletos == boletos[1:]
+        assert faltando_informes == informes
+
+    def test_um_par_pela_metade_continua_pendente(self) -> None:
+        """Meio par não é meio caso: o cruzamento entre anos precisa dos dois."""
+        _, informes = semeia_fila.cenarios_padrao()
+        par = informes[0]
+
+        _, faltando = semeia_fila.pendentes([], informes, ja_gravados={str(par.anterior)})
+
+        assert par in faltando
+
+    def test_completar_um_par_pela_metade_nao_duplica_o_que_sobreviveu(
+        self, settings: Settings, abre_sessao: semeia_fila.AbreSessao, sessao: Session
+    ) -> None:
+        """O documento que já tinha decisão é reprocessado, mas não regravado.
+
+        Sem isso, a retomada criaria uma segunda decisão para ele e a fila
+        mostraria o mesmo informe duas vezes.
+        """
+        _, informes = semeia_fila.cenarios_padrao()
+        par = informes[0]
+
+        # Encena a interrupção: só o primeiro documento do par foi gravado.
+        semeia_fila._semeia_par(
+            par,
+            settings,
+            com_ocr=False,
+            sessao=abre_sessao,
+            ja_gravados={str(par.atual)},
+        )
+        assert semeia_fila.arquivos_com_decisao(abre_sessao) == {str(par.anterior)}
+
+        semeia_fila.semeia(
+            settings,
+            boletos=[],
+            informes=[par],
+            com_ocr=False,
+            sessao=abre_sessao,
+            ja_gravados=semeia_fila.arquivos_com_decisao(abre_sessao),
+        )
+
+        decisoes = sessao.scalars(select(Decisao)).all()
+        assert len(decisoes) == 2, "um por documento do par, e não três"
+        assert semeia_fila.arquivos_com_decisao(abre_sessao) == {
+            str(par.anterior),
+            str(par.atual),
+        }
+
+
+class TestRelatorioDosCasos:
+    """O log tem que responder "os cinco casos estão lá?", e não só "quantos"."""
+
+    def test_lista_presentes_e_faltando(self, capsys: pytest.CaptureFixture[str]) -> None:
+        from app.demo import CASOS
+
+        primeiro = CASOS[0].arquivo
+        assert primeiro is not None
+
+        faltando = semeia_fila.relata_os_casos_da_entrada(
+            {str(primeiro)}, semeia_fila.registra_no_stdout
+        )
+
+        saida = capsys.readouterr().out
+        assert f"1 de {len(CASOS)} presentes" in saida
+        assert f"ok     {CASOS[0].chave}" in saida
+        assert f"FALTA  {CASOS[1].chave}" in saida
+        assert faltando == [c.chave for c in CASOS[1:]]
+
+    def test_avisa_alto_quando_falta_caso(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Semeadura parcial precisa aparecer no log, não ficar muda."""
+        semeia_fila.relata_os_casos_da_entrada(set(), semeia_fila.registra_no_stdout)
+
+        assert "!!" in capsys.readouterr().out
+
+    def test_cala_quando_esta_tudo_la(self, capsys: pytest.CaptureFixture[str]) -> None:
+        from app.demo import CASOS
+
+        todos = {str(caso.arquivo) for caso in CASOS if caso.arquivo is not None}
+
+        faltando = semeia_fila.relata_os_casos_da_entrada(todos, semeia_fila.registra_no_stdout)
+
+        assert faltando == []
+        assert "!!" not in capsys.readouterr().out
 
 
 class TestRotaResultante:

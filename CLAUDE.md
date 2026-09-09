@@ -99,8 +99,9 @@ docker run --rm -v "$PWD/web":/app -w /app -u "$(id -u):$(id -g)" \
 uv run alembic upgrade head          # aplica as migrações
 
 # Povoa a fila para demonstrar a tela (gravar GIF, mostrar numa entrevista).
-# --se-vazia não faz nada com a fila já povoada: é como o contêiner da
-# demonstração se semeia na partida, e é o que a torna segura de repetir.
+# --completar semeia só os cenários que ainda não estão no banco: é como o
+# contêiner da demonstração se semeia na partida. Seguro de repetir, e uma
+# semeadura interrompida no meio se conserta sozinha no despertar seguinte.
 # NÃO gasta cota: o provedor lê o gabarito ao lado de cada PDF do corpus
 # sintético, e não chama a API do modelo. --limpar apaga a fila antes.
 PERSISTENCIA_ATIVA=1 uv run python -m app.geradores.semeia_fila --limpar

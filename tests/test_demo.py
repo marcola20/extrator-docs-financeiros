@@ -161,9 +161,13 @@ class TestPartidaDaDemonstracao:
             "hospedagem desiste de esperar: 'Port scan timeout reached'"
         )
 
-    def test_a_semeadura_e_repetivel(self) -> None:
-        """O serviço reinicia a cada despertar; semear sempre duplicaria a fila."""
-        assert any("--se-vazia" in c for c in self._comandos())
+    def test_a_semeadura_e_repetivel_e_se_completa(self) -> None:
+        """O serviço reinicia a cada despertar; semear sempre duplicaria a fila.
+
+        `--completar` e não uma trava de "só se estiver vazia": a segunda deixa
+        uma semeadura interrompida pela metade para sempre, sem erro nenhum.
+        """
+        assert any("--completar" in c for c in self._comandos())
 
     def test_a_semeadura_nao_derruba_a_partida(self) -> None:
         """Fila vazia é degradação; página que não abre é queda."""

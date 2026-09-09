@@ -66,7 +66,7 @@ import shutil
 import sys
 import time
 import unicodedata
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Container, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -74,6 +74,7 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
@@ -82,6 +83,7 @@ from app.demo import (
     BOLETO_LIMPO,
     BOLETO_NOME_TROCADO,
     BOLETOS_ADVERSARIAIS,
+    CASOS,
     INFORMES,
     INFORMES_ADVERSARIAIS,
     par_de,
@@ -91,7 +93,7 @@ from app.demo import (
 )
 from app.llm.provedor import INSTRUCAO_PADRAO, ResultadoExtracao, UsoDeTokens
 from app.persistencia import gravacao
-from app.persistencia.modelos import Decisao, TipoDeDocumento
+from app.persistencia.modelos import Decisao, Documento, TipoDeDocumento
 from app.pipeline import processa
 from app.pipeline_informe import processa_par
 
@@ -351,22 +353,50 @@ def cenarios_padrao() -> tuple[list[CenarioDeBoleto], list[CenarioDeInforme]]:
     return boletos, informes
 
 
-def ha_decisoes(settings: Settings) -> bool:
-    """Se a fila já tem alguma decisão gravada.
+def arquivos_com_decisao(sessao: AbreSessao | None = None) -> set[str]:
+    """Os caminhos que já têm decisão gravada.
 
-    Existe para `--se-vazia`, que é como o contêiner da demonstração se semeia:
-    o serviço gratuito dorme por inatividade e reinicia a cada visita, e um
-    comando de partida que semeasse sempre ou duplicaria a fila a cada acordar,
-    ou a apagaria — com as correções junto, se algum dia a demonstração deixar
-    de ser somente-leitura.
+    É o estado contra o qual `--completar` decide o que ainda falta. Por
+    **arquivo**, e não um booleano para a fila inteira: uma semeadura
+    interrompida no meio — o contêiner ficou sem memória, a instância foi
+    reciclada — deixa parte dos documentos gravados, e um "a fila não está
+    vazia" trataria isso como trabalho concluído. A demo ficaria pela metade em
+    silêncio, e o defeito só apareceria para quem abrisse o link e não achasse
+    um caso.
     """
-    from sqlalchemy import create_engine, func, select
+    abre = sessao if sessao is not None else _sessao_padrao
+    with abre() as aberta:
+        return set(
+            aberta.scalars(
+                select(Documento.arquivo).join(Decisao, Decisao.documento_id == Documento.id)
+            )
+        )
 
-    from app.persistencia.modelos import Decisao
 
-    engine = create_engine(settings.database_url)
-    with engine.connect() as conexao:
-        return bool(conexao.scalar(select(func.count()).select_from(Decisao)))
+def _arquivos_de(cenario: "CenarioDeBoleto | CenarioDeInforme") -> tuple[Path, ...]:
+    """Os documentos que este cenário grava. Um para boleto, dois para o par."""
+    if isinstance(cenario, CenarioDeBoleto):
+        return (cenario.pdf,)
+    return (cenario.anterior, cenario.atual)
+
+
+def pendentes(
+    boletos: Sequence[CenarioDeBoleto],
+    informes: Sequence[CenarioDeInforme],
+    *,
+    ja_gravados: Container[str],
+) -> tuple[list[CenarioDeBoleto], list[CenarioDeInforme]]:
+    """Os cenários que ainda não estão **inteiros** no banco.
+
+    O par de informes conta como pendente enquanto faltar qualquer um dos dois
+    documentos: o cruzamento entre anos precisa dos dois, e um par pela metade
+    não é meio caso, é caso nenhum. Reprocessá-lo custa o OCR de novo; gravar
+    de novo o que já estava, não — ver `_semeia_par`.
+    """
+    return (
+        [c for c in boletos if any(str(a) not in ja_gravados for a in _arquivos_de(c))],
+        [c for c in informes if any(str(a) not in ja_gravados for a in _arquivos_de(c))],
+    )
 
 
 def limpa(settings: Settings) -> None:
@@ -400,9 +430,21 @@ def _semeia_boleto(
 
 
 def _semeia_par(
-    cenario: CenarioDeInforme, settings: Settings, *, com_ocr: bool, sessao: AbreSessao
+    cenario: CenarioDeInforme,
+    settings: Settings,
+    *,
+    com_ocr: bool,
+    sessao: AbreSessao,
+    ja_gravados: Container[str] = frozenset(),
 ) -> list[tuple[Decisao, str]]:
-    """O informe é processado em par: o cruzamento entre anos precisa dos dois."""
+    """O informe é processado em par: o cruzamento entre anos precisa dos dois.
+
+    `ja_gravados` cobre a retomada de um par pela metade. Os dois documentos são
+    **processados** de novo — o cruzamento não tem como conferir um sozinho —,
+    mas só é gravado o que ainda não tem decisão. Sem isso, completar um par
+    interrompido criaria uma segunda decisão para o documento que já estava lá, e
+    a fila mostraria o mesmo informe duas vezes.
+    """
     provedor = ProvedorDeGabarito(
         [_conhecido_de_informe(cenario.anterior), _conhecido_de_informe(cenario.atual)]
     )
@@ -417,6 +459,8 @@ def _semeia_par(
 
     gravadas = []
     for caminho, resultado in zip((cenario.anterior, cenario.atual), resultados, strict=True):
+        if str(caminho) in ja_gravados:
+            continue
         with sessao() as aberta:
             decisao = gravacao.grava(
                 aberta,
@@ -459,6 +503,7 @@ def semeia(
     com_ocr: bool = True,
     sessao: AbreSessao | None = None,
     registra: Registro = _em_silencio,
+    ja_gravados: Container[str] = frozenset(),
 ) -> list[tuple[Decisao, str]]:
     """Processa os cenários e grava cada decisão. Devolve o que foi gravado.
 
@@ -472,6 +517,10 @@ def semeia(
     justamente o que nunca imprime nada. Cada unidade custa de 2 a 5 segundos
     aqui e muito mais numa instância compartilhada — o OCR renderiza a página a
     300 DPI e roda o tesseract em cima.
+
+    `ja_gravados` só tem efeito dentro de um par de informes, e é o que permite
+    completar um par interrompido no meio sem duplicar o documento que sobreviveu.
+    Escolher **quais** cenários rodar é de `pendentes`, não daqui.
     """
     abre = sessao if sessao is not None else _sessao_padrao
     unidades = len(boletos) + len(informes)
@@ -489,13 +538,58 @@ def semeia(
         if isinstance(cenario, CenarioDeBoleto):
             novas = [_semeia_boleto(cenario, settings, com_ocr=com_ocr, sessao=abre)]
         else:
-            novas = _semeia_par(cenario, settings, com_ocr=com_ocr, sessao=abre)
+            novas = _semeia_par(
+                cenario, settings, com_ocr=com_ocr, sessao=abre, ja_gravados=ja_gravados
+            )
 
         gravadas += novas
-        rotas = ", ".join(decisao.rota.value for decisao, _ in novas)
-        registra(f"[{indice}/{unidades}] {nome}: {rotas} em {time.monotonic() - inicio:.1f}s")
+        pulados = len(_arquivos_de(cenario)) - len(novas)
+        rotas = ", ".join(decisao.rota.value for decisao, _ in novas) or "nada a gravar"
+        parcial = f", {pulados} já estava(m) no banco" if pulados else ""
+        registra(
+            f"[{indice}/{unidades}] {nome}: {rotas}{parcial} em {time.monotonic() - inicio:.1f}s"
+        )
 
     return gravadas
+
+
+def relata_os_casos_da_entrada(ja_gravados: Container[str], registra: Registro) -> list[str]:
+    """Lista, no fim do log, quais casos da página de entrada estão no banco.
+
+    Devolve as chaves dos que faltam.
+
+    Existe porque uma semeadura pela metade era **muda**: o comando terminava
+    com "11 documentos", o serviço subia, e o buraco só aparecia para quem
+    abrisse o link e não achasse um caso. O log agora responde a pergunta que
+    importa para a demonstração — não "quantos documentos foram gravados", e sim
+    "os cinco casos que a entrada promete estão lá?".
+
+    Os casos vêm de `app.demo`, o mesmo módulo que a API lê. Uma segunda lista
+    aqui discordaria da primeira exatamente quando a diferença importasse.
+    """
+    presentes, faltando = [], []
+    for caso in CASOS:
+        arquivo = caso.arquivo
+        if arquivo is not None and str(arquivo) in ja_gravados:
+            presentes.append((caso, arquivo))
+        else:
+            faltando.append((caso, arquivo))
+
+    registra(f"\ncasos da página de entrada: {len(presentes)} de {len(CASOS)} presentes")
+    for caso, arquivo in presentes:
+        registra(f"  ok     {caso.chave:22} {arquivo.name if arquivo else '—'}")
+    for caso, arquivo in faltando:
+        registra(
+            f"  FALTA  {caso.chave:22} {arquivo.name if arquivo else 'sem documento no corpus'}"
+        )
+
+    if faltando:
+        registra(
+            f"!! {len(faltando)} caso(s) da entrada sem decisão no banco. A entrada "
+            f"os mostra como indisponíveis, e a próxima partida com --completar "
+            f"tenta de novo só o que falta."
+        )
+    return [caso.chave for caso, _ in faltando]
 
 
 def _analisa_argumentos(argv: Sequence[str] | None) -> argparse.Namespace:
@@ -512,11 +606,12 @@ def _analisa_argumentos(argv: Sequence[str] | None) -> argparse.Namespace:
         help="apaga a fila antes de semear. Destrutivo: some com as correções também",
     )
     parser.add_argument(
-        "--se-vazia",
+        "--completar",
         action="store_true",
         help=(
-            "não faz nada se a fila já tiver alguma decisão. É como o contêiner "
-            "da demonstração se semeia, e o que o torna seguro de repetir"
+            "semeia só os cenários que ainda não estão no banco. É como o "
+            "contêiner da demonstração se semeia: seguro de repetir, e se "
+            "conserta sozinho depois de uma semeadura interrompida"
         ),
     )
     parser.add_argument(
@@ -545,17 +640,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 1
 
-    if argumentos.limpar and argumentos.se_vazia:
+    if argumentos.limpar and argumentos.completar:
         print(
-            "--limpar e --se-vazia se contradizem: um apaga a fila, o outro "
-            "existe para não mexer numa fila que já tem conteúdo.",
+            "--limpar e --completar se contradizem: um apaga a fila, o outro "
+            "existe para preencher só o que falta nela.",
             file=sys.stderr,
         )
         return 2
-
-    if argumentos.se_vazia and ha_decisoes(settings):
-        print("a fila já tem decisões; nada a semear (--se-vazia).")
-        return 0
 
     com_ocr = not argumentos.sem_ocr
     if com_ocr and shutil.which("tesseract") is None:
@@ -566,23 +657,42 @@ def main(argv: Sequence[str] | None = None) -> int:
             file=sys.stderr,
         )
 
-    boletos, informes = cenarios_padrao()
-    registra_no_stdout(
-        f"semeando {len(boletos)} boleto(s) e {len(informes)} par(es) de informe, "
-        f"{'com' if com_ocr else 'sem'} OCR"
-    )
+    todos_os_boletos, todos_os_informes = cenarios_padrao()
     inicio = time.monotonic()
 
     try:
         if argumentos.limpar:
             limpa(settings)
             registra_no_stdout("fila apagada")
+
+        # Lido **depois** do `--limpar`, senão o estado consultado seria o de
+        # antes de apagar e nada seria semeado.
+        ja_gravados = arquivos_com_decisao()
+        boletos, informes = (
+            pendentes(todos_os_boletos, todos_os_informes, ja_gravados=ja_gravados)
+            if argumentos.completar
+            else (list(todos_os_boletos), list(todos_os_informes))
+        )
+
+        if argumentos.completar:
+            faltam = len(boletos) + len(informes)
+            registra_no_stdout(
+                f"completando: {faltam} de "
+                f"{len(todos_os_boletos) + len(todos_os_informes)} cenário(s) faltando"
+            )
+        if boletos or informes:
+            registra_no_stdout(
+                f"semeando {len(boletos)} boleto(s) e {len(informes)} par(es) de informe, "
+                f"{'com' if com_ocr else 'sem'} OCR"
+            )
+
         gravadas = semeia(
             settings,
             boletos=boletos,
             informes=informes,
             com_ocr=com_ocr,
             registra=registra_no_stdout,
+            ja_gravados=ja_gravados,
         )
     except PersistenciaDesligada as erro:
         print(f"\n{erro}", file=sys.stderr)
@@ -593,9 +703,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     na_fila = sum(1 for decisao, _ in gravadas if decisao.rota.value == "revisao_humana")
     registra_no_stdout(
-        f"\n{len(gravadas)} documento(s) em {time.monotonic() - inicio:.1f}s: "
+        f"\n{len(gravadas)} documento(s) gravado(s) em {time.monotonic() - inicio:.1f}s: "
         f"{na_fila} na fila, {len(gravadas) - na_fila} auto-aprovado(s)."
     )
+
+    # Sempre, inclusive quando nada foi semeado: o log tem que responder "os
+    # cinco casos estão lá?" mesmo na partida em que não houve trabalho.
+    relata_os_casos_da_entrada(arquivos_com_decisao(), registra_no_stdout)
     registra_no_stdout(
         "A tela está em http://localhost:3001 (docker compose --profile revisao up -d)."
     )

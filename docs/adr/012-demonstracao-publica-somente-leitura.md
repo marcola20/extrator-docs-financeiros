@@ -58,10 +58,40 @@ que está ao lado de cada PDF do corpus sintético e devolve aqueles campos, com
 um extrator perfeito devolveria. **A demonstração não tem chave de API**, e
 `LLM_SEM_REDE=1` transforma qualquer tentativa de chamar o modelo em erro alto.
 
-`--se-vazia` é o que torna a partida segura de repetir. O plano gratuito desliga
+`--completar` é o que torna a partida segura de repetir. O plano gratuito desliga
 o serviço por inatividade e o religa na visita seguinte, então este script roda
 muitas vezes, não uma; semear sempre duplicaria a fila a cada despertar, e
 semear com `--limpar` a apagaria no meio da visita de alguém.
+
+#### Tudo-ou-nada era a trava errada
+
+A primeira forma disso foi "não faça nada se a fila tiver qualquer decisão". Ela
+é segura de repetir e tem um modo de falha ruim: uma semeadura **interrompida no
+meio** — o contêiner ficou sem memória, a instância foi reciclada — deixa parte
+dos documentos gravados, e a partida seguinte lê "a fila não está vazia" e trata
+isso como trabalho concluído. A demonstração fica pela metade sem erro nenhum, e
+o buraco só aparece para quem abre o link e não acha um caso.
+
+A troca não é de probabilidade, é de modo de falha: `--completar` compara
+**documento a documento** e semeia só o que falta, então uma semeadura
+interrompida se conserta sozinha no despertar seguinte. Medido: interrompida
+depois de 5 dos 11 documentos, a partida seguinte anuncia "3 de 8 cenário(s)
+faltando", grava 6 documentos em 14,4 s, e não duplica nenhum dos 5 que já
+estavam.
+
+Duas consequências de desenho:
+
+- **o par de informes é a unidade de pendência, e o documento é a unidade de
+  gravação.** Um par pela metade conta como pendente — o cruzamento entre anos
+  precisa dos dois — e é **reprocessado** inteiro, porque não há como conferir um
+  sozinho; mas só é gravado o documento que ainda não tem decisão. Sem essa
+  distinção, completar um par interrompido criaria uma segunda decisão para o
+  que sobreviveu, e a fila mostraria o mesmo informe duas vezes;
+- **o log termina dizendo quais dos cinco casos da entrada estão no banco.** É a
+  pergunta que importa para a demonstração — não "quantos documentos foram
+  gravados", e sim "os cinco casos que a entrada promete estão lá?" —, e uma
+  semeadura parcial passa a aparecer no log em vez de ficar muda. A lista vem de
+  `app/demo.py`, o mesmo módulo que a API lê.
 
 #### A ordem foi aprendida errando: o primeiro deploy não subiu
 
