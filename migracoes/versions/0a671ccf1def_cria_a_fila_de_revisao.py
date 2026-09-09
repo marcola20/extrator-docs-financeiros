@@ -4,11 +4,17 @@ Primeira migração do projeto. O Postgres já estava no docker-compose desde a
 Fase 1 e nunca tinha sido usado — até aqui o pipeline não persistia nada, e a
 correção humana não sobrevivia ao reinício.
 
-O tipo de `payload` é a variante do modelo: JSONB no Postgres, JSON em SQLite.
-É o que permite aplicar esta migração num banco de teste sem subir Postgres, e
-é como o teste confere que a migração e os modelos descrevem o mesmo schema.
+Duas escolhas de tipo que fazem esta migração rodar tanto em Postgres quanto no
+SQLite dos testes, e que não são detalhe:
 
-Revision ID: 90d617d3748b
+- `payload` é JSONB no Postgres com variante JSON fora. É o que permite conferir
+  esta migração contra os modelos sem subir um serviço;
+- os enums são VARCHAR com CHECK, não tipos ENUM nativos. Acrescentar um estado
+  de sinal passa a ser migração de constraint, e não um `ALTER TYPE` — que no
+  Postgres não roda dentro de transação, e portanto não desfaz junto se a
+  migração falhar no meio.
+
+Revision ID: 0a671ccf1def
 Revises:
 Create Date: 2026-09-08
 """
@@ -20,7 +26,9 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.sqltypes import Text
 
-revision: str = "90d617d3748b"
+from app.persistencia.modelos import DataHoraUTC
+
+revision: str = "0a671ccf1def"
 down_revision: str | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -33,9 +41,13 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("arquivo", sa.String(length=500), nullable=False),
         sa.Column("hash_sha256", sa.String(length=64), nullable=False),
-        sa.Column("tipo", sa.String(length=20), nullable=False),
+        sa.Column(
+            "tipo",
+            sa.Enum("boleto", "informe", name="tipodedocumento", native_enum=False, length=30),
+            nullable=False,
+        ),
         sa.Column("paginas", sa.Integer(), nullable=True),
-        sa.Column("ingerido_em", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("ingerido_em", DataHoraUTC(), nullable=False),
         sa.CheckConstraint("length(hash_sha256) = 64", name="ck_documento_hash_sha256"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -61,7 +73,7 @@ def upgrade() -> None:
         sa.Column("latencia_s", sa.Numeric(precision=10, scale=3), nullable=False),
         sa.Column("do_cache", sa.Boolean(), nullable=False),
         sa.Column("erro_de_dominio", sa.Text(), nullable=True),
-        sa.Column("criada_em", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("criada_em", DataHoraUTC(), nullable=False),
         sa.ForeignKeyConstraint(["documento_id"], ["documento.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -71,9 +83,13 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("documento_id", sa.Integer(), nullable=False),
         sa.Column("extracao_id", sa.Integer(), nullable=True),
-        sa.Column("rota", sa.String(length=20), nullable=False),
-        sa.Column("revisada_em", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("criada_em", sa.DateTime(timezone=True), nullable=False),
+        sa.Column(
+            "rota",
+            sa.Enum("auto_aprovado", "revisao_humana", name="rota", native_enum=False, length=30),
+            nullable=False,
+        ),
+        sa.Column("revisada_em", DataHoraUTC(), nullable=True),
+        sa.Column("criada_em", DataHoraUTC(), nullable=False),
         sa.ForeignKeyConstraint(["documento_id"], ["documento.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["extracao_id"], ["extracao.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
@@ -108,7 +124,7 @@ def upgrade() -> None:
         sa.Column("valor_anterior", sa.Text(), nullable=False),
         sa.Column("valor_corrigido", sa.Text(), nullable=False),
         sa.Column("revisor", sa.String(length=120), nullable=False),
-        sa.Column("corrigido_em", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("corrigido_em", DataHoraUTC(), nullable=False),
         sa.ForeignKeyConstraint(["decisao_id"], ["decisao.id"], ondelete="SET NULL"),
         sa.ForeignKeyConstraint(["documento_id"], ["documento.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
@@ -120,7 +136,19 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("decisao_id", sa.Integer(), nullable=False),
         sa.Column("nome", sa.String(length=40), nullable=False),
-        sa.Column("estado", sa.String(length=20), nullable=False),
+        sa.Column(
+            "estado",
+            sa.Enum(
+                "conferido",
+                "divergente",
+                "sem_cobertura",
+                "dispensado",
+                name="estadodosinal",
+                native_enum=False,
+                length=30,
+            ),
+            nullable=False,
+        ),
         sa.Column("detalhe", sa.Text(), nullable=False),
         sa.Column("escopo", sa.String(length=200), nullable=True),
         sa.ForeignKeyConstraint(["decisao_id"], ["decisao.id"], ondelete="CASCADE"),

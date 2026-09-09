@@ -47,6 +47,7 @@ from typing import Any
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
+    Enum,
     ForeignKey,
     Index,
     Integer,
@@ -65,6 +66,32 @@ from sqlalchemy.types import JSON, TypeDecorator
 # a suíte — e o CI — dependente de um serviço, e a restrição desta fase é
 # justamente que o pipeline continue rodando sem banco.
 JSONFlexivel = JSONB().with_variant(JSON(), "sqlite")
+
+
+def coluna_de_enum[E: StrEnum](enumeracao: type[E]) -> Enum:
+    """Uma coluna de texto que devolve o **enum**, não uma string parecida.
+
+    `mapped_column(String(20))` com `Mapped[EstadoDoSinal]` grava certo e lê
+    errado: volta `'sem_cobertura'`, uma `str` que a anotação promete ser
+    `EstadoDoSinal`. O mypy acredita na anotação, `estado is EstadoDoSinal.X`
+    dá falso em silêncio, e `estado.bloqueia` levanta `AttributeError` — no
+    consumidor, longe daqui.
+
+    `native_enum=False` guarda VARCHAR com CHECK em vez de um tipo ENUM do
+    Postgres: acrescentar um estado passa a ser uma migração de constraint, e
+    não um `ALTER TYPE` que não roda dentro de transação.
+
+    `values_callable` grava o **valor** (`sem_cobertura`), não o nome do membro
+    (`SEM_COBERTURA`). Sem ele o banco guardaria uma grafia que não existe em
+    lugar nenhum do resto do projeto.
+    """
+    return Enum(
+        enumeracao,
+        native_enum=False,
+        length=30,
+        values_callable=lambda e: [membro.value for membro in e],
+        validate_strings=True,
+    )
 
 
 class DataHoraUTC(TypeDecorator[datetime]):
@@ -149,7 +176,7 @@ class Documento(Base):
     """Identidade do conteúdo. É por ele que se sabe que dois envios são o
     mesmo documento, e é ele que permite reprocessar sem reabrir o arquivo."""
 
-    tipo: Mapped[TipoDeDocumento] = mapped_column(String(20))
+    tipo: Mapped[TipoDeDocumento] = mapped_column(coluna_de_enum(TipoDeDocumento))
     paginas: Mapped[int | None] = mapped_column(Integer, default=None)
     ingerido_em: Mapped[datetime] = mapped_column(DataHoraUTC, default=agora)
 
@@ -230,7 +257,7 @@ class Decisao(Base):
     """Nulo quando o documento foi barrado **antes** de chegar ao modelo — PDF
     sem camada de texto, por exemplo. A decisão existe; a extração não."""
 
-    rota: Mapped[Rota] = mapped_column(String(20), index=True)
+    rota: Mapped[Rota] = mapped_column(coluna_de_enum(Rota), index=True)
     revisada_em: Mapped[datetime | None] = mapped_column(DataHoraUTC, default=None)
     """Quando um humano fechou este item. Nulo = ainda na fila."""
 
@@ -265,7 +292,7 @@ class Sinal(Base):
     """`sanitizacao`, `dominio`, `aritmetica`, `cruzamento`, `grounding`,
     `consistencia`. Vem de `app.confianca.politica.Sinal`."""
 
-    estado: Mapped[EstadoDoSinal] = mapped_column(String(20), index=True)
+    estado: Mapped[EstadoDoSinal] = mapped_column(coluna_de_enum(EstadoDoSinal), index=True)
     detalhe: Mapped[str] = mapped_column(Text, default="")
 
     escopo: Mapped[str | None] = mapped_column(String(200), default=None)
