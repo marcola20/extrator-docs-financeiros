@@ -64,6 +64,7 @@ import argparse
 import json
 import shutil
 import sys
+import time
 import unicodedata
 from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager
@@ -430,6 +431,26 @@ def _semeia_par(
     return gravadas
 
 
+Registro = Callable[[str], None]
+"""Para onde vai o progresso. Ver `semeia`."""
+
+
+def _em_silencio(_: str) -> None:
+    """O padrão: a biblioteca não escreve em stdout de quem a chamou."""
+
+
+def registra_no_stdout(mensagem: str) -> None:
+    """Escreve uma linha de progresso, **com flush**.
+
+    O flush não é zelo: o stdout do Python é bloco-bufferizado quando não é um
+    terminal, que é exatamente o caso dentro de um contêiner. Sem ele, o log da
+    hospedagem fica em branco até o processo terminar — e um processo que demora
+    minutos e não imprime nada é indistinguível de um processo travado. Foi o
+    que aconteceu no primeiro deploy: o log tinha o `echo` do shell e mais nada.
+    """
+    print(mensagem, flush=True)
+
+
 def semeia(
     settings: Settings,
     *,
@@ -437,17 +458,43 @@ def semeia(
     informes: Sequence[CenarioDeInforme],
     com_ocr: bool = True,
     sessao: AbreSessao | None = None,
+    registra: Registro = _em_silencio,
 ) -> list[tuple[Decisao, str]]:
     """Processa os cenários e grava cada decisão. Devolve o que foi gravado.
 
     `sessao` entra por parâmetro para o teste poder apontar para um SQLite —
     exigir Postgres de pé para testar este comando contradiria a decisão da
     Fase 4.1 de a persistência ser opcional. Em uso normal ele é omitido.
+
+    `registra` recebe uma linha por documento, ao **começar** e ao terminar, com
+    o tempo. Duas linhas e não uma porque a pergunta que o log precisa responder
+    é "onde travou", e só a linha de fim não responde: o documento que trava é
+    justamente o que nunca imprime nada. Cada unidade custa de 2 a 5 segundos
+    aqui e muito mais numa instância compartilhada — o OCR renderiza a página a
+    300 DPI e roda o tesseract em cima.
     """
     abre = sessao if sessao is not None else _sessao_padrao
-    gravadas = [_semeia_boleto(c, settings, com_ocr=com_ocr, sessao=abre) for c in boletos]
-    for cenario in informes:
-        gravadas += _semeia_par(cenario, settings, com_ocr=com_ocr, sessao=abre)
+    unidades = len(boletos) + len(informes)
+    gravadas = []
+
+    for indice, cenario in enumerate(list(boletos) + list(informes), start=1):
+        nome = (
+            cenario.pdf.name
+            if isinstance(cenario, CenarioDeBoleto)
+            else f"{cenario.anterior.name}+{cenario.atual.name}"
+        )
+        registra(f"[{indice}/{unidades}] {nome}: começando")
+        inicio = time.monotonic()
+
+        if isinstance(cenario, CenarioDeBoleto):
+            novas = [_semeia_boleto(cenario, settings, com_ocr=com_ocr, sessao=abre)]
+        else:
+            novas = _semeia_par(cenario, settings, com_ocr=com_ocr, sessao=abre)
+
+        gravadas += novas
+        rotas = ", ".join(decisao.rota.value for decisao, _ in novas)
+        registra(f"[{indice}/{unidades}] {nome}: {rotas} em {time.monotonic() - inicio:.1f}s")
+
     return gravadas
 
 
@@ -520,26 +567,39 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
 
     boletos, informes = cenarios_padrao()
+    registra_no_stdout(
+        f"semeando {len(boletos)} boleto(s) e {len(informes)} par(es) de informe, "
+        f"{'com' if com_ocr else 'sem'} OCR"
+    )
+    inicio = time.monotonic()
 
     try:
         if argumentos.limpar:
             limpa(settings)
-            print("fila apagada")
-        gravadas = semeia(settings, boletos=boletos, informes=informes, com_ocr=com_ocr)
+            registra_no_stdout("fila apagada")
+        gravadas = semeia(
+            settings,
+            boletos=boletos,
+            informes=informes,
+            com_ocr=com_ocr,
+            registra=registra_no_stdout,
+        )
     except PersistenciaDesligada as erro:
         print(f"\n{erro}", file=sys.stderr)
         return 1
 
     for decisao, rotulo in gravadas:
-        print(f"  #{decisao.id:<4} {decisao.rota.value:15} {rotulo}")
+        registra_no_stdout(f"  #{decisao.id:<4} {decisao.rota.value:15} {rotulo}")
 
     na_fila = sum(1 for decisao, _ in gravadas if decisao.rota.value == "revisao_humana")
-    print(
-        f"\n{len(gravadas)} documento(s): {na_fila} na fila, "
-        f"{len(gravadas) - na_fila} auto-aprovado(s)."
+    registra_no_stdout(
+        f"\n{len(gravadas)} documento(s) em {time.monotonic() - inicio:.1f}s: "
+        f"{na_fila} na fila, {len(gravadas) - na_fila} auto-aprovado(s)."
     )
-    print("A tela está em http://localhost:3001 (docker compose --profile revisao up -d).")
-    print("Nenhuma chamada à API do modelo: o provedor leu os gabaritos do corpus.")
+    registra_no_stdout(
+        "A tela está em http://localhost:3001 (docker compose --profile revisao up -d)."
+    )
+    registra_no_stdout("Nenhuma chamada à API do modelo: o provedor leu os gabaritos do corpus.")
     return 0
 
 

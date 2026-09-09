@@ -280,6 +280,90 @@ class TestSemeadura:
         assert "digito_verificador" in divergentes
 
 
+class TestProgresso:
+    """O log da semeadura. Ele existe por causa de um deploy que não subiu.
+
+    Sem linha por documento não há como saber onde travou: um processo que
+    demora minutos e não imprime nada é indistinguível de um travado.
+    """
+
+    def test_registra_o_comeco_e_o_fim_de_cada_unidade(
+        self, settings: Settings, abre_sessao: semeia_fila.AbreSessao
+    ) -> None:
+        boletos, _ = semeia_fila.cenarios_padrao()
+        linhas: list[str] = []
+
+        semeia_fila.semeia(
+            settings,
+            boletos=boletos[:2],
+            informes=[],
+            com_ocr=False,
+            sessao=abre_sessao,
+            registra=linhas.append,
+        )
+
+        assert linhas == [
+            f"[1/2] {boletos[0].pdf.name}: começando",
+            linhas[1],
+            f"[2/2] {boletos[1].pdf.name}: começando",
+            linhas[3],
+        ]
+        # A linha de fim traz a rota e o tempo — é o que diz se o documento
+        # terminou, e quanto custou naquela máquina.
+        assert linhas[1].startswith(f"[1/2] {boletos[0].pdf.name}: revisao_humana em ")
+        assert linhas[1].endswith("s")
+
+    def test_o_par_de_informes_e_uma_unidade_com_duas_rotas(
+        self, settings: Settings, abre_sessao: semeia_fila.AbreSessao
+    ) -> None:
+        """Ele é processado junto: contar como dois enganaria sobre o progresso."""
+        _, informes = semeia_fila.cenarios_padrao()
+        linhas: list[str] = []
+
+        semeia_fila.semeia(
+            settings,
+            boletos=[],
+            informes=informes[:1],
+            com_ocr=False,
+            sessao=abre_sessao,
+            registra=linhas.append,
+        )
+
+        assert len(linhas) == 2
+        assert linhas[0].startswith("[1/1] ")
+        assert linhas[0].count("+") == 1, "o nome da unidade nomeia os dois documentos"
+        assert linhas[1].count(",") == 1, "duas rotas, uma por documento do par"
+
+    def test_o_padrao_e_silencio(
+        self,
+        settings: Settings,
+        abre_sessao: semeia_fila.AbreSessao,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Biblioteca não escreve no stdout de quem a chamou sem ser pedido."""
+        boletos, _ = semeia_fila.cenarios_padrao()
+
+        semeia_fila.semeia(
+            settings, boletos=boletos[:1], informes=[], com_ocr=False, sessao=abre_sessao
+        )
+
+        assert capsys.readouterr().out == ""
+
+    def test_o_registro_do_comando_da_flush(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Sem flush o log da hospedagem fica em branco até o processo acabar.
+
+        O stdout do Python é bloco-bufferizado quando não é terminal, e dentro
+        de um contêiner ele nunca é. Foi o que cegou o diagnóstico do primeiro
+        deploy: o log tinha o `echo` do shell e mais nada.
+        """
+        chamadas: list[dict[str, object]] = []
+        monkeypatch.setattr("builtins.print", lambda *a, **k: chamadas.append({"args": a, **k}))
+
+        semeia_fila.registra_no_stdout("uma linha")
+
+        assert chamadas == [{"args": ("uma linha",), "flush": True}]
+
+
 class TestLimpar:
     def test_apaga_a_fila(
         self, settings: Settings, abre_sessao: semeia_fila.AbreSessao, sessao: Session

@@ -28,7 +28,12 @@
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 WORKDIR /app
-ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
+# `PYTHONUNBUFFERED` não é preferência: o stdout do Python é bloco-bufferizado
+# quando não é terminal, e dentro de um contêiner ele nunca é. Sem isso, o log
+# da hospedagem fica em branco enquanto a semeadura roda, e um processo que
+# demora minutos sem imprimir nada é indistinguível de um processo travado —
+# foi o que atrapalhou o diagnóstico do primeiro deploy.
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy PYTHONUNBUFFERED=1
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-por \
