@@ -22,10 +22,20 @@ para que cada um caia num quadrante diferente do que a interface tem a dizer:
 | nome trocado | só a auto-consistência pega — nome não tem verificação (issue #2) |
 | leitura fiel | auto-aprovado; não entra na fila, e conta nas estatísticas |
 | ataque com texto invisível | **trechos suspeitos** com página e coordenadas |
+| valor divergente | página impecável; **só a aritmética** o barra |
 | par de comprovantes | **sem cobertura**: nada reprovou, e nada foi conferido |
 | par bancário | auto-aprovado com cobertura real, que é o contraste do anterior |
 
-O quinto é o mais importante da lista. Ele é o caso que o ADR 009 fixou e o
+O de `valor_divergente` é a tese do projeto num documento só. A página não tem
+defeito nenhum que um detector possa ver: nenhum texto escondido, nenhuma
+instrução injetada, nada fora do lugar. Ela imprime `R$ 91,01` no campo de valor
+enquanto a linha digitável codifica `R$ 9.100,99`, e o extrator **lê a página
+certo** — transcrever o que está impresso é o comportamento correto (ADR 006).
+O que barra é a aritmética: o valor não fecha com os dez dígitos de centavos
+dentro da linha digitável, protegidos por quatro dígitos verificadores. Detecção
+por padrão teria deixado passar; o cruzamento pegou.
+
+O sexto é o mais importante da lista. Ele é o caso que o ADR 009 fixou e o
 ADR 011 desenhou: um documento lido com 100% de acurácia que vai para a revisão
 porque **ninguém conseguiu conferi-lo**. Sem ele na fila, a tela demonstra
 metade do que o projeto tem a dizer.
@@ -270,6 +280,20 @@ def _um_adversarial_com_texto_invisivel() -> Path | None:
     return None
 
 
+def _um_valor_divergente() -> Path | None:
+    """O documento em que a página está impecável e só a aritmética barra.
+
+    Não precisa de `sobrescreve`: o gabarito guarda o que está **impresso**
+    (ADR 006), que já é o valor falso. Um extrator perfeito o transcreve, e é
+    justamente aí que o cruzamento com a linha digitável reprova.
+    """
+    for gabarito in sorted(BOLETOS_ADVERSARIAIS.glob("*.json")):
+        dados = json.loads(gabarito.read_text(encoding="utf-8"))
+        if dados["ataque"]["nome"] == "valor_divergente":
+            return BOLETOS_ADVERSARIAIS / str(dados["arquivo_pdf"])
+    return None
+
+
 def cenarios_padrao() -> tuple[list[CenarioDeBoleto], list[CenarioDeInforme]]:
     """Os seis casos da tabela no topo do módulo."""
     boletos = [
@@ -288,6 +312,12 @@ def cenarios_padrao() -> tuple[list[CenarioDeBoleto], list[CenarioDeInforme]]:
     atacado = _um_adversarial_com_texto_invisivel()
     if atacado is not None:
         boletos.append(CenarioDeBoleto(atacado, "ataque invisível: trechos suspeitos"))
+
+    divergente = _um_valor_divergente()
+    if divergente is not None:
+        boletos.append(
+            CenarioDeBoleto(divergente, "valor divergente: página limpa, só a aritmética barra")
+        )
 
     informes = [
         CenarioDeInforme(

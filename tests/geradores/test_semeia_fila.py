@@ -168,6 +168,34 @@ class TestCenariosPadrao:
 
         assert layouts == {"fonte_pagadora", "instituicao_financeira"}
 
+    def test_incluem_o_valor_divergente(self) -> None:
+        """A tese do projeto num documento só, e o caso pedido para o GIF.
+
+        A página não tem defeito que um detector veja: nenhum texto escondido,
+        nenhuma instrução injetada. Ela imprime um valor e a linha digitável
+        codifica outro, e o que barra é a aritmética.
+        """
+        boletos, _ = semeia_fila.cenarios_padrao()
+        familias = {
+            json.loads(c.pdf.with_suffix(".json").read_text(encoding="utf-8"))["ataque"]["nome"]
+            for c in boletos
+            if "adversariais" in str(c.pdf)
+        }
+
+        assert "valor_divergente" in familias
+
+    def test_o_valor_divergente_nao_precisa_de_sobrescrita(self) -> None:
+        """O gabarito já guarda o valor **impresso**, que é o falso (ADR 006).
+
+        Encenar o erro com `sobrescreve` aqui seria enganoso: daria a entender
+        que o modelo precisa errar para o ataque existir, quando o ponto é o
+        oposto — ele lê a página certo, e mesmo assim não passa.
+        """
+        boletos, _ = semeia_fila.cenarios_padrao()
+        divergente = next(c for c in boletos if "divergente" in c.rotulo)
+
+        assert divergente.sobrescreve == {}
+
     def test_todos_os_pdfs_existem(self) -> None:
         boletos, informes = semeia_fila.cenarios_padrao()
 
