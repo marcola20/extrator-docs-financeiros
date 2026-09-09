@@ -15,21 +15,34 @@ import { TrechosSuspeitos } from "./TrechosSuspeitos";
  */
 export function AreaDeRevisao({ diagnostico }: { diagnostico: Diagnostico }) {
   const [pagina, setPagina] = useState(1);
-  const pdf = `/api/revisao/${diagnostico.decisao_id}/pdf#page=${pagina}`;
+  const endereco = `/api/revisao/${diagnostico.decisao_id}/pdf`;
+  const nome = diagnostico.arquivo.split("/").pop() ?? "documento.pdf";
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <div className="space-y-5">
         <div className="lg:sticky lg:top-6">
-          <div className="flex items-baseline justify-between pb-2">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pb-2">
             <h2 className="text-sm font-semibold">Documento</h2>
-            <span className="font-mono text-xs text-tinta-fraca">
-              {diagnostico.arquivo.split("/").pop()}
-            </span>
+            <span className="font-mono text-xs text-tinta-fraca">{nome}</span>
+            {/*
+              Baixar é ação secundária, e por isso é um link discreto e não um
+              botão: numa tela de revisão o normal é **olhar** o documento ao
+              lado dos campos. O atributo `download` é o que transforma este
+              clique em salvamento sem a API precisar de uma segunda rota —
+              funciona porque o proxy deixa tudo na mesma origem.
+            */}
+            <a
+              href={endereco}
+              download={nome}
+              className="ml-auto text-xs text-tinta-fraca underline underline-offset-2 hover:text-tinta"
+            >
+              baixar
+            </a>
           </div>
           <iframe
             key={pagina}
-            src={pdf}
+            src={`${endereco}#page=${pagina}`}
             title={`PDF de ${diagnostico.arquivo}`}
             className="h-[78vh] w-full rounded-md border border-borda bg-white"
           />

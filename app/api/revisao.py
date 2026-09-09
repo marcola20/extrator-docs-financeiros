@@ -317,6 +317,19 @@ def pdf(decisao_id: int, sessao: SessaoDependente) -> FileResponse:
         media_type="application/pdf",
         filename=caminho.name,
         content_disposition_type="inline",
+        # Sem `no-store` o navegador guarda a resposta **com o cabeçalho de
+        # disposição junto**, e uma correção nesse cabeçalho não alcança quem já
+        # tem a versão antiga em cache — a URL é a mesma, e o cache responde
+        # antes de a requisição sair. Foi o que aconteceu ao trocar `attachment`
+        # por `inline`: a API passou a servir certo e o navegador continuou
+        # baixando.
+        #
+        # O custo é rebaixar o arquivo a cada abertura. É aceitável aqui: são
+        # dezenas de KB numa ferramenta de revisão local, e o caminho gravado no
+        # banco pode passar a apontar para outro conteúdo se o corpus for
+        # regerado — nesse caso servir a versão em cache seria pior que lenta,
+        # seria errada.
+        headers={"Cache-Control": "no-store"},
     )
 
 

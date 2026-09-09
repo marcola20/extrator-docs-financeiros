@@ -320,6 +320,23 @@ class TestPdf:
         assert disposicao.startswith("inline"), disposicao
         assert "boleto-001.pdf" in disposicao, "o nome continua indo, para quem baixar"
 
+    def test_nao_e_guardado_em_cache(self, cliente: TestClient, sessao: Session) -> None:
+        """Sem `no-store` o navegador guarda a resposta com o cabeçalho junto.
+
+        A URL não muda entre versões, então uma correção no `content-disposition`
+        não alcança quem já tem a resposta antiga: o cache responde antes de a
+        requisição sair. Foi o que aconteceu ao trocar `attachment` por `inline`.
+
+        Vale também para conteúdo: o caminho gravado no banco pode passar a
+        apontar para outro arquivo se o corpus for regerado, e aí servir a
+        versão em cache seria errada, não só velha.
+        """
+        decisao = _monta(sessao, arquivo=str(BOLETO), hash_sha256="e" * 64)
+
+        resposta = cliente.get(f"/revisao/{decisao.id}/pdf")
+
+        assert "no-store" in resposta.headers["cache-control"]
+
     def test_arquivo_que_sumiu_da_404_explicando(
         self, cliente: TestClient, sessao: Session
     ) -> None:

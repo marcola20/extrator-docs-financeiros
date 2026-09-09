@@ -39,8 +39,19 @@ async function encaminha(requisicao: Request, caminho: string[]): Promise<Respon
     );
   }
 
+  // `cache-control` faz parte da lista, e a ausência dele custou caro: a API
+  // passou a mandar `no-store` para o navegador parar de reusar uma resposta
+  // antiga, o proxy descartou o cabeçalho no caminho, e a correção não chegou a
+  // lugar nenhum. Um proxy que filtra cabeçalhos precisa filtrar por uma razão
+  // dita — estes quatro são o que o navegador usa para exibir e para decidir se
+  // pode reaproveitar.
   const cabecalhos = new Headers();
-  for (const nome of ["content-type", "content-disposition", "content-length"]) {
+  for (const nome of [
+    "content-type",
+    "content-disposition",
+    "content-length",
+    "cache-control",
+  ]) {
     const valor = resposta.headers.get(nome);
     if (valor) cabecalhos.set(nome, valor);
   }
