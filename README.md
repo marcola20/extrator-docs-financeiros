@@ -1,5 +1,12 @@
 # Extrator de Documentos Financeiros
 
+![Tela de revisão de um boleto cujo valor impresso diverge do codificado na linha digitável](docs/valor-divergente.gif)
+
+A extração está **correta**: o modelo leu `91,01`, que é o que a página imprime.
+Quem mente é o documento — a linha digitável codifica `R$ 9.100,99`. Sanitização
+e grounding aprovam, e com razão: não há texto injetado, e o valor está mesmo
+impresso ali. Só o dígito verificador reprova.
+
 Pipeline de extração estruturada de documentos financeiros brasileiros, com
 validação determinística e roteamento para revisão humana. O provedor de LLM
 é configurável — Gemini por padrão, SDK direto, sem framework
@@ -13,32 +20,38 @@ o quanto ele acha que acertou.
 
 ## Estado do projeto
 
-Fases 1 (boleto) e 2 (informe de rendimentos) concluídas, medidas contra a API.
+Fases 1, 2 e 4 concluídas e medidas contra a API. A Fase 3 está pendente.
 
 | Fase | Escopo | Estado |
 |---|---|---|
-| 1.1 | Gerador sintético, schema, validadores determinísticos | concluída |
-| 1.2 | Sanitização e corpus adversarial | concluída |
-| 1.3 | Extração via LLM com structured output, e eval | concluída |
-| 2.1 | Informe: gerador em pares, schema, validadores, métricas de linha | concluída |
-| 2.2 | Informe: extração via LLM, seis sinais e eval por par | concluída |
-| 3 | Extrato de investimento: multi-página, tabela com quebra | não iniciada |
-| 4.1 | Persistência, API de revisão, realimentação, observabilidade e CI | concluída |
-| 4.2 | Interface de revisão (Next.js) | concluída |
+| 1 | Boleto: pipeline vertical, quatro sinais, eval contra a API | concluída |
+| 2 | Informe: multi-registro, seis sinais, cruzamento entre anos | concluída |
+| 3 | Extrato de investimento: multi-página, tabela com quebra | **pendente** |
+| 4 | Persistência, API de revisão, interface, observabilidade, CI | concluída |
 
-O que a Fase 1 entregou: pipeline vertical de PDF a decisão
-(`app/pipeline.py`), quatro sinais de confiança independentes do modelo, um
-corpus sintético reprodutível de 43 documentos — 15 limpos e 28 adversariais
-em 7 famílias de ataque —, e um eval que mede taxa de escape, resistência a
-injection, custo e latência contra a API de verdade.
+**Fase 1 — boleto.** Pipeline vertical de PDF a decisão (`app/pipeline.py`),
+quatro sinais de confiança independentes do modelo, corpus sintético
+reprodutível de 43 documentos — 15 limpos e 28 adversariais em 7 famílias de
+ataque —, e um eval que mede taxa de escape, resistência a injection, custo e
+latência contra a API de verdade.
 
-O que a Fase 2 acrescentou: um documento **multi-registro**, em que "acurácia
-por campo" deixa de descrever o resultado sozinha, e a única verificação do
-projeto que **precisa de dois documentos** — o saldo de 31/12 que o informe do
-ano N declara e o informe de N-1 afirma por conta própria. Pipeline por par
+**Fase 2 — informe de rendimentos.** Um documento **multi-registro**, em que
+"acurácia por campo" deixa de descrever o resultado sozinha, e a única
+verificação do projeto que **precisa de dois documentos**: o saldo de 31/12 que
+o informe do ano N declara e o de N-1 afirma por conta própria. Pipeline por par
 (`app/pipeline_informe.py`), seis sinais, recall e precisão de linha, e a regra
 que o [ADR 009](docs/adr/009-extracao-do-informe-e-cobertura-de-verificacao.md)
 fixa: **um sinal que não teve o que conferir não é um sinal que aprovou.**
+
+**Fase 4 — revisão humana.** O pipeline passa a ter estado: fila persistida em
+Postgres, API que devolve o diagnóstico completo, interface em Next.js, correção
+humana virando caso de eval, traces no Langfuse e CI em dois jobs. Persistência
+é opcional — o pipeline e o eval continuam rodando sem banco.
+
+**Fase 3 — extrato de investimento, pendente.** Ela traria o primeiro documento
+com tabela que **quebra entre páginas**, onde a mesma posição pode aparecer
+partida em duas partes e o cabeçalho se repete: um caso de alinhamento de linha
+que o corpus de informes só encosta, com o quadro de 46 linhas.
 
 ## Resultados — boleto
 
@@ -269,21 +282,37 @@ semente e data de referência — o vencimento é sorteado como deslocamento a
 partir dessa data, então a mesma semente em outro dia gera outro corpus, em
 silêncio. As duas ficam gravadas em `gerado_com` em cada gabarito.
 
-## Fila de revisão
+## Revisão humana
 
-A Fase 4.1 dá estado ao que o pipeline já sabia. Até ela, um documento
-processado produzia uma decisão em memória e ela morria com o processo; a
-correção humana não sobrevivia ao reinício.
+Até a Fase 4 o pipeline não guardava nada: uma decisão vivia em memória e morria
+com o processo, e a correção de um revisor não sobrevivia ao reinício. A fase deu
+estado ao que o pipeline já sabia, e uma tela para olhar.
 
 ```bash
-# Persistência é OPCIONAL e desligada por padrão. O pipeline e o eval rodam sem
-# banco — fazer a medição depender de um Postgres de pé transformaria "rodar o
-# eval" numa tarefa de infraestrutura.
-docker compose up -d
-echo "PERSISTENCIA_ATIVA=1" >> .env
+docker compose --profile revisao up -d   # banco, API e interface
 uv run alembic upgrade head
-uv run uvicorn app.main:app --reload
+PERSISTENCIA_ATIVA=1 uv run python -m app.geradores.semeia_fila --limpar
+# http://localhost:3001
 ```
+
+Fora do profile, `docker compose up -d` sobe só o Postgres. Persistência é
+**opcional e desligada por padrão**: o pipeline e o eval rodam sem banco, porque
+fazer a medição depender de um Postgres de pé transformaria "rodar o eval" numa
+tarefa de infraestrutura.
+
+O último comando popula a fila com sete cenários e **não gasta cota** — o
+provedor dele lê o gabarito que está ao lado de cada PDF do corpus sintético, em
+vez de chamar o modelo. É o que permite abrir a tela numa entrevista, ou gravar o
+GIF do topo, sem consumir as 500 chamadas diárias do tier gratuito.
+
+Os cenários caem em quadrantes diferentes do que a interface tem a dizer: valor
+alucinado, nome trocado, leitura fiel, ataque com texto invisível, valor
+divergente, e dois pares de informe — um sem cobertura, outro com. Os dois
+últimos são os que mais importam. O `valor_divergente` é o do GIF: página
+impecável, extração correta, e só a aritmética barrando. O par de comprovantes é
+o oposto — nada reprovou, e ninguém conseguiu conferir.
+
+### A API
 
 | Rota | O que devolve |
 |---|---|
@@ -293,11 +322,8 @@ uv run uvicorn app.main:app --reload
 | `POST /revisao/{id}/correcoes` | as correções do revisor, em lote |
 | `GET /revisao/estatisticas` | os números da fila |
 
-### O diagnóstico é o produto, não os campos extraídos
-
-Uma tela que mostrasse só "documento X, campos Y, aprove ou corrija" seria um
-CRUD, e jogaria fora o que as três fases anteriores construíram. O que o
-`GET /revisao/{id}` devolve é o motivo de o documento estar na fila:
+O que `GET /revisao/{id}` devolve não são os campos extraídos: é o motivo de o
+documento estar na fila.
 
 - **qual sinal reprovou, e qual apenas não teve o que conferir.** Os quatro
   estados atravessam a API sem virar booleano — uma resposta com
@@ -325,63 +351,7 @@ Recalcular na leitura permitiria a tela mostrar uma coisa e o histórico guardar
 outra, e a diferença apareceria como revisor discordando de si mesmo entre duas
 aberturas da mesma página.
 
-### Realimentação: correção humana vira caso de eval
-
-O que o revisor corrigiu é um gabarito conferido por gente — o melhor caso de
-teste que existe. E é sobre um documento **real**, então ele não entra no
-repositório:
-
-```bash
-uv run python -m app.avaliacao.exporta_realimentacao   # grava em dados/realimentacao/
-uv run python eval.py --com-realimentacao              # desligado por padrão
-```
-
-Os casos guardam **caminho e hash** do PDF, nunca uma cópia, e o diretório é
-coberto pelo `.gitignore`. A flag é desligada por padrão porque misturá-los ao
-corpus sintético sem distinção contaminaria a comparação com os baselines: a
-acurácia mudaria por o corpus ter crescido, não por o extrator ter melhorado.
-Quando ligada, a procedência entra no relatório — e a retomada passa a recusar
-somar uma passada com realimentação a uma sem.
-
-### A regra sobre o que é versionado
-
-Três decisões que parecem contraditórias e são a mesma regra
-([ADR 010](docs/adr/010-persistencia-e-fila-de-revisao.md)):
-
-| | Versionado? | Por quê |
-|---|---|---|
-| `resultados/*.json` | **sim** | taxas, contagens e booleanos; uma trava impede que passe a guardar valor extraído |
-| tabela `extracao` (JSONB) | não | é o payload bruto do modelo, e o banco é local |
-| `dados/realimentacao/` | não | é gabarito de documento real |
-
-**O que é versionado não carrega conteúdo de documento; o que carrega conteúdo
-de documento não é versionado.**
-
-## A tela de revisão
-
-```bash
-docker compose --profile revisao up -d   # banco + API + interface
-PERSISTENCIA_ATIVA=1 uv run python -m app.geradores.semeia_fila --limpar
-# http://localhost:3001
-```
-
-Fora do profile, `docker compose up -d` continua subindo só o Postgres: o
-pipeline e o eval rodam sem nada disso.
-
-O segundo comando popula a fila com seis cenários — e **não gasta cota**. O
-provedor dele lê o gabarito que está ao lado de cada PDF do corpus sintético e
-devolve aqueles campos, como um extrator perfeito devolveria; quando o cenário
-precisa que a leitura esteja errada, ele sobrescreve o campo antes. É o que
-permite abrir a tela numa entrevista, ou gravar um GIF dela, sem consumir as 500
-chamadas diárias do tier gratuito e sem depender de o provedor estar no ar.
-
-Os cenários foram escolhidos para cair em quadrantes diferentes do que a
-interface tem a dizer — valor alucinado, nome trocado, leitura fiel, ataque com
-texto invisível, um par de comprovantes sem cobertura e um par bancário com
-cobertura. O quinto é o mais importante: um documento lido com 100% de acurácia
-que vai para a revisão porque **ninguém conseguiu conferi-lo**.
-
-### O que ela mostra, e por que não é um CRUD
+### A tela, e por que não é um CRUD
 
 A tela existe para tornar visível **como o sistema decide**. Uma interface que
 mostrasse só "documento, campos, aprove ou corrija" jogaria fora o que as três
@@ -435,6 +405,38 @@ ser mesma origem.
   mostra, mas desenhar o retângulo por cima exigiria renderizar o documento com
   pdf.js e converter coordenadas de PDF para pixels — dependência pesada para o
   que a fase pedia.
+
+### Realimentação: correção humana vira caso de eval
+
+O que o revisor corrigiu é um gabarito conferido por gente — o melhor caso de
+teste que existe. E é sobre um documento **real**, então ele não entra no
+repositório:
+
+```bash
+uv run python -m app.avaliacao.exporta_realimentacao   # grava em dados/realimentacao/
+uv run python eval.py --com-realimentacao              # desligado por padrão
+```
+
+Os casos guardam **caminho e hash** do PDF, nunca uma cópia, e o diretório é
+coberto pelo `.gitignore`. A flag é desligada por padrão porque misturá-los ao
+corpus sintético sem distinção contaminaria a comparação com os baselines: a
+acurácia mudaria por o corpus ter crescido, não por o extrator ter melhorado.
+Quando ligada, a procedência entra no relatório — e a retomada passa a recusar
+somar uma passada com realimentação a uma sem.
+
+### A regra sobre o que é versionado
+
+Três decisões que parecem contraditórias e são a mesma regra
+([ADR 010](docs/adr/010-persistencia-e-fila-de-revisao.md)):
+
+| | Versionado? | Por quê |
+|---|---|---|
+| `resultados/*.json` | **sim** | taxas, contagens e booleanos; uma trava impede que passe a guardar valor extraído |
+| tabela `extracao` (JSONB) | não | é o payload bruto do modelo, e o banco é local |
+| `dados/realimentacao/` | não | é gabarito de documento real |
+
+**O que é versionado não carrega conteúdo de documento; o que carrega conteúdo
+de documento não é versionado.**
 
 ## Modelo de ameaças
 
@@ -682,6 +684,20 @@ Fechar isso não é difícil de escrever — é que o projeto não tem infraestr
 de teste em JavaScript, e **o CI não constrói o front**: um erro de tipo em
 TypeScript passa verde hoje. A issue detalha os três alvos e o custo de cada um.
 
+**A API de revisão não tem autenticação** (sem issue: é decisão de quando a tela
+sair do `localhost`). Ela não sabe quem é o revisor além do que ele digita no
+campo `revisor`, e qualquer um que alcance a porta lê a fila, baixa os PDFs e
+grava correções. É aceitável como demonstração local; deixa de ser no momento em
+que a tela for exposta, e a decisão vai junto com a exposição — não antes.
+
+**O schema é conferido em SQLite, e Postgres só à mão** (sem issue: exigir o
+serviço na suíte contrariaria a decisão de a persistência ser opcional). O teste
+que compara migração e modelos roda em SQLite, e **duas descrições podem
+concordar em estar erradas**: foi o que aconteceu com os CHECK dos enums, que
+faltavam nos dois lados e só apareceram ao olhar um banco de verdade. Há uma
+suíte contra Postgres (`-m postgres`), e ela é pulada por padrão e rodada à mão
+antes de fechar uma fase.
+
 **Ataque visual em documento digitalizado está fora de escopo** (sem issue:
 não é endereçável enquanto não existir caminho de visão). Instrução escrita
 dentro de uma imagem não está na camada de texto e nenhum detector daqui a
@@ -722,13 +738,19 @@ problema deixa de ser injeção e vira troca de documento, anterior ao pipeline.
 
 - WSL2 / Linux (ver [ADR 001](docs/adr/001-desenvolvimento-em-wsl2.md))
 - Python 3.12 e [uv](https://docs.astral.sh/uv/)
-- Docker, para o Postgres local
-- Bibliotecas nativas do WeasyPrint:
+- Docker, para o Postgres, a API e a interface
+- Bibliotecas nativas do WeasyPrint, que gera os PDFs sintéticos, e o tesseract
+  em **português**, que o detector de divergência texto/imagem usa. Sem o pacote
+  de idioma o OCR cai para inglês num documento em português, e passa a acusar
+  divergência em documento limpo:
 
   ```bash
   sudo apt install libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b \
-                   libcairo2 libgdk-pixbuf-2.0-0
+                   libcairo2 libgdk-pixbuf-2.0-0 \
+                   tesseract-ocr tesseract-ocr-por
   ```
+
+Node não é requisito: o front é construído em contêiner (`node:22-alpine`).
 
 ## Setup
 
@@ -739,38 +761,62 @@ docker compose up -d
 uv run uvicorn app.main:app --reload
 ```
 
-A API sobe em http://127.0.0.1:8000; `GET /health` responde `{"status": "ok"}`.
+A API sobe em http://127.0.0.1:8000. `GET /health` responde `status`, e também
+se persistência e observabilidade estão ligadas neste ambiente — as duas são
+opcionais e vêm desligadas.
 
 ## Qualidade
 
 ```bash
 uv run ruff check .
 uv run ruff format --check .
-uv run mypy
-uv run pytest
+uv run mypy                    # strict, em app/ e tests/
+uv run pytest -m "not slow"    # ~2 min: tudo menos OCR
+uv run pytest                  # ~7 min: a suíte inteira
+```
+
+Os testes marcados `slow` renderizam a página e chamam OCR; são eles a diferença
+entre os dois tempos. O CI roda o conjunto rápido em cada PR e a suíte inteira no
+merge para `main`.
+
+Uma suíte fica **fora** dos dois comandos e pula sozinha sem banco de pé. Ela
+confere o que o SQLite não prova — tipo de coluna, CHECK, `timestamptz` — e exige
+uma variável explícita porque **apaga as tabelas** ao terminar:
+
+```bash
+PYTEST_POSTGRES=1 uv run pytest -m postgres
+```
+
+O front tem build e checagem de tipos próprios, e nenhum dos dois está no CI
+([#6][i6]):
+
+```bash
+docker run --rm -v "$PWD/web":/app -w /app node:22-alpine npm run build
 ```
 
 ## Estrutura
 
 ```
-app/                 código da aplicação (FastAPI, configuração)
-tests/               testes, junto da feature
 app/dominio/         boleto, informe, linha digitável, DVs, cruzamento entre anos
 app/ingestao/        leitura do PDF: texto ou visão, com sanitização junto
 app/seguranca/       sanitização de documentos não confiáveis
-app/extracao/        prompts versionados e extração via LLM, um extrator por documento
+app/extracao/        prompts versionados e extração, um extrator por documento
 app/confianca/       grounding, auto-consistência e roteamento
-app/avaliacao/       métricas de linha e o que os dois evals compartilham
-app/geradores/       geradores de corpus sintético, limpo e adversarial
-app/llm/             provedores, limitador de taxa e cache
-web/                 interface de revisão em Next.js (Fase 4.2)
-app/persistencia/    modelo de dados da fila de revisão, opcional por configuração
-app/api/             API de revisão: fila, diagnóstico, correções, estatísticas
-app/observabilidade.py   traces no Langfuse, mudos quando não configurado
 app/pipeline.py      boleto: de um PDF a uma decisão
 app/pipeline_informe.py  informe: de um par de anos consecutivos a duas decisões
+
+app/llm/             provedores, limitador de taxa e cache
+app/geradores/       corpus sintético — limpo, adversarial, e a fila de demonstração
+app/avaliacao/       métricas de linha, realimentação, e o que os dois evals compartilham
+eval.py              medição contra os corpora (`--informes` troca o corpus)
+
+app/persistencia/    modelo de dados da fila, opcional por configuração
+app/api/             API de revisão: fila, diagnóstico, correções, estatísticas
+app/observabilidade.py   traces no Langfuse, mudos quando não configurado
 migracoes/           migrações Alembic
-eval.py              medição do pipeline contra os corpora (`--informes` troca o corpus)
+web/                 interface de revisão em Next.js
+
+tests/               testes, junto da feature
 dados/sinteticos/    documentos sintéticos versionados, limpos e adversariais
 dados/real/          documentos reais para teste local, fora do git
 resultados/          relatórios de eval, um JSON por passada
