@@ -24,7 +24,7 @@ Fases 1 (boleto) e 2 (informe de rendimentos) concluídas, medidas contra a API.
 | 2.2 | Informe: extração via LLM, seis sinais e eval por par | concluída |
 | 3 | Extrato de investimento: multi-página, tabela com quebra | não iniciada |
 | 4.1 | Persistência, API de revisão, realimentação, observabilidade e CI | concluída |
-| 4.2 | Interface de revisão (Next.js) | não iniciada |
+| 4.2 | Interface de revisão (Next.js) | concluída |
 
 O que a Fase 1 entregou: pipeline vertical de PDF a decisão
 (`app/pipeline.py`), quatro sinais de confiança independentes do modelo, um
@@ -357,6 +357,71 @@ Três decisões que parecem contraditórias e são a mesma regra
 **O que é versionado não carrega conteúdo de documento; o que carrega conteúdo
 de documento não é versionado.**
 
+## A tela de revisão
+
+```bash
+docker compose --profile revisao up -d   # banco + API + interface
+# http://localhost:3001
+```
+
+Fora do profile, `docker compose up -d` continua subindo só o Postgres: o
+pipeline e o eval rodam sem nada disso.
+
+### O que ela mostra, e por que não é um CRUD
+
+A tela existe para tornar visível **como o sistema decide**. Uma interface que
+mostrasse só "documento, campos, aprove ou corrija" jogaria fora o que as três
+fases anteriores construíram — e o que ela mostra bem é o que o projeto
+comunica para quem nunca vai clonar o repositório.
+
+**Por que este documento está aqui** vem antes do PDF, e separa dois casos que
+pedem trabalho diferente:
+
+- *um sinal reprovou* — há erro concreto, e a mensagem do pipeline aponta onde:
+  "valor 99999.99 não confere com a linha digitável (R$ 179.66)";
+- *um sinal não teve o que conferir* — não há erro apontado, e o documento
+  precisa ser lido do zero. É o caso mais fácil de despachar com um "parece
+  bom", justamente porque nada está gritando.
+
+**Os quatro estados de sinal** atravessam a interface sem virar semáforo. O
+enunciado da fase falava em três — conferido, divergente, sem cobertura —, que
+são os da conferência de quadro da Fase 2; a tabela de sinais da 4.1 tem
+`dispensado` também, para o sinal que o operador desligou. Desenhar para três
+faria o quarto cair no visual de "conferido".
+
+Duas regras de desenho protegem a distinção:
+
+1. **Só `conferido` recebe marca de certo.** Os outros três recebem glifos que
+   não podem ser lidos como aprovação (`!`, `—`, `⦸`). Um ✓ cinza ainda é um ✓
+   num relance, e é o que a pessoa lê.
+2. **`sem_cobertura` tem borda tracejada.** Preenchimento contínuo é a linguagem
+   de "resolvido"; o tracejado diz "falta coisa aqui" sem depender de cor, o que
+   também resolve daltonismo.
+
+**Os trechos suspeitos** aparecem em monoespaçado com página e coordenadas, e
+clicar leva o visor àquela página do PDF. O ponto deles é que o revisor não os
+encontraria olhando o documento: texto branco sobre branco, corpo de fonte
+próximo de zero, conteúdo posicionado fora da página.
+
+### O que o front não faz
+
+Nenhuma decisão. `bloqueia` vem calculado da API, as mensagens vêm prontas do
+pipeline, e nenhum estado é derivado no navegador. O front busca, tipa e
+apresenta.
+
+O navegador também nunca fala com a API diretamente: tudo passa por um proxy em
+`/api/*`. Isso evita CORS sem tocar no backend da 4.1, e faz o `<iframe>` do PDF
+ser mesma origem.
+
+### Fora de escopo, deliberadamente
+
+- **Sem autenticação.** É demo local; a API não sabe quem é o revisor além do
+  que ele digita. Deixa de ser aceitável no momento em que a tela for exposta.
+- **Sem realce sobre o PDF.** Os achados carregam as coordenadas e a tela as
+  mostra, mas desenhar o retângulo por cima exigiria renderizar o documento com
+  pdf.js e converter coordenadas de PDF para pixels — dependência pesada para o
+  que a fase pedia.
+
 ## Modelo de ameaças
 
 O pipeline lê PDFs enviados por terceiros e coloca o texto deles no prompt de
@@ -612,6 +677,7 @@ problema deixa de ser injeção e vira troca de documento, anterior ao pipeline.
 | [008](docs/adr/008-recalibracao-do-sanitizador-para-o-informe.md) | Recalibração do sanitizador para o informe, medida |
 | [009](docs/adr/009-extracao-do-informe-e-cobertura-de-verificacao.md) | Um prompt para os dois layouts, e cobertura não é aprovação |
 | [010](docs/adr/010-persistencia-e-fila-de-revisao.md) | Persistência opcional, e o que pode ou não ser versionado |
+| [011](docs/adr/011-interface-de-revisao.md) | A interface de revisão, e o estado que ela não pode apagar |
 
 ## Requisitos
 
@@ -658,6 +724,7 @@ app/confianca/       grounding, auto-consistência e roteamento
 app/avaliacao/       métricas de linha e o que os dois evals compartilham
 app/geradores/       geradores de corpus sintético, limpo e adversarial
 app/llm/             provedores, limitador de taxa e cache
+web/                 interface de revisão em Next.js (Fase 4.2)
 app/persistencia/    modelo de dados da fila de revisão, opcional por configuração
 app/api/             API de revisão: fila, diagnóstico, correções, estatísticas
 app/observabilidade.py   traces no Langfuse, mudos quando não configurado

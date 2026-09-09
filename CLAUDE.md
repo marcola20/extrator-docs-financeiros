@@ -32,6 +32,7 @@ aplicada. Preferir código explícito e tipado sobre "pythonices" mágicas.
 4. Revisão (Next.js) + observabilidade
    1. Persistência, API de revisão, realimentação, observabilidade e CI —
       concluída
+   2. Interface de revisão em Next.js, e o pareamento de informes — concluída
 
 ## Stack
 
@@ -42,6 +43,11 @@ Jinja2 + WeasyPrint (geração dos PDFs sintéticos)
 pytest / ruff / mypy / Docker Compose / Langfuse / Next.js 15
 
 ## Convenções
+
+- O front não decide nada: `bloqueia` e os estados de sinal vêm calculados da
+  API. Estado derivado no navegador é uma segunda definição da política.
+- Os **quatro** estados de sinal aparecem distintos na tela. Só `conferido`
+  recebe marca de certo; `sem_cobertura` tem borda tracejada. Ver ADR 011.
 
 - Type hints obrigatórios. mypy em modo strict (`app/` e `tests/`).
 - Testes junto da feature, não depois.
@@ -74,7 +80,13 @@ uv run ruff format .   # formatação
 uv run mypy            # tipos (strict em app/)
 uv run uvicorn app.main:app --reload   # API em http://127.0.0.1:8000
 docker compose up -d   # Postgres 16 local
+docker compose --profile revisao up -d           # + API e tela (localhost:3001)
 docker compose --profile observabilidade up -d   # + Langfuse (5 contêineres)
+
+# O front vive em web/. Node NÃO está instalado no WSL e o npm do PATH é o do
+# Windows, que a ADR 001 proíbe: build, lint e tipos rodam em container.
+docker run --rm -v "$PWD/web":/app -w /app -u "$(id -u):$(id -g)" \
+    node:22-alpine npm run build
 
 # Persistência é OPCIONAL e desligada por padrão: o pipeline e o eval rodam sem
 # banco. Só a fila de revisão precisa dele.
