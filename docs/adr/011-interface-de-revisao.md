@@ -134,6 +134,14 @@ verdade, aparece.
 `node:22-alpine`. O CI não constrói o front — ele roda a suíte Python —, e
 adicionar esse job é trabalho pequeno e ainda não feito.
 
+**Nada em `web/` tem teste automatizado**, e isso cobrou preço logo depois desta
+ADR ser escrita: três defeitos seguidos no visor de PDF passaram pela suíte e
+por verificação manual com `curl`, incluindo um em que o próprio proxy descartava
+um cabeçalho no caminho. Está na
+[issue #6](https://github.com/marcola20/extrator-docs-financeiros/issues/6), com
+os três alvos possíveis — o route handler isolado, a pilha pelo compose, e o
+navegador — e o custo de cada um.
+
 ## Consequências
 
 **Positivas**

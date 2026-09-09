@@ -658,6 +658,30 @@ fechar, e a página não tem defeito visual algum. Está no corpus de propósito
 relatório o imprime como buraco declarado — um buraco declarado é informação, um
 buraco silencioso é armadilha.
 
+**O caminho pelo proxy do front não tem teste automatizado** ([#6][i6]). Três
+defeitos seguidos no visor de PDF passaram pela suíte inteira e por verificação
+manual com `curl`: `Content-Disposition: attachment` (o padrão do FastAPI, que
+faz o navegador baixar em vez de exibir), ausência de `Cache-Control` (o
+navegador guardava a resposta **com o cabeçalho junto**, e a correção não
+alcançava quem já tinha a versão antiga), e o proxy do Next descartando o
+cabeçalho novo por ele não estar na lista de repasse.
+
+Os dois primeiros eram da API, e havia teste da rota — que verificava status,
+tipo e corpo. Os três seguiam certos com o defeito presente: **o arquivo era
+servido corretamente, só que com uma instrução que o navegador obedecia.** A
+verificação media um nível ao lado do que importava. Hoje há asserção sobre os
+dois cabeçalhos.
+
+O terceiro é de uma camada sem teste nenhum. Toda verificação desta fase usou
+`curl` contra a API — que não passa pelo proxy — ou contra o front com os
+contêineres já de pé, o que só existe enquanto alguém está olhando. E há uma
+quarta camada que nenhum deles alcança: se o navegador de fato **renderiza**,
+que é onde o primeiro defeito se manifestava.
+
+Fechar isso não é difícil de escrever — é que o projeto não tem infraestrutura
+de teste em JavaScript, e **o CI não constrói o front**: um erro de tipo em
+TypeScript passa verde hoje. A issue detalha os três alvos e o custo de cada um.
+
 **Ataque visual em documento digitalizado está fora de escopo** (sem issue:
 não é endereçável enquanto não existir caminho de visão). Instrução escrita
 dentro de uma imagem não está na camada de texto e nenhum detector daqui a
@@ -676,6 +700,7 @@ problema deixa de ser injeção e vira troca de documento, anterior ao pipeline.
 [i3]: https://github.com/marcola20/extrator-docs-financeiros/issues/3
 [i4]: https://github.com/marcola20/extrator-docs-financeiros/issues/4
 [i5]: https://github.com/marcola20/extrator-docs-financeiros/issues/5
+[i6]: https://github.com/marcola20/extrator-docs-financeiros/issues/6
 
 ## Decisões de arquitetura
 
