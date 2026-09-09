@@ -224,3 +224,149 @@ class TestExportacaoDoBanco:
         _monta(sessao, rota=Rota.AUTO_APROVADO, arquivo="auto.pdf")
 
         assert casos_revisados(sessao) == []
+
+
+def _informe(
+    tmp_path: Path, ano: int, *, cpf: str = "15974832655", cnpj: str = "01829356000103"
+) -> realimentacao.CasoDeRealimentacao:
+    """Um caso de informe com identidade e ano controlados."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    pdf = tmp_path / f"informe-{ano}.pdf"
+    pdf.write_bytes(b"%PDF-1.7\n")
+    return realimentacao.monta(
+        arquivo_pdf=pdf,
+        tipo="informe",
+        hash_sha256=f"{ano}" * 16,
+        payload={
+            "layout": "instituicao_financeira",
+            "ano_calendario": str(ano),
+            "beneficiario_cpf": cpf,
+            "fonte_pagadora_cnpj": cnpj,
+        },
+        correcoes={},
+        revisor="revisor@exemplo",
+    )
+
+
+class TestPareamentoDeInforme:
+    """O eval de informe processa pares; um caso sozinho mediria a falta do par."""
+
+    def test_anos_consecutivos_do_mesmo_titular_formam_par(self, tmp_path: Path) -> None:
+        pares = realimentacao.pareia([_informe(tmp_path, 2025), _informe(tmp_path, 2024)])
+
+        assert len(pares) == 1
+        anterior, atual = pares[0]
+        assert anterior.campos["ano_calendario"] == "2024"
+        assert atual.campos["ano_calendario"] == "2025"
+
+    def test_a_ordem_sai_do_ano_e_nao_da_ordem_de_entrada(self, tmp_path: Path) -> None:
+        """`cruza` compara o saldo anterior de N com o saldo de N-1; a ordem importa."""
+        pares = realimentacao.pareia([_informe(tmp_path, 2024), _informe(tmp_path, 2025)])
+
+        assert pares[0][0].campos["ano_calendario"] == "2024"
+
+    def test_anos_nao_consecutivos_nao_formam_par(self, tmp_path: Path) -> None:
+        """É o mesmo `ANOS_NAO_CONSECUTIVOS` que o cruzamento recusa."""
+        assert realimentacao.pareia([_informe(tmp_path, 2022), _informe(tmp_path, 2025)]) == []
+
+    def test_titular_diferente_nao_forma_par(self, tmp_path: Path) -> None:
+        casos = [
+            _informe(tmp_path, 2024),
+            _informe(tmp_path / "outro", 2025, cpf="11144477735"),
+        ]
+
+        assert realimentacao.pareia(casos) == []
+
+    def test_fonte_diferente_nao_forma_par(self, tmp_path: Path) -> None:
+        outro = _informe(tmp_path / "outro", 2025, cnpj="11222333000181")
+
+        assert realimentacao.pareia([_informe(tmp_path, 2024), outro]) == []
+
+    def test_a_identidade_e_comparada_por_digitos(self, tmp_path: Path) -> None:
+        """O transporte guarda o que estava impresso, e os dois formatos existem."""
+        formatado = _informe(tmp_path / "f", 2025, cpf="159.748.326-55", cnpj="01.829.356/0001-03")
+
+        assert len(realimentacao.pareia([_informe(tmp_path, 2024), formatado])) == 1
+
+    def test_cada_documento_entra_em_no_maximo_um_par(self, tmp_path: Path) -> None:
+        """Com 2023, 2024 e 2025 há dois pares possíveis que dividem o de 2024.
+
+        Formar os dois mediria o mesmo documento duas vezes, e o relatório do
+        eval é indexado por documento.
+        """
+        pares = realimentacao.pareia(
+            [_informe(tmp_path, 2023), _informe(tmp_path, 2024), _informe(tmp_path, 2025)]
+        )
+
+        assert len(pares) == 1
+        usados = [c.arquivo_pdf for par in pares for c in par]
+        assert len(usados) == len(set(usados))
+
+    def test_boleto_nao_e_pareado(self, tmp_path: Path) -> None:
+        assert realimentacao.pareia([_caso(tmp_path), _caso(tmp_path)]) == []
+
+    def test_com_par_faz_os_dois_apontarem_um_para_o_outro(self, tmp_path: Path) -> None:
+        anterior, atual = realimentacao.pareia(
+            [_informe(tmp_path, 2024), _informe(tmp_path, 2025)]
+        )[0]
+
+        a, b = realimentacao.com_par(anterior, atual)
+
+        assert a.arquivo_do_par == b.arquivo_pdf
+        assert b.arquivo_do_par == a.arquivo_pdf
+        assert a.utilizavel and b.utilizavel
+
+    def test_sem_par_o_informe_nao_e_utilizavel(self, tmp_path: Path) -> None:
+        assert not _informe(tmp_path, 2024).utilizavel
+
+
+class TestParesNoEvalDeInforme:
+    def test_o_par_vira_corpus_do_eval(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from app.avaliacao import informe as eval_informe
+
+        deposito = tmp_path / "realimentacao"
+        for caso in realimentacao.com_par(
+            *realimentacao.pareia([_informe(tmp_path, 2024), _informe(tmp_path, 2025)])[0]
+        ):
+            realimentacao.grava(caso, deposito)
+        monkeypatch.setattr(realimentacao, "DIRETORIO_PADRAO", deposito)
+
+        pares = eval_informe.pares_de_realimentacao()
+
+        assert len(pares) == 1
+        assert pares[0].anterior.gabarito["campos"]["ano_calendario"] == "2024"
+        assert pares[0].atual.gabarito["campos"]["ano_calendario"] == "2025"
+        assert pares[0].anterior.layout == "instituicao_financeira"
+
+    def test_a_procedencia_separa_o_que_veio_de_correcao(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Sem isto, duas passadas com corpora diferentes se somariam em silêncio."""
+        from app.avaliacao import informe as eval_informe
+
+        deposito = tmp_path / "realimentacao"
+        for caso in realimentacao.com_par(
+            *realimentacao.pareia([_informe(tmp_path, 2024), _informe(tmp_path, 2025)])[0]
+        ):
+            realimentacao.grava(caso, deposito)
+        monkeypatch.setattr(realimentacao, "DIRETORIO_PADRAO", deposito)
+
+        pares = eval_informe.carrega_pares(limpos=True, adversariais=False, limite=1)
+        pares += eval_informe.pares_de_realimentacao()
+
+        procedencia = eval_informe.procedencia(pares)
+
+        assert procedencia["realimentacao"]["pares"] == 1
+        assert procedencia["realimentacao"]["documentos"] == 2
+        assert procedencia["limpo"]["semente"] is not None
+
+    def test_sem_diretorio_nao_ha_par_e_nao_ha_erro(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from app.avaliacao import informe as eval_informe
+
+        monkeypatch.setattr(realimentacao, "DIRETORIO_PADRAO", tmp_path / "vazio")
+
+        assert eval_informe.pares_de_realimentacao() == []

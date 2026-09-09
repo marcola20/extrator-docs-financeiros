@@ -647,6 +647,58 @@ def _pares_do_diretorio(diretorio: Path, *, adversarial: bool) -> list[ParDeInfo
     return pares
 
 
+def _caso_de_realimentacao(
+    caso: realimentacao.CasoDeRealimentacao, par: str, papel: str
+) -> CasoDeInforme:
+    """Um caso de correção humana na forma que o eval consome.
+
+    `gerado_com` fica nulo, porque documento real não tem semente: ele não se
+    regenera, e é por isso que o caso guarda o hash em vez de prometer
+    reprodução.
+    """
+    campos = dict(caso.campos)
+    return CasoDeInforme(
+        pdf=caso.arquivo_pdf,
+        gabarito={
+            "arquivo_pdf": caso.arquivo_pdf.name,
+            "gerado_com": None,
+            "layout": str(campos.get("layout", "")),
+            "par": {"identificador": par, "papel": papel},
+            "campos": campos,
+            "realimentacao": caso.procedencia.como_json(),
+        },
+        adversarial=False,
+        par=par,
+        arquivo_do_par=caso.arquivo_do_par or caso.arquivo_pdf,
+        layout=str(campos.get("layout", "")),
+    )
+
+
+def pares_de_realimentacao(limite: int | None = None) -> list[ParDeInformes]:
+    """Os pares vindos de correção humana, prontos para entrar no corpus.
+
+    Um caso sozinho não entra: o cruzamento entre anos precisa dos dois
+    documentos, e um informe sem par mediria a ausência do par, não a leitura.
+    `realimentacao.pareia` é quem junta, pelo mesmo critério que o domínio usa
+    para decidir se dois informes são comparáveis.
+    """
+    casos = realimentacao.carrega(realimentacao.DIRETORIO_PADRAO, tipo="informe")
+    pares = []
+    for indice, (anterior, atual) in enumerate(realimentacao.pareia(casos), 1):
+        apontados = realimentacao.com_par(anterior, atual)
+        if not all(c.utilizavel for c in apontados):
+            continue
+        identificador = f"realimentacao/par-{indice:03d}"
+        pares.append(
+            ParDeInformes(
+                identificador=identificador,
+                anterior=_caso_de_realimentacao(apontados[0], identificador, "ano_anterior"),
+                atual=_caso_de_realimentacao(apontados[1], identificador, "ano"),
+            )
+        )
+    return pares[:limite] if limite else pares
+
+
 def carrega_pares(
     *, limpos: bool, adversariais: bool, limite: int | None = None
 ) -> list[ParDeInformes]:
@@ -665,12 +717,35 @@ def casos_de(pares: Sequence[ParDeInformes]) -> list[CasoDeInforme]:
 
 
 def procedencia(pares: Sequence[ParDeInformes]) -> dict[str, Any]:
-    return procedencia_do_corpus(
+    """A procedência de cada corpus, incluindo a realimentação.
+
+    Os casos de correção humana entram com chave própria, e é isso que faz a
+    retomada recusar somar uma passada que os incluiu a uma que não incluiu —
+    `corpus` inteiro é comparado em `confere_compatibilidade`.
+    """
+    casos = casos_de(pares)
+    do_corpus = [c for c in casos if "realimentacao" not in c.gabarito]
+    da_correcao = [c for c in casos if "realimentacao" in c.gabarito]
+
+    resultado = procedencia_do_corpus(
         [
             ("adversarial" if caso.adversarial else "limpo", caso.gabarito.get("gerado_com"))
-            for caso in casos_de(pares)
+            for caso in do_corpus
         ]
     )
+    if da_correcao:
+        resultado["realimentacao"] = {
+            "documentos": len(da_correcao),
+            "pares": len({c.par for c in da_correcao}),
+            "revisores": sorted(
+                {
+                    revisor
+                    for c in da_correcao
+                    if (revisor := str(c.gabarito["realimentacao"].get("revisor", "")))
+                }
+            ),
+        }
+    return resultado
 
 
 def roda(pares: Sequence[ParDeInformes], settings: Settings, prompt: Prompt) -> list[Medida]:
@@ -1125,21 +1200,25 @@ def main(argumentos: Any) -> int:
         corpus, consistencia, passada = retomada.corpus, retomada.consistencia, retomada.passada
     else:
         so_um = argumentos.limpos or argumentos.adversariais
-        if getattr(argumentos, "com_realimentacao", False):
-            # O eval de informe processa **pares**, e um caso de correção humana
-            # só entra quando os dois documentos do par foram revisados — sem o
-            # par o cruzamento entre anos não tem o que conferir, e o caso
-            # entraria medindo a ausência do par, não a leitura.
-            prontos = [c for c in realimentacao.carrega(tipo="informe") if c.utilizavel]
-            print(
-                f"realimentação: {len(prontos)} par(es) de correção humana prontos; "
-                f"a Fase 4.1 exporta o caso, e ligá-los ao corpus de pares é da 4.2"
-            )
         try:
             pares = carrega_pares(
                 limpos=argumentos.limpos or not so_um,
                 adversariais=argumentos.adversariais or not so_um,
             )
+            if getattr(argumentos, "com_realimentacao", False):
+                da_correcao = pares_de_realimentacao()
+                soltos = len(
+                    realimentacao.carrega(realimentacao.DIRETORIO_PADRAO, tipo="informe")
+                ) - 2 * len(da_correcao)
+                print(
+                    f"realimentação: {len(da_correcao)} par(es) de correção humana"
+                    + (
+                        f"; {soltos} documento(s) sem par de ano consecutivo ficaram de fora"
+                        if soltos > 0
+                        else ""
+                    )
+                )
+                pares += da_correcao
         except ValueError as erro:
             print(f"\ncorpus incompleto: {erro}", file=sys.stderr)
             return 1

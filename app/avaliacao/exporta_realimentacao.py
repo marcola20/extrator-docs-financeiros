@@ -17,7 +17,13 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.avaliacao.realimentacao import DIRETORIO_PADRAO, CasoDeRealimentacao, monta
+from app.avaliacao.realimentacao import (
+    DIRETORIO_PADRAO,
+    CasoDeRealimentacao,
+    com_par,
+    monta,
+    pareia,
+)
 from app.persistencia.modelos import Correcao, Decisao
 
 
@@ -113,9 +119,29 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"\n{len(casos)} caso(s) seriam exportados para {argumentos.saida}")
         return 0
 
-    for caso in casos:
+    # Os informes saem apontando um para o outro. O par é descoberto pelo mesmo
+    # critério que o domínio usa para decidir se dois informes são comparáveis
+    # — mesmo titular, mesma fonte, anos consecutivos —, e sem ele um caso de
+    # informe entraria no eval já sem cobertura de cruzamento.
+    pareados = {
+        id(caso): caso for anterior, atual in pareia(casos) for caso in com_par(anterior, atual)
+    }
+    por_arquivo = {c.arquivo_pdf: c for c in pareados.values()}
+    finais = [por_arquivo.get(caso.arquivo_pdf, caso) for caso in casos]
+
+    for caso in finais:
         grava(caso, argumentos.saida)
 
+    informes = [c for c in finais if c.tipo == "informe"]
+    sem_par = [c for c in informes if c.arquivo_do_par is None]
+    if sem_par:
+        print(
+            f"{len(sem_par)} informe(s) sem par de ano consecutivo. Eles não entram "
+            f"no eval — o cruzamento entre anos precisa dos dois documentos — e "
+            f"passam a entrar quando o par for revisado."
+        )
+
+    casos = finais
     tipos = {caso.tipo for caso in casos}
     print(f"{len(casos)} caso(s) em {argumentos.saida} ({', '.join(sorted(tipos))})")
     print(

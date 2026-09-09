@@ -41,7 +41,7 @@ entraram — e a retomada recusa somar uma passada com realimentação a uma sem
 
 import json
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -233,4 +233,85 @@ def monta(
             revisor=revisor,
             campos_corrigidos=tuple(sorted(correcoes)),
         ),
+    )
+
+
+def _digitos(texto: str) -> str:
+    return "".join(c for c in texto if c.isdigit())
+
+
+def _titular_e_fonte(caso: CasoDeRealimentacao) -> tuple[str, str]:
+    """A chave de pareamento: CPF do titular e CNPJ da fonte, só os dígitos.
+
+    Dígitos porque os dois documentos podem imprimir a mesma identidade em
+    formatos diferentes — `159.748.326-55` num, `15974832655` no outro — e o
+    transporte guarda o que estava impresso, sem conversão (ADR 006).
+
+    Nunca por nome: nome não tem verificação, e o cruzamento entre anos casa por
+    CPF e CNPJ justamente por isso (ADR 007).
+    """
+    campos = caso.campos
+    return (
+        _digitos(str(campos.get("beneficiario_cpf", ""))),
+        _digitos(str(campos.get("fonte_pagadora_cnpj", ""))),
+    )
+
+
+def _ano(caso: CasoDeRealimentacao) -> int | None:
+    bruto = _digitos(str(caso.campos.get("ano_calendario", "")))
+    return int(bruto) if len(bruto) == 4 else None
+
+
+def pareia(
+    casos: Sequence[CasoDeRealimentacao],
+) -> list[tuple[CasoDeRealimentacao, CasoDeRealimentacao]]:
+    """Forma pares de anos consecutivos entre casos de informe revisados.
+
+    O eval de informe processa **pares**: o cruzamento entre anos precisa dos
+    dois documentos, e um caso sozinho entraria já sem cobertura — medindo a
+    ausência do par, não a leitura.
+
+    O pareamento é o mesmo critério que `app.dominio.cruzamento` usa para
+    decidir se dois informes são comparáveis: mesmo titular, mesma fonte
+    pagadora, anos consecutivos. Não é uma segunda regra — é a mesma, aplicada
+    antes, para saber quais documentos vale a pena juntar.
+
+    **Cada documento entra em no máximo um par**, e os pares saem do mais antigo
+    para o mais novo. Com 2023, 2024 e 2025 do mesmo titular há dois pares
+    possíveis que compartilham o de 2024; formar os dois faria o mesmo documento
+    ser medido duas vezes, e o relatório do eval é indexado por documento.
+    Sobra o de 2025, e sobrar é o resultado honesto: ele será pareado quando o
+    de 2026 for revisado.
+    """
+    por_grupo: dict[tuple[str, str], list[tuple[int, CasoDeRealimentacao]]] = {}
+    for caso in casos:
+        if caso.tipo != "informe":
+            continue
+        ano = _ano(caso)
+        chave = _titular_e_fonte(caso)
+        if ano is None or not chave[0] or not chave[1]:
+            continue
+        por_grupo.setdefault(chave, []).append((ano, caso))
+
+    pares: list[tuple[CasoDeRealimentacao, CasoDeRealimentacao]] = []
+    for entradas in por_grupo.values():
+        ordenadas = sorted(entradas, key=lambda par: par[0])
+        indice = 0
+        while indice + 1 < len(ordenadas):
+            (ano_anterior, anterior), (ano_atual, atual) = ordenadas[indice], ordenadas[indice + 1]
+            if ano_atual == ano_anterior + 1:
+                pares.append((anterior, atual))
+                indice += 2
+            else:
+                indice += 1
+    return pares
+
+
+def com_par(
+    anterior: CasoDeRealimentacao, atual: CasoDeRealimentacao
+) -> tuple[CasoDeRealimentacao, CasoDeRealimentacao]:
+    """Os dois casos apontando um para o outro, prontos para o eval."""
+    return (
+        replace(anterior, arquivo_do_par=atual.arquivo_pdf),
+        replace(atual, arquivo_do_par=anterior.arquivo_pdf),
     )
