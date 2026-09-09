@@ -20,11 +20,11 @@ o quanto ele acha que acertou.
 
 ## Demonstração no ar
 
-<!-- A URL abaixo é a que o render.yaml produz com os nomes de serviço padrão
-     (extrator-web). Se o Render tiver sufixado o nome — porque `extrator-web`
-     já estava em uso —, troque-a pela que o painel mostra. -->
+<!-- O Render sufixou o nome do serviço: `extrator-web` já estava em uso. Esta
+     é a URL que o painel mostra, e é ela que a variável API_INTERNA do front
+     tem do lado da API (extrator-api-6b48). -->
 
-**[Abrir a demonstração](https://extrator-web.onrender.com)** — API real,
+**[Abrir a demonstração](https://extrator-web-47i7.onrender.com)** — API real,
 Postgres real, corpus sintético. Cinco casos, apresentados pela situação que cada
 um mostra, e o clique abre o diagnóstico ao lado do PDF.
 
