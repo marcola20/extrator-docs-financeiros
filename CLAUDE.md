@@ -17,6 +17,9 @@ aplicada. Preferir código explícito e tipado sobre "pythonices" mágicas.
   Ver ADR 002.
 - Todo dado é sintético. Documento real nunca entra no repo, e não é
   enviado pelo tier gratuito — ele treina o modelo do provedor. Ver ADR 003.
+- Especificação que parece errada se aponta **antes** de implementar. Lacuna,
+  contradição ou premissa que o documento real desmente viram pergunta ou
+  contraproposta primeiro — nunca se preenche buraco de spec em silêncio.
 
 ## Escopo por fase
 

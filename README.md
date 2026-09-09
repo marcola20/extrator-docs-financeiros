@@ -96,6 +96,33 @@ Três limitações carregam o resto; a lista inteira está em
   modelo que deduplica um quadro em silêncio passa pela aritmética, porque ela
   soma o que ele devolveu, não o que a página imprime ([#5][i5]).
 
+## Como foi construído
+
+O histórico de commits mostra assistência de agente de codificação, então vale
+ser explícito sobre a divisão. Do autor: a escolha do domínio e do escopo, a
+validação contra a realidade do setor financeiro, o recorte das fases, a revisão
+da saída e as decisões de arquitetura — todas registradas em
+[`docs/adr/`](docs/adr/), com o que cada uma custou. Do agente: implementação a
+partir de especificação escrita.
+
+O mecanismo é uma instrução do [`CLAUDE.md`](CLAUDE.md): especificação que parece
+errada se aponta **antes** de implementar, em vez de preencher a lacuna em
+silêncio. É decisão de projeto, e nos três casos abaixo o que estava errado era a
+especificação, não o código:
+
+- a spec da Fase 2 descrevia os quadros do informe como "lista de linhas mais um
+  total" — layout de extrato bancário, não o modelo da Receita. O Anexo I da IN
+  RFB desmente isso em três pontos, e o schema mudou antes da implementação
+  ([ADR 007](docs/adr/007-estrutura-do-informe-de-rendimentos.md));
+- o primeiro eval reportou 50% de escape. O número era da medição: eval e
+  pipeline comparavam campos por definições de igualdade diferentes, e hoje
+  compartilham um módulo só
+  ([ADR 005](docs/adr/005-sinais-de-confianca.md));
+- a métrica de linha casava por chave distinta e ficava cega justamente no
+  ataque que existia para medir. Corrigida para casar por ocorrência, o recall
+  caiu de 99,8% para 98,7%
+  ([ADR 009](docs/adr/009-extracao-do-informe-e-cobertura-de-verificacao.md)).
+
 ## Como rodar
 
 ```bash
@@ -137,7 +164,7 @@ Requisitos, comandos de qualidade e estrutura em
 | [Revisão humana](docs/revisao.md) | a fila, a API, a tela, e a realimentação do eval |
 | [Limitações conhecidas](docs/limitacoes.md) | o que os números não dizem, com as issues |
 | [Desenvolvimento](docs/desenvolvimento.md) | requisitos, setup, qualidade, estrutura, dados |
-| [Decisões de arquitetura](docs/adr/) | as onze ADRs, com o que cada decisão custou |
+| [Decisões de arquitetura](docs/adr/) | as doze ADRs, com o que cada decisão custou |
 
 [i1]: https://github.com/marcola20/extrator-docs-financeiros/issues/1
 [i2]: https://github.com/marcola20/extrator-docs-financeiros/issues/2
