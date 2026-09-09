@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+/*
+ * Paleta e tipografia sóbrias de propósito. O que tem de chamar atenção nesta
+ * tela é o diagnóstico — qual sinal reprovou, qual não teve o que conferir —, e
+ * cor decorativa competiria com ele. Então: fundo quase branco, texto quase
+ * preto, e cor reservada para os estados dos sinais.
+ */
+@theme {
+  --color-tinta: oklch(0.21 0.01 260);
+  --color-tinta-fraca: oklch(0.48 0.01 260);
+  --color-papel: oklch(0.985 0.002 260);
+  --color-borda: oklch(0.9 0.005 260);
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-papel);
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+  /* Números tabulares: valores monetários em coluna precisam alinhar. */
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Foco visível sempre — a tela é operada por quem revisa documento o dia todo,
+   e navegação por teclado é o caminho rápido. */
+:focus-visible {
+  outline: 2px solid oklch(0.55 0.16 258);
+  outline-offset: 2px;
+  border-radius: 2px;
+}

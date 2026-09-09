@@ -52,3 +52,9 @@ dados/real/boletos/*
 .idea/
 Thumbs.db
 .DS_Store
+
+# Front da revisão (Fase 4.2)
+web/node_modules/
+web/.next/
+web/next-env.d.ts
+web/tsconfig.tsbuildinfo
