@@ -16,21 +16,13 @@ from app.llm.limitador import Cota, CotaDiariaExcedida, LimitadorDeTaxa
 from app.llm.provedor import ErroDeConfiguracao, ProvedorLLM
 from tests.llm.falso import DocumentoFalso, ProvedorFalso, RelogioFalso
 
-VARIAVEIS = (
-    "LLM_PROVEDOR",
-    "LLM_MODELO",
-    "GEMINI_API_KEY",
-    "ANTHROPIC_API_KEY",
-    "LLM_RPM",
-    "LLM_RPD",
-)
-
-
-@pytest.fixture(autouse=True)
-def ambiente_limpo(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Isola do .env e do ambiente da máquina."""
-    for variavel in VARIAVEIS:
-        monkeypatch.delenv(variavel, raising=False)
+# A limpeza do ambiente é feita por `ambiente_limpo`, autouse em
+# `tests/conftest.py`. Este arquivo tinha uma cópia local com o mesmo nome, que
+# **sombreava** a da conftest e limpava só seis variáveis — e foi assim que o
+# CI reprovou: ele exporta `LLM_SEM_REDE=1`, a cópia local não a removia, e
+# todo `Settings` construído aqui nascia com a trava de rede ligada.
+#
+# Uma definição só, e ela cobre todas as variáveis da aplicação.
 
 
 def _settings(tmp_path: Path, **campos: Any) -> Settings:

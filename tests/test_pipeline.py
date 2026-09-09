@@ -7,6 +7,7 @@ que é o único que fala com a API.
 """
 
 import json
+import shutil
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -79,7 +80,15 @@ def settings(tmp_path: Path) -> Settings:
     )
 
 
+com_ocr_de_verdade = pytest.mark.skipif(
+    shutil.which("tesseract") is None,
+    reason="tesseract não instalado; sem ele a sanitização nunca auto-aprova",
+)
+
+
 class TestDocumentoLimpoEExtracaoFiel:
+    @pytest.mark.slow
+    @com_ocr_de_verdade
     def test_auto_aprova(self, settings: Settings) -> None:
         provedor = ProvedorDeGabarito(_gabarito(LIMPO))
 
@@ -157,6 +166,8 @@ class TestDocumentoAdversarial:
 
 
 class TestModoDeConsistencia:
+    @pytest.mark.slow
+    @com_ocr_de_verdade
     def test_nunca_dispensa_o_sinal_sem_bloquear(self, tmp_path: Path) -> None:
         settings = Settings(
             _env_file=None,
@@ -173,6 +184,8 @@ class TestModoDeConsistencia:
         assert resultado.consistencia.dispensado
         assert provedor.chamadas == 1
 
+    @pytest.mark.slow
+    @com_ocr_de_verdade
     def test_condicional_nao_gasta_segunda_chamada_quando_tudo_passa(self, tmp_path: Path) -> None:
         settings = Settings(
             _env_file=None,

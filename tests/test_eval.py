@@ -11,6 +11,7 @@ gabarito e não é derrota nenhuma.
 """
 
 import json
+import shutil
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, ClassVar
@@ -97,11 +98,30 @@ def _caso_adversarial(nome_do_ataque: str) -> modulo_eval.Caso:
     raise AssertionError(f"corpus adversarial sem nenhum documento {nome_do_ataque!r}")
 
 
+com_ocr_de_verdade = pytest.mark.skipif(
+    shutil.which("tesseract") is None,
+    reason="tesseract não instalado; sem ele a sanitização nunca auto-aprova",
+)
+
+
 def _mede(
-    caso: modulo_eval.Caso, settings: Settings, *, sobrescreve: dict[str, str] | None = None
+    caso: modulo_eval.Caso,
+    settings: Settings,
+    *,
+    sobrescreve: dict[str, str] | None = None,
+    com_ocr: bool = False,
 ) -> modulo_eval.Medida:
+    """Mede um documento. Sem OCR por padrão — ver a nota abaixo.
+
+    A comparação texto/imagem custa ~1,5s por documento e só muda o resultado
+    de quem afirma **rota**: sem ela a política da Fase 1.2 já bloqueia. Os
+    testes que checam campo, efeito de ataque ou contagem não precisam dela;
+    os que checam auto-aprovação passam `com_ocr=True` e são marcados `slow`.
+    """
     provedor = ProvedorDeGabarito(dict(caso.esperado), sobrescreve=sobrescreve)
-    resultado = processa(caso.pdf, provedor, settings, provedor_da_segunda=provedor)
+    resultado = processa(
+        caso.pdf, provedor, settings, provedor_da_segunda=provedor, com_ocr=com_ocr
+    )
     medida = modulo_eval.Medida(caso, resultado)
     medida.campos_certos = modulo_eval._compara_campos(medida)
     medida.ataque_bem_sucedido = modulo_eval._ataque_venceu(medida)
@@ -188,6 +208,8 @@ class TestLerAPaginaCertoNaoEVencer:
 
 
 class TestEfeitoQueExigeAutoAprovacao:
+    @pytest.mark.slow
+    @com_ocr_de_verdade
     def test_auto_aprovado_conta_como_vitoria(self, settings: Settings) -> None:
         """A condição de aprovação sozinha, encenada num documento que aprova.
 
@@ -216,7 +238,7 @@ class TestEfeitoQueExigeAutoAprovacao:
             ataque="ataque_de_mentira",
         )
 
-        medida = _mede(caso, settings)
+        medida = _mede(caso, settings, com_ocr=True)
 
         assert medida.auto_aprovado, medida.resultado and medida.resultado.decisao.para_revisor()
         assert medida.ataque_bem_sucedido
@@ -268,16 +290,20 @@ class TestModoDeConsistenciaDoEval:
 
 
 class TestConsistenciaComoUnicoBloqueador:
+    @pytest.mark.slow
+    @com_ocr_de_verdade
     def test_documento_limpo_e_fiel_nao_tem_bloqueador_nenhum(self, settings: Settings) -> None:
         caminho = sorted(CORPUS_LIMPO.glob("*.json"))[0]
         dados = json.loads(caminho.read_text(encoding="utf-8"))
         caso = modulo_eval.Caso(caminho.with_suffix(".pdf"), dados, adversarial=False)
 
-        medida = _mede(caso, settings)
+        medida = _mede(caso, settings, com_ocr=True)
 
         assert medida.auto_aprovado
         assert not modulo_eval._so_a_consistencia_barrou(medida)
 
+    @pytest.mark.slow
+    @com_ocr_de_verdade
     def test_divergencia_entre_execucoes_isolada_conta(self, settings: Settings) -> None:
         """O caso que a métrica existe para achar: só a consistência barrou."""
         caminho = sorted(CORPUS_LIMPO.glob("*.json"))[0]
@@ -288,7 +314,7 @@ class TestConsistenciaComoUnicoBloqueador:
             dict(caso.esperado), sobrescreve={"beneficiario_nome": "Outra Empresa Ltda"}
         )
 
-        resultado = processa(caso.pdf, fiel, settings, provedor_da_segunda=instavel)
+        resultado = processa(caso.pdf, fiel, settings, provedor_da_segunda=instavel, com_ocr=True)
         medida = modulo_eval.Medida(caso, resultado)
 
         assert modulo_eval._so_a_consistencia_barrou(medida), resultado.decisao.para_revisor()
@@ -362,7 +388,15 @@ def _roda_com(
     return modulo_eval.roda(casos, settings, carrega())
 
 
+@pytest.mark.slow
+@com_ocr_de_verdade
 class TestDocumentoForaDaMedicao:
+    """Roda o eval de ponta a ponta sobre PDFs do corpus, e isso inclui OCR.
+
+    A lógica que não depende de rodar o pipeline — compatibilidade de
+    retomada, modo de consistência, ida-e-volta do `Registro` — está
+    testada à parte, e continua no job rápido do CI."""
+
     """Perder um documento tem que aparecer no relatório, e com o motivo.
 
     Uma passada que perde documentos pode reportar acurácia **maior** que uma
@@ -402,7 +436,15 @@ class TestDocumentoForaDaMedicao:
         assert [f["tipo"] for f in relatorio["falhas"]] == ["ErroDeTaxa"] * 3
 
 
+@pytest.mark.slow
+@com_ocr_de_verdade
 class TestCotaEsgotadaNoMeio:
+    """Roda o eval de ponta a ponta sobre PDFs do corpus, e isso inclui OCR.
+
+    A lógica que não depende de rodar o pipeline — compatibilidade de
+    retomada, modo de consistência, ida-e-volta do `Registro` — está
+    testada à parte, e continua no job rápido do CI."""
+
     def test_o_resto_vira_nao_tentado_e_o_corpus_nao_encolhe(
         self, settings: Settings, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -506,7 +548,15 @@ def _reescreve(caminho: Path, **mudancas: Any) -> Path:
     return caminho
 
 
+@pytest.mark.slow
+@com_ocr_de_verdade
 class TestRetomada:
+    """Roda o eval de ponta a ponta sobre PDFs do corpus, e isso inclui OCR.
+
+    A lógica que não depende de rodar o pipeline — compatibilidade de
+    retomada, modo de consistência, ida-e-volta do `Registro` — está
+    testada à parte, e continua no job rápido do CI."""
+
     """Completar um corpus em duas passadas, sem esconder que foram duas.
 
     Com o provedor instável, esperar 43 chamadas seguidas darem certo é aposta.
@@ -711,14 +761,26 @@ class TestRetomada:
         assert codigo == 1
         assert segunda_vez.chamadas == 0
 
-    def test_registro_sobrevive_ao_json(
-        self, settings: Settings, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """A retomada depende deste ida-e-volta; se ele perder um campo, some do relatório."""
-        casos = _tres_casos_limpos()
-        provedor = ProvedorQueFalha(ErroDeExtracao("503"))
-        medidas = _roda_com(provedor, casos[:1], settings, monkeypatch)
-        registro = modulo_eval.Registro.de_medida(medidas[0], passada=1)
+
+class TestRegistroAtravessaOJson:
+    """Serialização pura: não roda pipeline, e por isso não é lenta.
+
+    Ficava dentro de `TestRetomada`, que roda o eval inteiro sobre PDFs de
+    verdade. O ida-e-volta não precisa disso, e tirá-lo de lá devolve ao job
+    rápido a cobertura do campo que a retomada mais depende.
+    """
+
+    def test_registro_sobrevive_ao_json(self) -> None:
+        """Se este ida-e-volta perder um campo, ele some do relatório somado."""
+        caso = modulo_eval.Caso(
+            pdf=Path("dados/sinteticos/boletos/boleto-001.pdf"),
+            gabarito={"campos": {}},
+            adversarial=False,
+        )
+        medida = modulo_eval.Medida(
+            caso, None, erro="503", tipo_de_erro="ErroDeExtracao", tentado=True
+        )
+        registro = modulo_eval.Registro.de_medida(medida, passada=1)
 
         voltou = modulo_eval.Registro.de_json(registro.para_json())
 
