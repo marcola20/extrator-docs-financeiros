@@ -10,9 +10,11 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, select, text
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.schema import CreateTable
 
 from app.confianca.politica import Sinal as SinalDaPolitica
 from app.confianca.politica import Veredito
@@ -325,3 +327,67 @@ class TestDataComFuso:
 
         assert documento.ingerido_em.tzinfo is not None
         assert documento.ingerido_em <= datetime.now(UTC)
+
+
+class TestRestricaoNoBancoENaoSoEmPython:
+    """O conjunto de estados é fechado, e quem fecha é o banco.
+
+    A primeira migração criou as colunas de enum como VARCHAR sem restrição
+    nenhuma: no SQLAlchemy 2 o padrão de `Enum` é `create_constraint=False`, e
+    `native_enum=False` sozinho não produz CHECK. Passou despercebido porque a
+    conferência entre migração e modelos compara os dois **entre si** — e os
+    dois estavam igualmente sem a restrição.
+
+    Só apareceu ao olhar um Postgres de verdade. Estes testes olham o DDL, que é
+    onde a ausência era visível desde o começo.
+    """
+
+    def _ddl(self, tabela: str) -> str:
+        """O DDL que o Postgres receberia. É onde a restrição aparece ou falta."""
+        # `postgresql.dialect` não tem anotação publicada; o DDL que ele produz
+        # é o que interessa aqui, e ele é conferido pelo próprio texto.
+        dialeto = postgresql.dialect()  # type: ignore[no-untyped-call]
+        return str(CreateTable(Base.metadata.tables[tabela]).compile(dialect=dialeto))
+
+    def test_o_estado_do_sinal_tem_check(self) -> None:
+        ddl = self._ddl("sinal")
+
+        assert "CONSTRAINT ck_estadodosinal CHECK" in ddl
+        for estado in EstadoDoSinal:
+            assert f"'{estado.value}'" in ddl
+
+    def test_a_rota_tem_check(self) -> None:
+        assert "CONSTRAINT ck_rota CHECK" in self._ddl("decisao")
+
+    def test_o_tipo_de_documento_tem_check(self) -> None:
+        assert "CONSTRAINT ck_tipodedocumento CHECK" in self._ddl("documento")
+
+    def test_o_check_guarda_o_valor_e_nao_o_nome_do_membro(self) -> None:
+        """`sem_cobertura`, não `SEM_COBERTURA`: o nome não existe em lugar
+        nenhum do resto do projeto."""
+        ddl = self._ddl("sinal")
+
+        assert "'sem_cobertura'" in ddl
+        assert "SEM_COBERTURA" not in ddl
+
+    def test_nenhum_enum_e_nativo(self) -> None:
+        """Tipo ENUM do Postgres tornaria acrescentar um estado um `ALTER TYPE`,
+        que não roda dentro de transação e portanto não desfaz junto."""
+        assert "CREATE TYPE" not in self._ddl("sinal")
+        assert "VARCHAR(30)" in self._ddl("sinal")
+
+    def test_a_restricao_recusa_um_quinto_estado(self, sessao: Session) -> None:
+        """Em SQLite o CHECK também vale, então a recusa é testável sem Postgres."""
+        documento = _documento(sessao)
+        decisao = Decisao(documento_id=documento.id, rota=Rota.REVISAO_HUMANA)
+        sessao.add(decisao)
+        sessao.commit()
+
+        with pytest.raises(IntegrityError):
+            sessao.execute(
+                text(
+                    "insert into sinal (decisao_id, nome, estado, detalhe) "
+                    f"values ({decisao.id}, 'x', 'talvez', '')"
+                )
+            )
+            sessao.commit()

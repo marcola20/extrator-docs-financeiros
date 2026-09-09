@@ -80,6 +80,8 @@ docker compose --profile observabilidade up -d   # + Langfuse (5 contêineres)
 # banco. Só a fila de revisão precisa dele.
 #   PERSISTENCIA_ATIVA=1 no .env, e então:
 uv run alembic upgrade head          # aplica as migrações
+# Alembic não detecta CHECK no autogenerate: restrição de enum se escreve à
+# mão, em batch_alter_table (o SQLite não sabe alterar constraint). Ver ADR 010.
 uv run python -m app.avaliacao.exporta_realimentacao --simular
 
 # Eval com os casos de correção humana (dados/realimentacao/, fora do git).

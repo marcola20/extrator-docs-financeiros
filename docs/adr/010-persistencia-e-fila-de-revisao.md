@@ -163,17 +163,46 @@ Dois cuidados no job completo, que não são óbvios:
   pior que falhar: a suíte ficaria verde sem ter rodado o que o job existe para
   rodar. O job confere que `por` está na lista antes de começar.
 
-## O que a decisão não resolve
+## A verificação contra Postgres, e o que ela achou
 
-**Nada disto foi rodado contra Postgres nesta sessão.** O Docker não está
-disponível no WSL onde o projeto é desenvolvido, então as migrações foram
-aplicadas e conferidas **em SQLite**: um banco montado pelas migrações e outro
-pelos modelos, comparados tabela a tabela, coluna a coluna, tipo a tipo e índice
-a índice. É uma conferência real de que os dois descrevem o mesmo schema, e não
-é uma execução em Postgres. As partes específicas do dialeto — `JSONB` e o
-`timestamptz` — são variantes declaradas, e a primeira coisa a fazer com um
-Postgres de pé é `alembic upgrade head` seguido de uma gravação de ponta a
-ponta.
+Esta seção começou dizendo que nada tinha rodado contra Postgres, porque o
+Docker não estava disponível. Rodou depois, e vale registrar o que a execução
+mudou — foi ela que justificou a migração `a4ac89d142f4`.
+
+**O que se confirmou.** `payload` é JSONB de verdade e as colunas de data são
+`timestamptz`; as duas variantes que o SQLite não podia provar. O ciclo
+`upgrade` → `downgrade base` → `upgrade head` funciona, e o schema resultante
+bate com os modelos tabela a tabela e coluna a coluna. Um ensaio de ponta a
+ponta gravou dois documentos, listou a fila, abriu o diagnóstico, baixou o PDF,
+submeteu uma correção e exportou o caso de realimentação.
+
+**O que se descobriu.** As três colunas de enum tinham sido criadas como VARCHAR
+**sem restrição nenhuma**. A causa é um padrão do SQLAlchemy 2:
+`Enum(native_enum=False)` só emite o CHECK com `create_constraint=True`, e o
+padrão é `False`. A ADR e o commit afirmavam "VARCHAR com CHECK"; o banco tinha
+só o VARCHAR.
+
+Por que passou despercebido: o teste que compara migração e modelos compara os
+dois **entre si**, e os dois estavam igualmente sem a restrição. Ele não podia
+achar isso — ele confere consistência, não intenção. E o inspector do SQLite não
+reporta CHECK, então nem olhar o banco de teste teria mostrado.
+
+O efeito prático era estreito e real: quem escreve pelo ORM não conseguiria
+introduzir um quinto estado, porque o SQLAlchemy valida na entrada; um `UPDATE`
+direto conseguiria. A garantia de que o conjunto é fechado — que é o ponto
+inteiro dos quatro estados — existia por convenção.
+
+Corrigido em `a4ac89d142f4`, com o CHECK conferido no Postgres recusando um
+`insert` de `'talvez'`. A migração usa `batch_alter_table` porque o SQLite não
+sabe alterar constraint, e sem isso ela rodaria em produção e falharia no banco
+onde é testada. Os testes novos olham o **DDL**, que é onde a ausência era
+visível desde o começo.
+
+A lição de método, que é a que interessa: um teste de consistência entre duas
+descrições não substitui rodar contra a coisa real. As duas descrições podem
+concordar em estar erradas.
+
+## O que a decisão não resolve
 
 **A realimentação do informe exporta, mas ainda não entra no eval.** O eval de
 informe processa **pares**, e um caso de correção humana só entra quando os dois
@@ -204,6 +233,8 @@ de ser no momento em que a tela da 4.2 for exposta — a decisão vai junto com 
 - Duas definições de "bloqueia" passam a existir, amarradas por teste. É
   duplicação real, aceita porque a alternativa — a API carregar a política para
   responder uma listagem — acoplaria a tela ao pipeline.
-- O schema foi conferido em SQLite, não em Postgres.
+- A suíte roda em SQLite, e um schema pode estar errado nos dois de forma
+  concordante — foi o que aconteceu com os CHECK. Rodar contra Postgres continua
+  sendo uma etapa manual.
 - A observabilidade completa custa cinco contêineres. Ficou num profile, e o
   padrão continua sendo só o Postgres.

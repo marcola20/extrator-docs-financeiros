@@ -81,6 +81,14 @@ def coluna_de_enum[E: StrEnum](enumeracao: type[E]) -> Enum:
     Postgres: acrescentar um estado passa a ser uma migração de constraint, e
     não um `ALTER TYPE` que não roda dentro de transação.
 
+    `create_constraint=True` **não é redundante**, e a omissão dele passou
+    despercebida até o schema ser conferido contra um Postgres de verdade: o
+    padrão no SQLAlchemy 2 é `False`, então `native_enum=False` sozinho produz
+    VARCHAR sem restrição nenhuma. A validação em Python continuaria valendo
+    para quem escreve pelo ORM; um `UPDATE` direto no banco poderia introduzir
+    um quinto estado, e a garantia de que o conjunto é fechado — que é o ponto
+    dos quatro estados — existiria só por convenção.
+
     `values_callable` grava o **valor** (`sem_cobertura`), não o nome do membro
     (`SEM_COBERTURA`). Sem ele o banco guardaria uma grafia que não existe em
     lugar nenhum do resto do projeto.
@@ -89,6 +97,10 @@ def coluna_de_enum[E: StrEnum](enumeracao: type[E]) -> Enum:
         enumeracao,
         native_enum=False,
         length=30,
+        create_constraint=True,
+        # Sem nome explícito a constraint nasce com o nome da coluna (`estado`),
+        # que colide entre tabelas e não diz de onde é numa mensagem de erro.
+        name=f"ck_{enumeracao.__name__.lower()}",
         values_callable=lambda e: [membro.value for membro in e],
         validate_strings=True,
     )
