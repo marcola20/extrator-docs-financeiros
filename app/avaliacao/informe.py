@@ -56,6 +56,7 @@ from pathlib import Path
 from typing import Any
 
 from app.avaliacao import linhas as metricas
+from app.avaliacao import realimentacao
 from app.avaliacao.linhas import LinhaMedida, MetricasDeLinha
 from app.avaliacao.relatorio import (
     RetomadaInvalida,
@@ -1124,6 +1125,16 @@ def main(argumentos: Any) -> int:
         corpus, consistencia, passada = retomada.corpus, retomada.consistencia, retomada.passada
     else:
         so_um = argumentos.limpos or argumentos.adversariais
+        if getattr(argumentos, "com_realimentacao", False):
+            # O eval de informe processa **pares**, e um caso de correção humana
+            # só entra quando os dois documentos do par foram revisados — sem o
+            # par o cruzamento entre anos não tem o que conferir, e o caso
+            # entraria medindo a ausência do par, não a leitura.
+            prontos = [c for c in realimentacao.carrega(tipo="informe") if c.utilizavel]
+            print(
+                f"realimentação: {len(prontos)} par(es) de correção humana prontos; "
+                f"a Fase 4.1 exporta o caso, e ligá-los ao corpus de pares é da 4.2"
+            )
         try:
             pares = carrega_pares(
                 limpos=argumentos.limpos or not so_um,

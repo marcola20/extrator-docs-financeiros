@@ -116,6 +116,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from app.avaliacao import realimentacao
 from app.avaliacao.informe import main as main_informe
 from app.avaliacao.relatorio import (
     RetomadaInvalida,
@@ -335,14 +336,43 @@ class Registro:
         )
 
 
+def casos_de_realimentacao(limite: int | None = None) -> list[Caso]:
+    """Os casos de correção humana, na forma que o eval de boleto consome.
+
+    Devolve lista vazia quando o diretório não existe — que é o caso de um clone
+    novo e do CI, porque ele referencia documento real e não é versionado.
+    """
+    casos = [
+        Caso(pdf=caso.arquivo_pdf, gabarito=caso.como_json(), adversarial=False)
+        # Lê `DIRETORIO_PADRAO` no momento da chamada, e não como valor padrão
+        # de argumento: o padrão seria congelado na definição, e o teste que
+        # aponta o diretório para outro lugar não teria efeito.
+        for caso in realimentacao.carrega(realimentacao.DIRETORIO_PADRAO, tipo="boleto")
+        if caso.utilizavel
+    ]
+    return casos[:limite] if limite else casos
+
+
 def _procedencia(casos: Sequence[Caso]) -> dict[str, Any]:
-    """A procedência de cada corpus de boleto, na forma que o relatório grava."""
-    return procedencia_do_corpus(
+    """A procedência de cada corpus de boleto, na forma que o relatório grava.
+
+    Os casos de realimentação entram com a chave própria, e é isso que faz a
+    retomada recusar somar uma passada que os incluiu a uma que não incluiu:
+    `corpus` inteiro é comparado em `confere_compatibilidade`.
+    """
+    procedencia = procedencia_do_corpus(
         [
             ("adversarial" if caso.adversarial else "limpo", caso.gabarito.get("gerado_com"))
             for caso in casos
+            if "realimentacao" not in caso.gabarito
         ]
     )
+    da_correcao = [caso for caso in casos if "realimentacao" in caso.gabarito]
+    if da_correcao:
+        procedencia["realimentacao"] = realimentacao.inventaria(
+            [realimentacao.CasoDeRealimentacao.de_json(c.gabarito) for c in da_correcao]
+        ).como_json()
+    return procedencia
 
 
 def carrega_casos(*, limpos: bool, adversariais: bool, limite: int | None) -> list[Caso]:
@@ -679,6 +709,18 @@ def _analisa_argumentos(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--limpos", action="store_true", help="só o corpus limpo")
     parser.add_argument("--adversariais", action="store_true", help="só o corpus adversarial")
     parser.add_argument("--limite", type=int, default=None, help="processa no máximo N")
+    parser.add_argument(
+        "--com-realimentacao",
+        action="store_true",
+        help=(
+            "inclui os casos vindos de correção humana (dados/realimentacao/, "
+            "fora do git). Desligado por padrão: misturá-los ao corpus sintético "
+            "sem distinção contaminaria a comparação com os baselines, porque a "
+            "acurácia mudaria por o corpus ter crescido, não por o extrator ter "
+            "melhorado. O relatório grava quantos entraram, e a retomada recusa "
+            "somar uma passada com realimentação a uma sem."
+        ),
+    )
     parser.add_argument("--prompt", type=str, default=None, help="arquivo de prompt a usar")
     parser.add_argument(
         "--retomar",
@@ -707,11 +749,14 @@ def _analisa_argumentos(argv: Sequence[str] | None) -> argparse.Namespace:
 
 def _corpus_completo(argumentos: argparse.Namespace) -> list[Caso]:
     so_um = argumentos.limpos or argumentos.adversariais
-    return carrega_casos(
+    casos = carrega_casos(
         limpos=argumentos.limpos or not so_um,
         adversariais=argumentos.adversariais or not so_um,
         limite=None,
     )
+    if argumentos.com_realimentacao:
+        casos += casos_de_realimentacao()
+    return casos
 
 
 def _prepara_retomada(

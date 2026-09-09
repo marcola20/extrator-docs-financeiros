@@ -1,9 +1,12 @@
-"""Um app de teste com banco SQLite, sem subir Postgres.
+"""Fixtures de banco e de API para a suíte inteira, em SQLite.
 
 A sessão entra por `Depends` justamente para isto: o teste troca a dependência
 e os endpoints não sabem a diferença. É o mesmo motivo de o resto da fase rodar
 sem serviço — o CI não tem Postgres, e fazer a suíte depender de um contraria a
 decisão de que persistência é opcional.
+
+Ficam na raiz de `tests/` porque dois pacotes precisam delas: os testes da API
+e os da realimentação, que exporta a partir do mesmo banco.
 """
 
 from collections.abc import Iterator
