@@ -18,6 +18,13 @@
 
 const API = () => process.env.API_INTERNA ?? "http://127.0.0.1:8000";
 
+/**
+ * O mesmo tempo limite do cliente das páginas (`lib/api.ts`), e pelo mesmo
+ * motivo: na hospedagem gratuita a API dorme, e o `fetch` sem limite deixaria o
+ * `<iframe>` do PDF girando para sempre em vez de dizer o que houve.
+ */
+const ESPERA_MS = Number(process.env.API_ESPERA_MS ?? 65_000);
+
 async function encaminha(requisicao: Request, caminho: string[]): Promise<Response> {
   const consulta = new URL(requisicao.url).search;
   const destino = `${API()}/${caminho.join("/")}${consulta}`;
@@ -31,11 +38,21 @@ async function encaminha(requisicao: Request, caminho: string[]): Promise<Respon
         : undefined,
       body: requisicao.method === "GET" ? undefined : await requisicao.text(),
       cache: "no-store",
+      signal: AbortSignal.timeout(ESPERA_MS),
     });
-  } catch {
+  } catch (falha) {
+    const expirou = falha instanceof Error && falha.name === "TimeoutError";
     return Response.json(
-      { detail: `A API não respondeu em ${API()}.` },
-      { status: 502 },
+      {
+        detail: expirou
+          ? `A API não respondeu em ${Math.round(ESPERA_MS / 1000)}s. Se esta é a ` +
+            `demonstração pública, o servidor está acordando: tente de novo.`
+          : `A API não respondeu em ${API()}.`,
+      },
+      // 504 quando o tempo esgotou, 502 quando a conexão foi recusada. São
+      // situações diferentes — "está subindo" e "não está lá" —, e o status é
+      // onde essa diferença chega a quem depura pelo painel de rede.
+      { status: expirou ? 504 : 502 },
     );
   }
 

@@ -25,6 +25,7 @@ para que cada um caia num quadrante diferente do que a interface tem a dizer:
 | valor divergente | página impecável; **só a aritmética** o barra |
 | par de comprovantes | **sem cobertura**: nada reprovou, e nada foi conferido |
 | par bancário | auto-aprovado com cobertura real, que é o contraste do anterior |
+| par com saldo trocado | **só o cruzamento entre anos** reprova; os outros cinco conferem |
 
 O de `valor_divergente` é a tese do projeto num documento só. A página não tem
 defeito nenhum que um detector possa ver: nenhum texto escondido, nenhuma
@@ -40,6 +41,11 @@ ADR 011 desenhou: um documento lido com 100% de acurácia que vai para a revisã
 porque **ninguém conseguiu conferi-lo**. Sem ele na fila, a tela demonstra
 metade do que o projeto tem a dizer.
 
+O oitavo é o único ataque do projeto que um adversário com controle da página
+não consegue satisfazer sozinho. Nada no documento denuncia o saldo trocado —
+medido: sanitização, domínio, aritmética e grounding dizem `conferido`, e só o
+cruzamento reprova, comparando com um informe emitido em outro momento.
+
 ## O OCR fica ligado por padrão, e o motivo não é rigor
 
 Sem a comparação texto/imagem, a política da Fase 1.2 barra **todo** documento —
@@ -51,6 +57,7 @@ meio por documento, e é o que faz a demonstração ter contraste.
 Uso:
     PERSISTENCIA_ATIVA=1 uv run python -m app.geradores.semeia_fila
     PERSISTENCIA_ATIVA=1 uv run python -m app.geradores.semeia_fila --limpar
+    PERSISTENCIA_ATIVA=1 uv run python -m app.geradores.semeia_fila --se-vazia
 """
 
 import argparse
@@ -69,15 +76,23 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
+from app.demo import (
+    BOLETO_ALUCINADO,
+    BOLETO_LIMPO,
+    BOLETO_NOME_TROCADO,
+    BOLETOS_ADVERSARIAIS,
+    INFORMES,
+    INFORMES_ADVERSARIAIS,
+    par_de,
+    por_detector_esperado,
+    por_familia_de_ataque,
+    por_layout,
+)
 from app.llm.provedor import INSTRUCAO_PADRAO, ResultadoExtracao, UsoDeTokens
 from app.persistencia import gravacao
 from app.persistencia.modelos import Decisao, TipoDeDocumento
 from app.pipeline import processa
 from app.pipeline_informe import processa_par
-
-BOLETOS = Path("dados/sinteticos/boletos")
-BOLETOS_ADVERSARIAIS = Path("dados/sinteticos/boletos_adversariais")
-INFORMES = Path("dados/sinteticos/informes")
 
 TABELAS = ("sinal", "achado", "correcao", "decisao", "extracao", "documento")
 
@@ -271,67 +286,86 @@ class CenarioDeInforme:
     rotulo: str
 
 
-def _um_adversarial_com_texto_invisivel() -> Path | None:
-    """Um documento cujo ataque o sanitizador pega e o revisor não veria."""
-    for gabarito in sorted(BOLETOS_ADVERSARIAIS.glob("*.json")):
-        dados = json.loads(gabarito.read_text(encoding="utf-8"))
-        if "texto_invisivel" in dados["ataque"]["detectores_esperados"]:
-            return BOLETOS_ADVERSARIAIS / str(dados["arquivo_pdf"])
-    return None
+def _par(pdf: Path | None, rotulo: str) -> list[CenarioDeInforme]:
+    """Um cenário de par, ou nenhum, quando o corpus não tem o documento.
 
-
-def _um_valor_divergente() -> Path | None:
-    """O documento em que a página está impecável e só a aritmética barra.
-
-    Não precisa de `sobrescreve`: o gabarito guarda o que está **impresso**
-    (ADR 006), que já é o valor falso. Um extrator perfeito o transcreve, e é
-    justamente aí que o cruzamento com a linha digitável reprova.
+    O informe é processado aos pares desde a Fase 2.1 — o cruzamento entre anos
+    precisa dos dois —, e o gabarito de cada um aponta para o outro.
     """
-    for gabarito in sorted(BOLETOS_ADVERSARIAIS.glob("*.json")):
-        dados = json.loads(gabarito.read_text(encoding="utf-8"))
-        if dados["ataque"]["nome"] == "valor_divergente":
-            return BOLETOS_ADVERSARIAIS / str(dados["arquivo_pdf"])
-    return None
+    if pdf is None:
+        return []
+    anterior, atual = par_de(pdf)
+    return [CenarioDeInforme(anterior, atual, rotulo)]
 
 
 def cenarios_padrao() -> tuple[list[CenarioDeBoleto], list[CenarioDeInforme]]:
-    """Os seis casos da tabela no topo do módulo."""
+    """Os cenários da tabela no topo do módulo.
+
+    Os adversariais são localizados pela família do ataque, e não pelo número do
+    arquivo: regerar o lote com outra semente troca os números, e um caminho
+    literal aqui passaria a apontar para outro documento em silêncio. Quem sabe
+    achá-los é o `app.demo`, que é o mesmo módulo que a página de entrada lê —
+    de propósito, para os dois não discordarem sobre qual arquivo é qual.
+    """
     boletos = [
         CenarioDeBoleto(
-            BOLETOS / "boleto-001.pdf",
+            BOLETO_ALUCINADO,
             "valor alucinado: o DV e o grounding reprovam",
             {"valor": "99.999,99"},
         ),
         CenarioDeBoleto(
-            BOLETOS / "boleto-002.pdf",
+            BOLETO_NOME_TROCADO,
             "nome trocado: só a consistência pega (issue #2)",
             {"beneficiario_nome": "Empresa Trocada Ltda"},
         ),
-        CenarioDeBoleto(BOLETOS / "boleto-003.pdf", "leitura fiel: auto-aprovado"),
+        CenarioDeBoleto(BOLETO_LIMPO, "leitura fiel: auto-aprovado"),
     ]
-    atacado = _um_adversarial_com_texto_invisivel()
+    atacado = por_detector_esperado(BOLETOS_ADVERSARIAIS, "texto_invisivel")
     if atacado is not None:
         boletos.append(CenarioDeBoleto(atacado, "ataque invisível: trechos suspeitos"))
 
-    divergente = _um_valor_divergente()
+    # Sem `sobrescreve`: o gabarito guarda o que está **impresso** (ADR 006), que
+    # já é o valor falso. Um extrator perfeito o transcreve, e é justamente aí
+    # que o cruzamento com a linha digitável reprova.
+    divergente = por_familia_de_ataque(BOLETOS_ADVERSARIAIS, "valor_divergente")
     if divergente is not None:
         boletos.append(
             CenarioDeBoleto(divergente, "valor divergente: página limpa, só a aritmética barra")
         )
 
-    informes = [
-        CenarioDeInforme(
-            INFORMES / "informe-003.pdf",
-            INFORMES / "informe-004.pdf",
+    informes = (
+        _par(
+            por_layout(INFORMES, "fonte_pagadora"),
             "comprovante: sem total e sem saldo, nada foi conferido",
-        ),
-        CenarioDeInforme(
-            INFORMES / "informe-001.pdf",
-            INFORMES / "informe-002.pdf",
+        )
+        + _par(
+            por_layout(INFORMES, "instituicao_financeira"),
             "bancário: soma e cruzamento entre anos conferem",
-        ),
-    ]
+        )
+        + _par(
+            por_familia_de_ataque(INFORMES_ADVERSARIAIS, "saldo_anterior_adulterado"),
+            "saldo do ano anterior trocado: só o cruzamento entre anos reprova",
+        )
+    )
     return boletos, informes
+
+
+def ha_decisoes(settings: Settings) -> bool:
+    """Se a fila já tem alguma decisão gravada.
+
+    Existe para `--se-vazia`, que é como o contêiner da demonstração se semeia:
+    o serviço gratuito dorme por inatividade e reinicia a cada visita, e um
+    comando de partida que semeasse sempre ou duplicaria a fila a cada acordar,
+    ou a apagaria — com as correções junto, se algum dia a demonstração deixar
+    de ser somente-leitura.
+    """
+    from sqlalchemy import create_engine, func, select
+
+    from app.persistencia.modelos import Decisao
+
+    engine = create_engine(settings.database_url)
+    with engine.connect() as conexao:
+        return bool(conexao.scalar(select(func.count()).select_from(Decisao)))
 
 
 def limpa(settings: Settings) -> None:
@@ -431,6 +465,14 @@ def _analisa_argumentos(argv: Sequence[str] | None) -> argparse.Namespace:
         help="apaga a fila antes de semear. Destrutivo: some com as correções também",
     )
     parser.add_argument(
+        "--se-vazia",
+        action="store_true",
+        help=(
+            "não faz nada se a fila já tiver alguma decisão. É como o contêiner "
+            "da demonstração se semeia, e o que o torna seguro de repetir"
+        ),
+    )
+    parser.add_argument(
         "--sem-ocr",
         action="store_true",
         help=(
@@ -455,6 +497,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 1
+
+    if argumentos.limpar and argumentos.se_vazia:
+        print(
+            "--limpar e --se-vazia se contradizem: um apaga a fila, o outro "
+            "existe para não mexer numa fila que já tem conteúdo.",
+            file=sys.stderr,
+        )
+        return 2
+
+    if argumentos.se_vazia and ha_decisoes(settings):
+        print("a fila já tem decisões; nada a semear (--se-vazia).")
+        return 0
 
     com_ocr = not argumentos.sem_ocr
     if com_ocr and shutil.which("tesseract") is None:

@@ -11,8 +11,9 @@ from collections.abc import Awaitable, Callable
 from fastapi import FastAPI, Request, Response
 from pydantic import BaseModel
 
+from app.api.demo import roteador as roteador_da_demonstracao
+from app.api.dependencias import ConfiguracaoDependente
 from app.api.revisao import roteador as roteador_de_revisao
-from app.config import get_settings
 from app.observabilidade import observador
 
 app = FastAPI(
@@ -21,6 +22,7 @@ app = FastAPI(
     summary="Extração com validação determinística e fila de revisão humana",
 )
 app.include_router(roteador_de_revisao)
+app.include_router(roteador_da_demonstracao)
 
 _observador = observador()
 
@@ -61,12 +63,22 @@ class HealthResponse(BaseModel):
     observabilidade: bool
     """Se os traces estão indo para algum lugar."""
 
+    somente_leitura: bool
+    """Se esta instância é a demonstração pública, que recusa gravar correção."""
+
 
 @app.get("/health")
-def health() -> HealthResponse:
-    """Indica que a API está no ar, e o que ela tem ligado por trás."""
+def health(settings: ConfiguracaoDependente) -> HealthResponse:
+    """Indica que a API está no ar, e o que ela tem ligado por trás.
+
+    A configuração entra por `Depends` e não por `get_settings()` direto: sem
+    isso, um teste que troca a configuração da aplicação inteira veria esta rota
+    responder o contrário do que as outras respondem — e é uma rota de
+    diagnóstico, o pior lugar para uma resposta que não descreve a instância.
+    """
     return HealthResponse(
         status="ok",
-        persistencia=get_settings().persistencia_ativa,
+        persistencia=settings.persistencia_ativa,
         observabilidade=_observador.ativo,
+        somente_leitura=settings.demo_somente_leitura,
     )

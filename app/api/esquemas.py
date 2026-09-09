@@ -165,6 +165,13 @@ class Diagnostico(BaseModel):
     criada_em: datetime
     revisada_em: datetime | None
 
+    somente_leitura: bool = False
+    """Se esta instância recusa gravar correção. Ver ADR 012.
+
+    Sai daqui, e não de uma variável de ambiente lida pelo front, pela mesma
+    razão que `bloqueia` sai daqui: quem decide é a API, e uma segunda cópia da
+    política no navegador é uma segunda definição dela."""
+
     extracao: ExtracaoNaResposta | None
     """Nulo quando o documento foi barrado antes de chegar ao modelo."""
 
@@ -203,6 +210,38 @@ class RespostaDeCorrecao(BaseModel):
     decisao_id: int
     gravadas: int
     revisada_em: datetime | None
+
+
+class CasoNaEntrada(BaseModel):
+    """Um caso da demonstração, já resolvido para o documento que o mostra.
+
+    `decisao_id` é nulo quando o documento não foi semeado neste banco — e aí a
+    entrada mostra o caso como indisponível, em vez de oferecer um link para uma
+    página que responderia 404.
+    """
+
+    chave: str
+    titulo: str
+    frase: str
+    arquivo: str
+
+    decisao_id: int | None
+    rota: Rota | None
+    sinais_que_bloqueiam: list[str]
+    sem_cobertura: list[str]
+    achados: int
+
+
+class Entrada(BaseModel):
+    """A página de entrada da demonstração: os casos, e o modo da instância.
+
+    O desfecho de cada caso — qual sinal bloqueou, se algum — vem calculado
+    daqui pela mesma razão de sempre: o front não decide. Ele recebe "cruzamento
+    bloqueou este" e desenha; não olha os sinais para concluir.
+    """
+
+    somente_leitura: bool
+    casos: list[CasoNaEntrada]
 
 
 class EstatisticasDaFila(BaseModel):

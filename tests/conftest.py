@@ -31,6 +31,7 @@ from app.persistencia.modelos import Base
 VARIAVEIS_DA_APLICACAO = (
     "DATABASE_URL",
     "PERSISTENCIA_ATIVA",
+    "DEMO_SOMENTE_LEITURA",
     "LLM_PROVEDOR",
     "LLM_MODELO",
     "LLM_RPM",

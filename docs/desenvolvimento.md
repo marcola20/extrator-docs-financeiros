@@ -83,9 +83,12 @@ eval.py              medição contra os corpora (`--informes` troca o corpus)
 
 app/persistencia/    modelo de dados da fila, opcional por configuração
 app/api/             API de revisão: fila, diagnóstico, correções, estatísticas
+app/demo.py          os casos da demonstração e qual PDF mostra cada um
 app/observabilidade.py   traces no Langfuse, mudos quando não configurado
 migracoes/           migrações Alembic
-web/                 interface de revisão em Next.js
+web/                 interface de revisão em Next.js (`/` entrada, `/fila` fila)
+docker/              partida da API na demonstração: migra, semeia, serve
+render.yaml          o blueprint da demonstração pública (ADR 012)
 
 tests/               testes, junto da feature
 dados/sinteticos/    documentos sintéticos versionados, limpos e adversariais

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { CorrecaoNaResposta, ExtracaoNaResposta, SinalNaResposta } from "@/lib/api";
 import { achata, agrupa, rotuloDe, type CampoEditavel } from "@/lib/campos";
+import { DataHora } from "./DataHora";
 
 interface Props {
   decisaoId: number;
@@ -11,6 +12,8 @@ interface Props {
   correcoes: CorrecaoNaResposta[];
   sinais: SinalNaResposta[];
   jaRevisada: boolean;
+  /** Vem da API (ADR 012). O formulário desenha a consequência; não a decide. */
+  somenteLeitura: boolean;
 }
 
 /**
@@ -48,6 +51,17 @@ interface Props {
  *
  * **O revisor volta preenchido.** Ele é quase sempre a mesma pessoa reabrindo o
  * próprio trabalho, e digitar o nome de novo a cada visita é atrito sem função.
+ *
+ * ## Somente leitura não é o botão sumir
+ *
+ * Na demonstração pública os campos ficam desabilitados e o botão sai, mas isso
+ * é a **consequência** visível de uma decisão que é da API: ela responde 403 em
+ * `POST /revisao/{id}/correcoes` (ADR 012). Se este componente fosse a única
+ * trava, um `curl` gravaria assim mesmo — e a fila é semeada uma vez por
+ * implantação, então o texto de um visitante ficaria na tela dos próximos.
+ *
+ * A tela diz que está em somente-leitura em vez de esconder o assunto. Um
+ * formulário que some sem explicação parece defeito.
  */
 export function FormularioDeCorrecao({
   decisaoId,
@@ -55,6 +69,7 @@ export function FormularioDeCorrecao({
   correcoes,
   sinais,
   jaRevisada,
+  somenteLeitura,
 }: Props) {
   const router = useRouter();
   const doModelo = useMemo(() => achata(extracao.payload), [extracao.payload]);
@@ -119,7 +134,7 @@ export function FormularioDeCorrecao({
         const corpo = (await resposta.json().catch(() => null)) as { detail?: string } | null;
         throw new Error(corpo?.detail ?? `a API respondeu ${resposta.status}`);
       }
-      router.push("/");
+      router.push("/fila");
       router.refresh();
     } catch (falha) {
       setErro(falha instanceof Error ? falha.message : "não foi possível gravar");
@@ -131,6 +146,16 @@ export function FormularioDeCorrecao({
 
   return (
     <form onSubmit={envia} className="space-y-6">
+      {somenteLeitura && (
+        <p className="rounded-md border border-sky-200 bg-sky-50/70 px-3.5 py-2.5 text-xs leading-relaxed text-sky-900">
+          <strong>Demonstração pública, somente leitura.</strong> Os campos estão
+          aqui para serem lidos e comparados com o documento ao lado, mas a
+          gravação está desligada — a API recusa a correção, para o que um
+          visitante digita não aparecer na tela do visitante seguinte. Rodando o
+          projeto localmente, este formulário grava normalmente.
+        </p>
+      )}
+
       {jaRevisada && correcoes.length > 0 && (
         <p className="rounded-md border border-sky-200 bg-sky-50/70 px-3.5 py-2.5 text-xs leading-relaxed text-sky-900">
           Este item já foi revisado. Os campos abaixo mostram{" "}
@@ -155,6 +180,7 @@ export function FormularioDeCorrecao({
                 alterado={valores[campo.caminho] !== partida[campo.caminho]}
                 apontado={apontados.has(campo.caminho)}
                 correcaoAnterior={jaCorrigidos.get(campo.caminho)}
+                somenteLeitura={somenteLeitura}
                 aoMudar={(novo) =>
                   setValores((atuais) => ({ ...atuais, [campo.caminho]: novo }))
                 }
@@ -164,36 +190,38 @@ export function FormularioDeCorrecao({
         </fieldset>
       ))}
 
-      <div className="sticky bottom-0 -mx-1 border-t border-borda bg-papel/95 px-1 py-3 backdrop-blur">
-        {erro && (
-          <p className="mb-2 rounded border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-900">
-            {erro}
-          </p>
-        )}
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="text-xs text-tinta-fraca">
-            revisor
-            <input
-              value={revisor}
-              onChange={(e) => setRevisor(e.target.value)}
-              placeholder="seu nome"
-              className="ml-2 w-40 rounded border border-borda bg-white px-2 py-1 text-sm text-tinta"
-            />
-          </label>
-          <span className="text-sm text-tinta-fraca">
-            {alterados.length === 0
-              ? "nenhum campo alterado"
-              : `${alterados.length} ${alterados.length === 1 ? "campo alterado" : "campos alterados"}`}
-          </span>
-          <button
-            type="submit"
-            disabled={enviando || alterados.length === 0}
-            className="ml-auto rounded-md bg-tinta px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {enviando ? "gravando…" : "Gravar e encerrar revisão"}
-          </button>
+      {!somenteLeitura && (
+        <div className="sticky bottom-0 -mx-1 border-t border-borda bg-papel/95 px-1 py-3 backdrop-blur">
+          {erro && (
+            <p className="mb-2 rounded border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-900">
+              {erro}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="text-xs text-tinta-fraca">
+              revisor
+              <input
+                value={revisor}
+                onChange={(e) => setRevisor(e.target.value)}
+                placeholder="seu nome"
+                className="ml-2 w-40 rounded border border-borda bg-white px-2 py-1 text-sm text-tinta"
+              />
+            </label>
+            <span className="text-sm text-tinta-fraca">
+              {alterados.length === 0
+                ? "nenhum campo alterado"
+                : `${alterados.length} ${alterados.length === 1 ? "campo alterado" : "campos alterados"}`}
+            </span>
+            <button
+              type="submit"
+              disabled={enviando || alterados.length === 0}
+              className="ml-auto rounded-md bg-tinta px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {enviando ? "gravando…" : "Gravar e encerrar revisão"}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </form>
   );
 }
@@ -204,6 +232,7 @@ function Campo({
   alterado,
   apontado,
   correcaoAnterior,
+  somenteLeitura,
   aoMudar,
 }: {
   campo: CampoEditavel;
@@ -211,6 +240,7 @@ function Campo({
   alterado: boolean;
   apontado: boolean;
   correcaoAnterior: CorrecaoNaResposta | undefined;
+  somenteLeitura: boolean;
   aoMudar: (valor: string) => void;
 }) {
   return (
@@ -242,19 +272,24 @@ function Campo({
       <input
         value={valor}
         onChange={(e) => aoMudar(e.target.value)}
-        className={`mt-1 w-full rounded border bg-white px-2.5 py-1.5 font-mono text-sm ${
-          alterado ? "border-sky-400" : apontado ? "border-amber-300" : "border-borda"
-        }`}
+        readOnly={somenteLeitura}
+        aria-readonly={somenteLeitura}
+        className={`mt-1 w-full rounded border px-2.5 py-1.5 font-mono text-sm ${
+          somenteLeitura ? "bg-papel text-tinta-fraca" : "bg-white"
+        } ${alterado ? "border-sky-400" : apontado ? "border-amber-300" : "border-borda"}`}
       />
       {correcaoAnterior && (
-        // Diz de quem é cada valor. "corrigido antes de X" era ambíguo: com o
-        // campo mostrando o payload, X aparecia duas vezes e a frase parecia
-        // descrever o valor atual em vez do anterior.
+        // Diz de quem é cada valor, e quando. "corrigido antes de X" era ambíguo:
+        // com o campo mostrando o payload, X aparecia duas vezes e a frase
+        // parecia descrever o valor atual em vez do anterior.
         <span className="mt-1 block font-mono text-[11px] text-tinta-fraca">
           o modelo leu{" "}
           <span className="text-tinta">
             {correcaoAnterior.valor_anterior || "(vazio)"}
           </span>
+          {" · corrigido "}
+          <DataHora iso={correcaoAnterior.corrigido_em} rotulo="corrigido em" />
+          {correcaoAnterior.revisor && ` por ${correcaoAnterior.revisor}`}
         </span>
       )}
     </label>

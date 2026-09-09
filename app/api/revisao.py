@@ -20,12 +20,12 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.dependencias import SessaoDependente
+from app.api.dependencias import ConfiguracaoDependente, SessaoDependente, recusa_escrita_na_demo
 from app.api.esquemas import (
     AchadoNaResposta,
     Caixa,
@@ -230,7 +230,9 @@ def estatisticas(sessao: SessaoDependente) -> EstatisticasDaFila:
 
 
 @roteador.get("/{decisao_id}", response_model=Diagnostico)
-def diagnostico(decisao_id: int, sessao: SessaoDependente) -> Diagnostico:
+def diagnostico(
+    decisao_id: int, sessao: SessaoDependente, settings: ConfiguracaoDependente
+) -> Diagnostico:
     """Tudo que o pipeline sabe sobre este documento.
 
     É o que a tela abre, e é o que diferencia esta rota de um CRUD: os quatro
@@ -250,6 +252,11 @@ def diagnostico(decisao_id: int, sessao: SessaoDependente) -> Diagnostico:
         ingerido_em=decisao.documento.ingerido_em,
         criada_em=decisao.criada_em,
         revisada_em=decisao.revisada_em,
+        # Vem da API porque é ela que recusa a gravação. A tela desabilita o
+        # formulário a partir daqui em vez de ler a própria variável de
+        # ambiente: duas cópias da mesma política divergem, e a que o usuário
+        # veria seria a errada.
+        somente_leitura=settings.demo_somente_leitura,
         extracao=(
             None
             if extracao is None
@@ -337,11 +344,16 @@ def pdf(decisao_id: int, sessao: SessaoDependente) -> FileResponse:
     "/{decisao_id}/correcoes",
     response_model=RespostaDeCorrecao,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(recusa_escrita_na_demo)],
 )
 def submete_correcoes(
     decisao_id: int, pedido: PedidoDeCorrecao, sessao: SessaoDependente
 ) -> RespostaDeCorrecao:
     """Grava as correções do revisor e, por padrão, fecha o item.
+
+    É a única rota de escrita da API, e por isso é a única com
+    `recusa_escrita_na_demo`: a instância pública responde 403 aqui e continua
+    servindo todo o resto. Ver ADR 012.
 
     Em lote e numa transação só: metade das correções gravadas com o item
     fechado seria pior que nenhuma, porque o resto se perderia sem alarme.

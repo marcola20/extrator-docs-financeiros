@@ -81,10 +81,31 @@ export interface Diagnostico {
   ingerido_em: string;
   criada_em: string;
   revisada_em: string | null;
+  /** Vem da API. Quem recusa gravar é ela; o front só desenha a consequência. */
+  somente_leitura: boolean;
   extracao: ExtracaoNaResposta | null;
   sinais: SinalNaResposta[];
   achados: AchadoNaResposta[];
   correcoes: CorrecaoNaResposta[];
+}
+
+/** Um caso da página de entrada, já resolvido para o documento que o mostra. */
+export interface CasoNaEntrada {
+  chave: string;
+  titulo: string;
+  frase: string;
+  arquivo: string;
+  /** Nulo quando o documento não foi semeado: o caso aparece indisponível. */
+  decisao_id: number | null;
+  rota: Rota | null;
+  sinais_que_bloqueiam: string[];
+  sem_cobertura: string[];
+  achados: number;
+}
+
+export interface Entrada {
+  somente_leitura: boolean;
+  casos: CasoNaEntrada[];
 }
 
 export interface ItemDaFila {
@@ -122,7 +143,19 @@ export interface EstatisticasDaFila {
 }
 
 export class ApiIndisponivel extends Error {
-  constructor(readonly status: number, readonly detalhe: string) {
+  constructor(
+    readonly status: number,
+    readonly detalhe: string,
+    /**
+     * A API não respondeu — recusou a conexão ou estourou o tempo.
+     *
+     * Separado de "respondeu com erro" porque a tela diz coisas diferentes nos
+     * dois casos, e no ar a causa quase sempre é a mesma: o serviço gratuito
+     * dorme por inatividade e a primeira visita o acorda. Chamar isso de "erro"
+     * seria impreciso; a requisição seguinte funciona.
+     */
+    readonly semResposta = false,
+  ) {
     super(detalhe);
   }
 }
@@ -130,15 +163,31 @@ export class ApiIndisponivel extends Error {
 /** Onde a API está para o **servidor**. O navegador sempre usa `/api`. */
 const BASE = process.env.API_INTERNA ?? "http://127.0.0.1:8000";
 
+/**
+ * Quanto esperar antes de desistir.
+ *
+ * Generoso de propósito. Num serviço gratuito adormecido a primeira requisição
+ * espera o contêiner subir, e o padrão do `fetch` — esperar indefinidamente —
+ * deixaria a página pendurada sem nunca dizer o que está acontecendo. Um valor
+ * curto faria o contrário: desistiria de um servidor que ia responder.
+ */
+const ESPERA_MS = Number(process.env.API_ESPERA_MS ?? 65_000);
+
 async function busca<T>(caminho: string): Promise<T> {
   let resposta: Response;
   try {
-    resposta = await fetch(`${BASE}${caminho}`, { cache: "no-store" });
-  } catch {
+    resposta = await fetch(`${BASE}${caminho}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(ESPERA_MS),
+    });
+  } catch (falha) {
+    const expirou = falha instanceof Error && falha.name === "TimeoutError";
     throw new ApiIndisponivel(
       0,
-      `A API não respondeu em ${BASE}. Suba-a com "uv run uvicorn app.main:app" ` +
-        `ou "docker compose --profile revisao up".`,
+      expirou
+        ? `A API não respondeu em ${Math.round(ESPERA_MS / 1000)}s.`
+        : `A API não respondeu em ${BASE}.`,
+      true,
     );
   }
   if (!resposta.ok) {
@@ -171,3 +220,5 @@ export const buscaFila = (filtros: FiltrosDaFila = {}) =>
 export const buscaEstatisticas = () => busca<EstatisticasDaFila>("/revisao/estatisticas");
 
 export const buscaDiagnostico = (id: number) => busca<Diagnostico>(`/revisao/${id}`);
+
+export const buscaCasos = () => busca<Entrada>("/demo/casos");

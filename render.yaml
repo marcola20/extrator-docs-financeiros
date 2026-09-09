@@ -1,0 +1,84 @@
+# A demonstração pública: Postgres, API e tela, no plano gratuito do Render.
+#
+# É a mesma aplicação do `docker-compose.yml`, com três diferenças que estão
+# todas em variável de ambiente — nenhuma linha de código sabe que existe Render:
+#
+#   DEMO_SOMENTE_LEITURA=1  a API responde 403 em POST de correção (ADR 012)
+#   dockerCommand           migra e semeia antes de servir (docker/inicia-demo.sh)
+#   API_INTERNA             a tela fala com a API pela URL pública dela
+#
+# ## Por que a tela fala com a API pela internet
+#
+# Rede privada entre serviços é recurso de plano pago. No gratuito, os dois são
+# serviços web com URL pública, e o servidor do Next chama a API por ela. O
+# navegador continua sem falar com a API direto: tudo passa por `/api/*` no
+# próprio front, que é o que mantém o `<iframe>` do PDF na mesma origem.
+#
+# O custo é o cold start: são **dois** serviços dormindo, e a primeira visita
+# acorda os dois em série. A interface trata isso explicitamente — ver
+# `web/componentes/Carregando.tsx` e `AvisoDaApi.tsx`.
+#
+# ## O banco não sobrevive para sempre
+#
+# Postgres gratuito no Render expira, e quando expirar a fila some junto. Isso é
+# aceitável aqui e não seria em outro lugar: **nada** neste banco é original.
+# Tudo veio do corpus sintético versionado, e `semeia_fila` o reconstrói do zero
+# na próxima partida. É a mesma razão do ADR 010 — o que carrega conteúdo de
+# documento não é versionado, e o que não é versionado tem que ser descartável.
+
+databases:
+  - name: extrator-postgres
+    plan: free
+    databaseName: extrator
+    user: extrator
+
+services:
+  - type: web
+    name: extrator-api
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    # Migra, semeia se estiver vazio, e só então serve. Ver o script.
+    dockerCommand: ./docker/inicia-demo.sh
+    healthCheckPath: /health
+    envVars:
+      # A URL vem do próprio Render, e a senha nunca passa por este arquivo.
+      # Ela chega no formato da libpq (`postgres://`), sem driver; quem completa
+      # é `Settings.com_driver_explicito`, em `app/config.py`.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: extrator-postgres
+          property: connectionString
+      - key: PERSISTENCIA_ATIVA
+        value: "1"
+      # O que faz desta instância uma demonstração, e não uma cópia do sistema.
+      - key: DEMO_SOMENTE_LEITURA
+        value: "1"
+      # A demonstração não tem chave de API e não precisa de uma: o semeador lê
+      # o gabarito ao lado de cada PDF. A trava transforma qualquer tentativa de
+      # chamar o modelo em erro alto, em vez de deixá-la falhar por falta de
+      # chave — que seria o mesmo resultado dito de um jeito pior.
+      - key: LLM_SEM_REDE
+        value: "1"
+
+  - type: web
+    name: extrator-web
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./web/Dockerfile
+    dockerContext: ./web
+    envVars:
+      # A URL da API, como o servidor do Next a alcança.
+      #
+      # `sync: false` faz o Render **perguntar** o valor ao criar o blueprint,
+      # em vez de deixar um palpite gravado aqui. É deliberado: a URL pública
+      # depende do nome que o serviço acabou recebendo — se `extrator-api` já
+      # estiver em uso, o Render sufixa —, e uma URL errada neste arquivo
+      # apareceria como "a API não respondeu" numa tela que, por desenho, culpa
+      # o cold start. O valor é o que o painel mostra assim que a API sobe:
+      # https://<nome-do-serviço>.onrender.com
+      - key: API_INTERNA
+        sync: false

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ApiIndisponivel, buscaDiagnostico } from "@/lib/api";
 import { AreaDeRevisao } from "@/componentes/AreaDeRevisao";
 import { AvisoDaApi } from "@/componentes/AvisoDaApi";
+import { DataHora } from "@/componentes/DataHora";
 import { PainelDeSinais } from "@/componentes/PainelDeSinais";
 import { PorQueEstaAqui } from "@/componentes/PorQueEstaAqui";
 
@@ -29,7 +30,7 @@ export default async function PaginaDeRevisao({
   return (
     <div className="space-y-8">
       <div>
-        <Link href="/" className="text-sm text-tinta-fraca underline underline-offset-2">
+        <Link href="/fila" className="text-sm text-tinta-fraca underline underline-offset-2">
           ← fila
         </Link>
         <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -41,10 +42,19 @@ export default async function PaginaDeRevisao({
           </span>
           {diagnostico.revisada_em && (
             <span className="rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-xs text-emerald-900">
-              já revisado
+              já revisado em <DataHora iso={diagnostico.revisada_em} rotulo="revisado em" />
             </span>
           )}
         </div>
+        {/* As duas datas do documento, no fuso de quem está lendo. `ingerido_em`
+            é quando o arquivo entrou; `criada_em` é quando esta decisão foi
+            tomada sobre ele — e elas diferem quando o mesmo documento é
+            reprocessado, que é justamente o caso em que saber a diferença
+            importa. */}
+        <p className="mt-1 text-xs text-tinta-fraca">
+          ingerido em <DataHora iso={diagnostico.ingerido_em} rotulo="ingerido em" /> · decidido
+          em <DataHora iso={diagnostico.criada_em} rotulo="decidido em" />
+        </p>
         {extracao && (
           <p className="mt-1 font-mono text-xs text-tinta-fraca">
             {extracao.prompt} · {extracao.modelo} · US$ {extracao.custo_usd} ·{" "}

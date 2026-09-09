@@ -4,8 +4,19 @@
 .pytest_cache/
 .ruff_cache/
 __pycache__/
-dados/
 resultados/
 web/
 docs/
 tests/
+
+# O corpus sintético entra na imagem; o resto de dados/ não.
+#
+# Local, `docker-compose.yml` monta ./dados como volume e a imagem não precisa
+# carregar nada. Na hospedagem não há volume: os PDFs precisam estar dentro da
+# imagem, senão o semeador não tem o que processar e o visor de PDF responde
+# 404. São 2,4 MB, e é a mesma coisa que já está versionada.
+#
+# O que continua de fora: `dados/real/` (documento de verdade nunca entra em
+# lugar nenhum), o cache de extrações e o estado de cotas.
+dados/*
+!dados/sinteticos

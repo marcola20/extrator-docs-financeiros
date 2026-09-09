@@ -141,11 +141,26 @@ Fechar isso não é difícil de escrever — é que o projeto não tem infraestr
 de teste em JavaScript, e **o CI não constrói o front**: um erro de tipo em
 TypeScript passa verde hoje. A issue detalha os três alvos e o custo de cada um.
 
-**A API de revisão não tem autenticação** (sem issue: é decisão de quando a tela
-sair do `localhost`). Ela não sabe quem é o revisor além do que ele digita no
-campo `revisor`, e qualquer um que alcance a porta lê a fila, baixa os PDFs e
-grava correções. É aceitável como demonstração local; deixa de ser no momento em
-que a tela for exposta, e a decisão vai junto com a exposição — não antes.
+A Fase 4.3 aumentou o que essa lacuna cobre: a conversão de fuso horário, a
+página de entrada e o formulário desabilitado são comportamento de front, e
+nenhum deles tem teste. O que **tem** teste é o lado da API — que ela recusa a
+escrita, e que os casos da entrada apontam para documentos que o semeador
+processa.
+
+**A API de revisão não tem autenticação** (sem issue: a exposição pública foi
+resolvida sem ela, ver abaixo). Ela não sabe quem é o revisor além do que ele
+digita no campo `revisor`, e qualquer um que alcance a porta lê a fila e baixa
+os PDFs.
+
+A tela **saiu** do `localhost` na Fase 4.3, e a decisão que veio junto não foi
+autenticar: foi desligar a escrita. A instância pública roda com
+`DEMO_SOMENTE_LEITURA=1`, e a API responde 403 na única rota que grava
+([ADR 012](adr/012-demonstracao-publica-somente-leitura.md)). Isso resolve o
+risco de a fila acumular o que estranhos digitaram, e **não** resolve os outros
+dois: a leitura continua aberta a quem tiver a URL, e não há como saber quem
+revisou o quê. Os dois são aceitáveis num corpus 100% sintético, e nenhum deles
+seria aceitável com documento real do outro lado — que é o momento em que
+autenticar deixa de ser adiável.
 
 **O schema é conferido em SQLite, e Postgres só à mão** (sem issue: exigir o
 serviço na suíte contrariaria a decisão de a persistência ser opcional). O teste

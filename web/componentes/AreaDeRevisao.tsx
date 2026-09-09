@@ -66,6 +66,7 @@ export function AreaDeRevisao({ diagnostico }: { diagnostico: Diagnostico }) {
                 correcoes={diagnostico.correcoes}
                 sinais={diagnostico.sinais}
                 jaRevisada={diagnostico.revisada_em !== null}
+                somenteLeitura={diagnostico.somente_leitura}
               />
             ) : (
               <p className="rounded-md border border-dashed border-amber-300 bg-amber-50/40 px-3.5 py-3 text-sm">

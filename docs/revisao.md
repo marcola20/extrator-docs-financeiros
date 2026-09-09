@@ -22,7 +22,7 @@ estado ao que o pipeline já sabia, e uma tela para olhar.
 docker compose --profile revisao up -d   # banco, API e interface
 uv run alembic upgrade head
 PERSISTENCIA_ATIVA=1 uv run python -m app.geradores.semeia_fila --limpar
-# http://localhost:3001
+# http://localhost:3001 — a entrada; a fila fica em /fila
 ```
 
 Fora do profile, `docker compose up -d` sobe só o Postgres. Persistência é
@@ -30,17 +30,21 @@ Fora do profile, `docker compose up -d` sobe só o Postgres. Persistência é
 fazer a medição depender de um Postgres de pé transformaria "rodar o eval" numa
 tarefa de infraestrutura.
 
-O último comando popula a fila com sete cenários e **não gasta cota** — o
+O último comando popula a fila com oito cenários e **não gasta cota** — o
 provedor dele lê o gabarito que está ao lado de cada PDF do corpus sintético, em
 vez de chamar o modelo. É o que permite abrir a tela numa entrevista, ou gravar o
 GIF do topo, sem consumir as 500 chamadas diárias do tier gratuito.
 
 Os cenários caem em quadrantes diferentes do que a interface tem a dizer: valor
 alucinado, nome trocado, leitura fiel, ataque com texto invisível, valor
-divergente, e dois pares de informe — um sem cobertura, outro com. Os dois
-últimos são os que mais importam. O `valor_divergente` é o do GIF: página
-impecável, extração correta, e só a aritmética barrando. O par de comprovantes é
-o oposto — nada reprovou, e ninguém conseguiu conferir.
+divergente, e três pares de informe — um sem cobertura, um com, e um com o saldo
+do ano anterior trocado. Os três últimos são os que mais importam. O
+`valor_divergente` é o do GIF: página impecável, extração correta, e só a
+aritmética barrando. O par de comprovantes é o oposto — nada reprovou, e ninguém
+conseguiu conferir. O do saldo trocado é o único ataque do projeto que um
+adversário com controle da página não satisfaz sozinho: medido na semeadura,
+sanitização, domínio, aritmética e grounding dizem `conferido`, e só o cruzamento
+entre anos reprova.
 
 ### A API
 
@@ -49,8 +53,9 @@ o oposto — nada reprovou, e ninguém conseguiu conferir.
 | `GET /revisao/fila` | a fila, filtrável por tipo, por sinal e por estado do sinal |
 | `GET /revisao/{id}` | o **diagnóstico completo** |
 | `GET /revisao/{id}/pdf` | o arquivo original |
-| `POST /revisao/{id}/correcoes` | as correções do revisor, em lote |
+| `POST /revisao/{id}/correcoes` | as correções do revisor, em lote — **403** na demonstração pública |
 | `GET /revisao/estatisticas` | os números da fila |
+| `GET /demo/casos` | os casos da entrada, resolvidos para as decisões gravadas |
 
 O que `GET /revisao/{id}` devolve não são os campos extraídos: é o motivo de o
 documento estar na fila.
@@ -129,14 +134,72 @@ ser mesma origem.
 
 ### Fora de escopo, deliberadamente
 
-- **Sem autenticação.** É demo local; a API não sabe quem é o revisor além do
-  que ele digita. Deixa de ser aceitável no momento em que a tela for exposta.
+- **Sem autenticação.** A API não sabe quem é o revisor além do que ele digita.
+  É o que torna a instância pública somente-leitura: sem saber quem é quem, a
+  única forma de a fila não acumular o que estranhos digitaram é não gravar.
 - **Sem realce sobre o PDF.** Os achados carregam as coordenadas e a tela as
   mostra, mas desenhar o retângulo por cima exigiria renderizar o documento com
   pdf.js e converter coordenadas de PDF para pixels — dependência pesada para o
   que a fase pedia.
 
-### Realimentação: correção humana vira caso de eval
+## A demonstração pública
+
+A mesma aplicação, no ar, com três diferenças — e as três estão em variável de
+ambiente. Nenhuma linha de código sabe que existe hospedagem.
+Ver [ADR 012](adr/012-demonstracao-publica-somente-leitura.md).
+
+```bash
+# O blueprint sobe Postgres, API e tela. O Render pergunta API_INTERNA:
+# é a URL pública que ele der ao serviço da API.
+render blueprint launch    # ou: painel → New → Blueprint, apontando para render.yaml
+```
+
+| Variável | O que muda |
+|---|---|
+| `DEMO_SOMENTE_LEITURA=1` | a API responde 403 em `POST /revisao/{id}/correcoes` |
+| `dockerCommand` | `docker/inicia-demo.sh` migra e semeia antes de servir |
+| `API_INTERNA` | a tela alcança a API pela URL pública dela |
+
+### Uma entrada antes da fila
+
+`/` apresenta cinco casos **pela situação**, uma frase cada; `/fila` continua
+sendo a fila inteira, com os filtros. A fila lista arquivos, e para quem revisa
+isso é o certo — mas `adversarial-005.pdf` não diz nada a quem abriu o link pela
+primeira vez, e o caso mais interessante do corpus fica indistinguível dos
+outros sete.
+
+Qual PDF é qual mora em `app/demo.py`, e é lido pelo semeador **e** pela API: os
+casos adversariais são localizados pela família do ataque, lendo o gabarito, e
+não pelo número do arquivo — regerar o lote com outra semente troca os números.
+`tests/test_demo.py` é a trava que impede a entrada de oferecer link para uma
+decisão que não existe.
+
+### Somente leitura é da API, não da tela
+
+A tela desabilita os campos e esconde o botão, mas isso é a consequência: ela
+recebe `somente_leitura` na resposta do diagnóstico. Esconder o botão sem fechar
+a rota deixaria a gravação aberta para qualquer `curl` — e a fila é semeada uma
+vez por implantação, então o que alguém escrevesse ficaria lá até o próximo
+deploy. É a mesma regra do resto do front: **ele não decide nada**.
+
+### Cold start
+
+Dois serviços gratuitos dormem por inatividade, e a primeira visita acorda os
+dois em série — mais de um minuto, no pior caso. A interface trata isso em vez
+de esconder: as três rotas têm `loading.tsx`, a nota sobre o servidor adormecido
+entra depois de quatro segundos (antes disso ela seria mentira), e a falha por
+falta de resposta tem tela própria, que explica o plano gratuito e tenta de novo
+sozinha.
+
+### O banco público é descartável
+
+E isso é propriedade, não risco: nada nele é original. Tudo veio do corpus
+sintético versionado, e `semeia_fila --se-vazia` o reconstrói na próxima
+partida. Quando o Postgres gratuito expirar, a fila volta sozinha. É o mesmo
+raciocínio do ADR 010 — o que carrega conteúdo de documento não é versionado, e
+o que não é versionado precisa ser descartável.
+
+## Realimentação: correção humana vira caso de eval
 
 O que o revisor corrigiu é um gabarito conferido por gente — o melhor caso de
 teste que existe. E é sobre um documento **real**, então ele não entra no
@@ -154,7 +217,7 @@ acurácia mudaria por o corpus ter crescido, não por o extrator ter melhorado.
 Quando ligada, a procedência entra no relatório — e a retomada passa a recusar
 somar uma passada com realimentação a uma sem.
 
-### A regra sobre o que é versionado
+## A regra sobre o que é versionado
 
 Três decisões que parecem contraditórias e são a mesma regra
 ([ADR 010](adr/010-persistencia-e-fila-de-revisao.md)):

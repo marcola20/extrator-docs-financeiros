@@ -18,6 +18,27 @@ verificadores e três campos redundantes com o código de barras. Isso permite
 perguntar se a extração fecha aritmeticamente, em vez de perguntar ao modelo
 o quanto ele acha que acertou.
 
+## Demonstração no ar
+
+<!-- A URL abaixo é a que o render.yaml produz com os nomes de serviço padrão
+     (extrator-web). Se o Render tiver sufixado o nome — porque `extrator-web`
+     já estava em uso —, troque-a pela que o painel mostra. -->
+
+**[Abrir a demonstração](https://extrator-web.onrender.com)** — API real,
+Postgres real, corpus sintético. Cinco casos, apresentados pela situação que cada
+um mostra, e o clique abre o diagnóstico ao lado do PDF.
+
+> **A primeira visita demora.** Os dois serviços rodam no plano gratuito do
+> Render, que os desliga depois de alguns minutos sem acesso e os liga de novo na
+> primeira requisição. Acordar leva de **30 a 60 segundos**, e a tela diz isso e
+> tenta de novo sozinha — não é erro. Depois disso a navegação é imediata.
+
+A instância pública é **somente leitura**: dá para abrir qualquer documento, ver
+o diagnóstico e navegar pela fila, mas gravar correção está desligado — e quem
+recusa é a API (403), não a tela. Nenhuma chamada ao modelo acontece lá: o banco
+é semeado na partida com o gabarito que está ao lado de cada PDF do corpus. Ver
+[ADR 012](docs/adr/012-demonstracao-publica-somente-leitura.md).
+
 ## Estado
 
 Fases 1, 2 e 4 concluídas e medidas contra a API. A Fase 3 está
@@ -97,12 +118,15 @@ A fila de revisão precisa de banco, e é opcional — pipeline e eval rodam sem
 docker compose --profile revisao up -d
 uv run alembic upgrade head
 PERSISTENCIA_ATIVA=1 uv run python -m app.geradores.semeia_fila --limpar
-# http://localhost:3001
+# http://localhost:3001 — a entrada; a fila fica em /fila
 ```
 
 O último comando popula a fila sem gastar cota: o provedor dele lê o gabarito ao
-lado de cada PDF do corpus, em vez de chamar o modelo. Requisitos, comandos de
-qualidade e estrutura em [desenvolvimento](docs/desenvolvimento.md).
+lado de cada PDF do corpus, em vez de chamar o modelo. Localmente a gravação de
+correções fica **ligada** — o modo somente-leitura é da instância pública.
+Requisitos, comandos de qualidade e estrutura em
+[desenvolvimento](docs/desenvolvimento.md); como a demonstração é publicada, em
+[revisão humana](docs/revisao.md#a-demonstração-pública).
 
 ## Documentação
 

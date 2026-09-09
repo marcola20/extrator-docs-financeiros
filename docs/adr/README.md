@@ -18,3 +18,4 @@ e o que ela custou. Elas são o histórico de por que o projeto é como é.
 | [009](009-extracao-do-informe-e-cobertura-de-verificacao.md) | Um prompt para os dois layouts, e cobertura não é aprovação |
 | [010](010-persistencia-e-fila-de-revisao.md) | Persistência opcional, e o que pode ou não ser versionado |
 | [011](011-interface-de-revisao.md) | A interface de revisão, e o estado que ela não pode apagar |
+| [012](012-demonstracao-publica-somente-leitura.md) | A demonstração pública: somente leitura, semeada na partida, entrada por situação |

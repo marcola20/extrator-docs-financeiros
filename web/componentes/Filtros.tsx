@@ -17,7 +17,7 @@ function comParametro(atual: FiltroAtual, mudanca: Partial<FiltroAtual>): string
   if (combinado.estado) parametros.set("estado", combinado.estado);
   if (!combinado.pendentes) parametros.set("pendentes", "false");
   const texto = parametros.toString();
-  return texto ? `/?${texto}` : "/";
+  return texto ? `/fila?${texto}` : "/fila";
 }
 
 function Pilula({

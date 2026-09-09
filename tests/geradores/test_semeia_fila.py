@@ -156,7 +156,9 @@ class TestCenariosPadrao:
 
         assert any(c.sobrescreve for c in boletos), "algum caso com leitura errada"
         assert any(not c.sobrescreve for c in boletos), "algum caso com leitura fiel"
-        assert len(informes) == 2, "um par sem cobertura e um par com cobertura"
+        assert len(informes) == 3, (
+            "um par sem cobertura, um com cobertura, e um com o saldo trocado"
+        )
 
     def test_incluem_o_par_de_comprovantes(self) -> None:
         """O caso do ADR 009: lido certo, e ainda assim ninguém conferiu."""
@@ -195,6 +197,24 @@ class TestCenariosPadrao:
         divergente = next(c for c in boletos if "divergente" in c.rotulo)
 
         assert divergente.sobrescreve == {}
+
+    def test_incluem_o_par_com_o_saldo_do_ano_anterior_trocado(self) -> None:
+        """O único ataque que um adversário com controle da página não satisfaz.
+
+        Nada dentro do documento o denuncia — DVs corretos, somas fechando, nada
+        escondido. Quem o desmente é o informe do ano anterior, e é por isso que
+        ele entra na demonstração: sem ele, o cruzamento entre anos aparece só
+        como um sinal que sempre aprova.
+        """
+        _, informes = semeia_fila.cenarios_padrao()
+        ataques = {
+            json.loads(c.atual.with_suffix(".json").read_text(encoding="utf-8"))
+            .get("ataque", {})
+            .get("nome")
+            for c in informes
+        }
+
+        assert "saldo_anterior_adulterado" in ataques
 
     def test_todos_os_pdfs_existem(self) -> None:
         boletos, informes = semeia_fila.cenarios_padrao()
@@ -294,6 +314,48 @@ class TestCli:
     def test_ocr_ligado_por_padrao(self) -> None:
         """Sem OCR a sanitização barra tudo e a fila sai sem contraste."""
         assert semeia_fila._analisa_argumentos([]).sem_ocr is False
+
+    def test_se_vazia_nao_faz_nada_com_a_fila_povoada(
+        self,
+        settings: Settings,
+        abre_sessao: semeia_fila.AbreSessao,
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """É o que torna a partida do contêiner segura de repetir.
+
+        O plano gratuito reinicia o serviço a cada despertar, e um comando de
+        partida que semeasse sempre duplicaria a fila visita após visita.
+        """
+        boletos, _ = semeia_fila.cenarios_padrao()
+        semeia_fila.semeia(
+            settings, boletos=boletos[:1], informes=[], com_ocr=False, sessao=abre_sessao
+        )
+        monkeypatch.setattr(semeia_fila, "get_settings", lambda: settings)
+
+        assert semeia_fila.main(["--se-vazia"]) == 0
+        assert "já tem decisões" in capsys.readouterr().out
+
+    def test_se_vazia_com_limpar_e_recusado(
+        self,
+        capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch,
+        settings: Settings,
+    ) -> None:
+        """As duas flags se contradizem; obedecer a uma calada seria pior."""
+        monkeypatch.setattr(semeia_fila, "get_settings", lambda: settings)
+
+        assert semeia_fila.main(["--limpar", "--se-vazia"]) == 2
+        assert "contradizem" in capsys.readouterr().err
+
+    def test_ha_decisoes_e_falso_na_fila_vazia(self, settings: Settings) -> None:
+        from sqlalchemy import create_engine
+
+        from app.persistencia.modelos import Base
+
+        Base.metadata.create_all(create_engine(settings.database_url))
+
+        assert semeia_fila.ha_decisoes(settings) is False
 
 
 class TestRotaResultante:

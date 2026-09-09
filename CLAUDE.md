@@ -33,6 +33,7 @@ aplicada. Preferir código explícito e tipado sobre "pythonices" mágicas.
    1. Persistência, API de revisão, realimentação, observabilidade e CI —
       concluída
    2. Interface de revisão em Next.js, e o pareamento de informes — concluída
+   3. Demonstração pública somente-leitura, com entrada por situação — concluída
 
 ## Stack
 
@@ -48,7 +49,11 @@ pytest / ruff / mypy / Docker Compose / Langfuse / Next.js 15
   API. Estado derivado no navegador é uma segunda definição da política.
 - Os **quatro** estados de sinal aparecem distintos na tela. Só `conferido`
   recebe marca de certo; `sem_cobertura` tem borda tracejada. Ver ADR 011.
-
+- Data e hora se formatam **no navegador**, pelo componente `DataHora`. Formatar
+  num componente de servidor usa o fuso do processo — UTC no contêiner —, e foi
+  esse o defeito das três horas a mais. Ver `web/lib/datas.ts`.
+- O que desliga a escrita na demonstração pública é a **API** (403), não a tela.
+  Front que esconde botão não fecha rota. Ver ADR 012.
 - Type hints obrigatórios. mypy em modo strict (`app/` e `tests/`).
 - Testes junto da feature, não depois.
 - Commits pequenos, em português, no imperativo.
@@ -94,9 +99,16 @@ docker run --rm -v "$PWD/web":/app -w /app -u "$(id -u):$(id -g)" \
 uv run alembic upgrade head          # aplica as migrações
 
 # Povoa a fila para demonstrar a tela (gravar GIF, mostrar numa entrevista).
+# --se-vazia não faz nada com a fila já povoada: é como o contêiner da
+# demonstração se semeia na partida, e é o que a torna segura de repetir.
 # NÃO gasta cota: o provedor lê o gabarito ao lado de cada PDF do corpus
 # sintético, e não chama a API do modelo. --limpar apaga a fila antes.
 PERSISTENCIA_ATIVA=1 uv run python -m app.geradores.semeia_fila --limpar
+
+# A demonstração pública (ADR 012). O render.yaml sobe Postgres, API e tela; a
+# única variável que o Render pergunta é API_INTERNA, a URL pública da API.
+# Para reproduzir o modo localmente, sem hospedagem nenhuma:
+DEMO_SOMENTE_LEITURA=1 PERSISTENCIA_ATIVA=1 uv run uvicorn app.main:app
 
 # Verificação contra Postgres de verdade: tipo de coluna, CHECK, timestamptz,
 # e o ida-e-volta dos enums — o que o SQLite não prova. APAGA as tabelas ao
@@ -275,5 +287,13 @@ A métrica de linha tinha um ponto cego que a própria passada encontrou: casava
 por chave distinta, e reportava recall de 100% no documento em que o modelo
 deixou de devolver quatro linhas impressas. Corrigida para casar por ocorrência;
 o recall caiu de 99,8% para 98,7% e o escape de 5,6% para 11,1%.
+
+**Fase 4.3 (demonstração pública) concluída.** Ver ADR 012. `/` apresenta cinco
+casos por situação e `/fila` é a fila; `DEMO_SOMENTE_LEITURA=1` faz a API recusar
+`POST` de correção; `render.yaml` sobe Postgres, API e tela no plano gratuito, e
+`docker/inicia-demo.sh` migra e semeia na partida sem chamar o modelo. A
+semeadura ganhou um par que faltava — o informe com o saldo do ano anterior
+trocado, em que os outros cinco sinais dizem `conferido` e só o cruzamento entre
+anos reprova.
 
 Próximo: Fase 3 — extrato de investimento, multi-página com tabela que quebra.

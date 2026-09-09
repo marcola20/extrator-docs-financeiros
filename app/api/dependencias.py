@@ -11,6 +11,7 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.config import Settings, get_settings
 from app.persistencia.sessao import PersistenciaDesligada
 from app.persistencia.sessao import sessao as abre_sessao
 
@@ -36,8 +37,32 @@ def obtem_sessao() -> Iterator[Session]:
         ) from erro
 
 
+SOMENTE_LEITURA = (
+    "esta é uma demonstração pública, e ela não grava correção. A rota existe e "
+    "funciona; o que está desligado é a escrita, para o que um visitante digita "
+    "não aparecer na tela do visitante seguinte. Rodando o projeto localmente a "
+    "revisão grava normalmente — ver o README."
+)
+
+
 # `Annotated` em vez de `Depends` no valor padrão: é a forma moderna do
 # FastAPI, e a que não esbarra na regra que proíbe chamada de função em
 # argumento padrão — a regra está certa em geral, e aqui o alias resolve os
 # dois lados sem um `noqa`.
 SessaoDependente = Annotated[Session, Depends(obtem_sessao)]
+
+# A configuração também entra por `Depends`, e pela mesma razão da sessão: o
+# teste troca a dependência e liga o modo somente-leitura sem exportar variável
+# de ambiente para o processo inteiro — o que vazaria para os outros testes.
+ConfiguracaoDependente = Annotated[Settings, Depends(get_settings)]
+
+
+def recusa_escrita_na_demo(settings: ConfiguracaoDependente) -> None:
+    """Barra a gravação quando a instância é a demonstração pública.
+
+    403, e não 405 nem 404: a rota existe e o pedido está bem formado. O que
+    falta é permissão, e a mensagem diz que é por ser demonstração — um erro
+    genérico faria parecer defeito o que é configuração deliberada.
+    """
+    if settings.demo_somente_leitura:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SOMENTE_LEITURA)
