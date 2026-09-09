@@ -52,7 +52,7 @@ nenhum id vai funcionar.
 
 ### O banco é semeado na partida, com o provedor de gabarito
 
-`docker/inicia-demo.sh` migra, semeia se a fila estiver vazia, e serve.
+`docker/inicia-demo.sh` migra, **abre a porta**, e semeia atrás dela.
 `semeia_fila` já existia e já não gastava cota: o provedor dele lê o gabarito
 que está ao lado de cada PDF do corpus sintético e devolve aqueles campos, como
 um extrator perfeito devolveria. **A demonstração não tem chave de API**, e
@@ -62,6 +62,54 @@ um extrator perfeito devolveria. **A demonstração não tem chave de API**, e
 o serviço por inatividade e o religa na visita seguinte, então este script roda
 muitas vezes, não uma; semear sempre duplicaria a fila a cada despertar, e
 semear com `--limpar` a apagaria no meio da visita de alguém.
+
+#### A ordem foi aprendida errando: o primeiro deploy não subiu
+
+A primeira versão semeava **antes** do uvicorn, e a implantação falhou com
+`No open ports detected`, repetido até `Port scan timeout reached`. Não houve
+erro nenhum no semeador — ele estava rodando, e a hospedagem desistiu de esperar
+a porta abrir.
+
+A causa é o custo, e o custo é o OCR: a semeadura processa cada documento pelo
+pipeline inteiro, e o detector de divergência texto/imagem renderiza a página a
+300 DPI e roda o tesseract em cima. Medido em máquina de desenvolvimento:
+**1,7–2,0 s por boleto, 4,5 s por par de informe, 23 s no total** — e numa
+instância gratuita compartilhada isso é vários minutos.
+
+Encurtar não era opção. Semear com `--sem-ocr` caberia na janela e destruiria a
+demonstração: sem a comparação texto/imagem, a política da Fase 1.2 barra
+**todo** documento, a fila sairia inteira bloqueada pelo mesmo sinal, e o caso
+"boleto limpo, auto-aprovado" da entrada seria falso.
+
+Então a ordem passou a ser: migrar (rápido, e pré-requisito de tudo), `exec` no
+uvicorn, e a semeadura em **segundo plano**. A API sobe em segundos e a fila se
+povoa atrás dela. Três consequências, todas assumidas:
+
+- **quem visita durante a primeira semeadura vê a fila se enchendo.** A entrada
+  já sabia desenhar caso indisponível; o texto passou a dizer que uma instância
+  recém-implantada leva alguns minutos, em vez de mandar rodar um comando que
+  quem está de fora não pode rodar. Só vale para o primeiro deploy: no despertar
+  seguinte `--se-vazia` acha a fila cheia e sai em 1,8 s;
+- **um zumbi.** O processo em segundo plano continua filho do PID 1, que depois
+  do `exec` é o uvicorn — e o uvicorn não chama `wait()`. Evitá-lo custaria não
+  usar `exec`, e aí o SIGTERM da hospedagem chegaria ao shell em vez do uvicorn,
+  que é quem precisa dele. Uma entrada na tabela de processos, sem memória e sem
+  descritor, é o preço menor;
+- **a semeadura deixou de poder derrubar a partida**, e isso agora é de graça:
+  `set -e` não alcança job em background. É a decisão certa de qualquer forma —
+  fila vazia é degradação, página que não abre é queda.
+
+#### O log ficou em branco, e isso atrapalhou mais que a falha
+
+O único sinal no log era o `echo` do shell. As linhas do Python não apareciam,
+e não por não existirem: o stdout do Python é **bloco-bufferizado quando não é
+terminal**, e dentro de um contêiner ele nunca é. Um processo que demora minutos
+sem imprimir nada é indistinguível de um travado.
+
+Duas correções, e as duas eram necessárias: `PYTHONUNBUFFERED=1` na imagem, e uma
+linha por documento — **ao começar e ao terminar**. Duas e não uma porque a
+pergunta que o log precisa responder é "onde travou", e o documento que trava é
+justamente o que nunca imprime a linha de fim.
 
 ### Uma página de entrada, por situação
 

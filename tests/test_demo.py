@@ -117,6 +117,68 @@ class TestNaoImportaOPipeline:
         )
 
 
+class TestPartidaDaDemonstracao:
+    """O script de partida, que já derrubou um deploy. Ver ADR 012.
+
+    A primeira versão semeava **antes** de subir o uvicorn, e a hospedagem
+    desistiu de esperar a porta abrir: "No open ports detected", repetido até o
+    tempo acabar. A semeadura processa cada documento pelo pipeline inteiro,
+    com OCR a 300 DPI, e não cabe na janela de varredura.
+
+    Este teste é texto, e texto é frágil — mas o que ele protege não é coberto
+    por mais nada: nenhuma suíte sobe um contêiner, e o sintoma da regressão é
+    um deploy que falha depois do merge.
+    """
+
+    @staticmethod
+    def _comandos() -> list[str]:
+        linhas = Path("docker/inicia-demo.sh").read_text(encoding="utf-8").split("\n")
+        return [
+            linha.strip() for linha in linhas if linha.strip() and not linha.strip().startswith("#")
+        ]
+
+    def test_a_migracao_vem_antes_e_bloqueia(self) -> None:
+        """Sem schema não é degradação, é um serviço que não funciona."""
+        comandos = self._comandos()
+        migracao = next(i for i, c in enumerate(comandos) if "alembic upgrade head" in c)
+
+        assert "set -eu" in comandos[:migracao], "a migração precisa abortar a partida"
+        assert not comandos[migracao].endswith("&"), "migrar em segundo plano seria corrida"
+
+    def test_a_semeadura_nao_bloqueia_a_porta(self) -> None:
+        """O defeito que derrubou o primeiro deploy, em forma de asserção."""
+        comandos = self._comandos()
+        semeadura = next(i for i, c in enumerate(comandos) if "semeia_fila" in c)
+        servir = next(i for i, c in enumerate(comandos) if c.startswith("exec uvicorn"))
+        em_segundo_plano = [
+            i for i, c in enumerate(comandos[semeadura:servir], semeadura) if c.endswith("&")
+        ]
+
+        assert em_segundo_plano, (
+            "a semeadura precisa ir para segundo plano — o bloco em volta dela "
+            "tem que terminar em `&` antes do uvicorn. Em primeiro plano ela "
+            "segura a porta por minutos (OCR a 300 DPI por documento), e a "
+            "hospedagem desiste de esperar: 'Port scan timeout reached'"
+        )
+
+    def test_a_semeadura_e_repetivel(self) -> None:
+        """O serviço reinicia a cada despertar; semear sempre duplicaria a fila."""
+        assert any("--se-vazia" in c for c in self._comandos())
+
+    def test_a_semeadura_nao_derruba_a_partida(self) -> None:
+        """Fila vazia é degradação; página que não abre é queda."""
+        comandos = self._comandos()
+
+        assert any("||" in c for c in comandos if "semeia_fila" in c or "!!" in c)
+
+    def test_o_uvicorn_e_o_ultimo_e_com_exec(self) -> None:
+        """`exec` para o uvicorn ser o PID 1 e receber o SIGTERM da hospedagem."""
+        comandos = self._comandos()
+
+        assert comandos[-1].startswith("exec uvicorn")
+        assert "${PORT:-8000}" in comandos[-1], "a hospedagem escolhe a porta"
+
+
 @pytest.mark.parametrize("caso", demo.CASOS, ids=lambda c: c.chave)
 def test_o_gabarito_do_caso_esta_ao_lado_do_pdf(caso: demo.Caso) -> None:
     """Sem o gabarito, o provedor do semeador não sabe o que devolver."""

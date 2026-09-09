@@ -157,7 +157,7 @@ render blueprint launch    # ou: painel → New → Blueprint, apontando para re
 | Variável | O que muda |
 |---|---|
 | `DEMO_SOMENTE_LEITURA=1` | a API responde 403 em `POST /revisao/{id}/correcoes` |
-| `dockerCommand` | `docker/inicia-demo.sh` migra e semeia antes de servir |
+| `dockerCommand` | `docker/inicia-demo.sh` migra, sobe a API, e semeia atrás dela |
 | `API_INTERNA` | a tela alcança a API pela URL pública dela |
 
 ### Uma entrada antes da fila
@@ -181,6 +181,26 @@ recebe `somente_leitura` na resposta do diagnóstico. Esconder o botão sem fech
 a rota deixaria a gravação aberta para qualquer `curl` — e a fila é semeada uma
 vez por implantação, então o que alguém escrevesse ficaria lá até o próximo
 deploy. É a mesma regra do resto do front: **ele não decide nada**.
+
+### A semeadura não pode ficar na frente da porta
+
+O primeiro deploy falhou assim: `No open ports detected`, repetido até
+`Port scan timeout reached`. O semeador estava rodando — a hospedagem é que
+desistiu de esperar a porta abrir.
+
+A conta é o OCR. Semear processa cada documento pelo pipeline inteiro, e a
+comparação texto/imagem renderiza a página a 300 DPI e roda o tesseract em cima:
+**1,7–2,0 s por boleto e 4,5 s por par de informe** em máquina de
+desenvolvimento, 23 s no total — vários minutos numa instância gratuita
+compartilhada. Semear sem OCR caberia na janela e faria a fila sair inteira
+bloqueada pelo mesmo sinal, com o caso "boleto limpo" virando mentira.
+
+Então: migra, `exec` no uvicorn, e semeia em segundo plano. A tela sobe em
+segundos e a fila se enche atrás dela — só na primeira implantação, porque no
+despertar seguinte `--se-vazia` acha a fila cheia e sai em 1,8 s. Quem visitar no
+meio vê os casos ainda não semeados como indisponíveis, e a entrada diz que a
+instância está se povoando.
+
 
 ### Cold start
 
