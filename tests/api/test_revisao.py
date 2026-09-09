@@ -300,6 +300,26 @@ class TestPdf:
         assert resposta.headers["content-type"] == "application/pdf"
         assert resposta.content[:4] == b"%PDF"
 
+    def test_e_servido_para_exibir_e_nao_para_baixar(
+        self, cliente: TestClient, sessao: Session
+    ) -> None:
+        """`attachment` faz o navegador baixar, e o `<iframe>` da tela fica branco.
+
+        O defeito não aparece em `curl`: o status é 200 e o corpo é o PDF certo
+        nos dois casos. Ele aparece só no navegador, que é onde ninguém estava
+        olhando — a tela ficou com o painel do documento em branco.
+
+        O FastAPI usa `attachment` por padrão quando recebe `filename`, então
+        este teste está entre o padrão da biblioteca e a tela.
+        """
+        decisao = _monta(sessao, arquivo=str(BOLETO), hash_sha256="d" * 64)
+
+        resposta = cliente.get(f"/revisao/{decisao.id}/pdf")
+
+        disposicao = resposta.headers["content-disposition"]
+        assert disposicao.startswith("inline"), disposicao
+        assert "boleto-001.pdf" in disposicao, "o nome continua indo, para quem baixar"
+
     def test_arquivo_que_sumiu_da_404_explicando(
         self, cliente: TestClient, sessao: Session
     ) -> None:

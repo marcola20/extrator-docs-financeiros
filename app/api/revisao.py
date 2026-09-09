@@ -306,7 +306,18 @@ def pdf(decisao_id: int, sessao: SessaoDependente) -> FileResponse:
             ),
         )
 
-    return FileResponse(caminho, media_type="application/pdf", filename=caminho.name)
+    # `inline`, e não o `attachment` que o FastAPI usa por padrão quando recebe
+    # `filename`. A diferença não aparece em `curl` — os dois devolvem 200 com o
+    # PDF certo —, mas `attachment` manda o navegador **baixar** o arquivo, e um
+    # `<iframe>` apontado para ele fica em branco. Este endpoint existe para ser
+    # exibido ao lado dos campos; o nome continua indo junto, para o caso de
+    # alguém de fato baixar.
+    return FileResponse(
+        caminho,
+        media_type="application/pdf",
+        filename=caminho.name,
+        content_disposition_type="inline",
+    )
 
 
 @roteador.post(
