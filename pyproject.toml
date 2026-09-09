@@ -20,6 +20,8 @@ dependencies = [
     "faker>=30",
     "google-genai>=2.22.0",
     "pytesseract>=0.3.13",
+    "alembic>=1.19.2",
+    "langfuse>=4.15.1",
 ]
 
 [dependency-groups]

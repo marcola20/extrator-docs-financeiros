@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancela execuções antigas do mesmo branch: um push novo torna a anterior
+# irrelevante, e a suíte completa leva sete minutos.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Nenhum job chama o provedor de LLM. As chaves ficam vazias de propósito,
+  # e é `LLM_SEM_REDE` que transforma uma tentativa de chamada em erro alto
+  # em vez de teste que trava esperando timeout de rede.
+  GEMINI_API_KEY: ""
+  ANTHROPIC_API_KEY: ""
+  LLM_SEM_REDE: "1"
+
+jobs:
+  rapido:
+    # O que roda em cada PR: tudo menos OCR. São ~2min contra ~7min, e a
+    # diferença inteira é tesseract.
+    name: lint, tipos e testes rápidos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instala o uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Dependências de sistema do WeasyPrint
+        # O gerador de corpus sintético renderiza PDF com WeasyPrint, e os
+        # testes de gerador rodam no conjunto rápido. Sem estas bibliotecas o
+        # import de `weasyprint` falha na coleta, não no teste.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libffi-dev
+
+      - name: Sincroniza o ambiente
+        run: uv sync --locked
+
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy
+      - run: uv run pytest -m "not slow"
+
+  completo:
+    # No merge para main, a suíte inteira — é onde a cobertura de OCR importa.
+    # Roda depois do rápido para não gastar sete minutos quando o lint já
+    # tinha reprovado.
+    name: suíte completa, com OCR
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: rapido
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instala o uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Dependências de sistema do OCR e do WeasyPrint
+        # `tesseract-ocr-por` não é opcional: o detector de divergência
+        # texto/imagem lê documento em português, e sem o pacote de idioma o
+        # OCR devolve lixo — os testes passariam a acusar divergência em
+        # documento limpo, que é falso positivo de infraestrutura.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tesseract-ocr tesseract-ocr-por \
+            libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b libffi-dev
+
+      - name: Confere que o idioma do OCR está instalado
+        # Os testes de OCR pulam quando `tesseract` não existe. No CI isso
+        # seria pior que falhar: a suíte ficaria verde sem ter rodado o que
+        # este job existe para rodar.
+        run: |
+          tesseract --list-langs
+          tesseract --list-langs | grep -qx por
+
+      - name: Sincroniza o ambiente
+        run: uv sync --locked
+
+      - run: uv run pytest

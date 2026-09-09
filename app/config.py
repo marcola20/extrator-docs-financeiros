@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     llm_cache_ativo: bool = True
     llm_cache_diretorio: Path = Path("dados/cache-llm")
 
+    # Trava de rede. Ligada, `cria_provedor` recusa montar qualquer provedor
+    # que fale com a API. Existe para o CI: nenhum job dele chama o modelo, e
+    # sem a trava essa promessa dependeria de nenhum teste novo esquecer de
+    # injetar um dublê — o tipo de erro que aparece como job travado em
+    # timeout de rede, ou como cota consumida sem ninguém pedir.
+    llm_sem_rede: bool = False
+
     # Sinal de auto-consistência (ADR 005): sempre | condicional | nunca.
     # "sempre" dobra o consumo de cota e dá taxa base comparável entre
     # documentos; "condicional" economiza metade e assume um ponto cego.

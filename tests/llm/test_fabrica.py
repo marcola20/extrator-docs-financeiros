@@ -186,3 +186,44 @@ def test_cota_diaria_estourada_atravessa_o_composto(tmp_path: Path) -> None:
 
     with pytest.raises(CotaDiariaExcedida):
         provedor.extrai("documento B", DocumentoFalso)
+
+
+class TestTravaDeRede:
+    """`LLM_SEM_REDE` é a promessa do CI transformada em código.
+
+    Nenhum job do CI chama o provedor. Sem a trava, essa promessa dependeria de
+    nenhum teste novo esquecer de injetar um dublê — e o sintoma seria um job
+    parado em timeout de rede, ou cota consumida sem ninguém ter pedido.
+    """
+
+    def test_a_fabrica_recusa_montar_provedor(self, tmp_path: Path) -> None:
+        configuracao = Settings(
+            _env_file=None,
+            llm_provedor="gemini",
+            gemini_api_key=SecretStr("chave-de-teste"),
+            llm_arquivo_cotas=tmp_path / "cotas.json",
+            llm_cache_diretorio=tmp_path / "cache",
+            llm_sem_rede=True,
+        )
+
+        with pytest.raises(ErroDeConfiguracao, match="LLM_SEM_REDE"):
+            cria_provedor(configuracao)
+
+    def test_a_mensagem_diz_o_que_fazer_num_teste(self) -> None:
+        """O destinatário é quem escreveu o teste que esbarrou nisto."""
+        configuracao = Settings(_env_file=None, llm_sem_rede=True)
+
+        with pytest.raises(ErroDeConfiguracao, match="provedor de mentira"):
+            cria_provedor(configuracao)
+
+    def test_desligada_por_padrao(self, tmp_path: Path) -> None:
+        """O desenvolvimento local fala com a API; é o CI que não fala."""
+        configuracao = Settings(
+            _env_file=None,
+            gemini_api_key=SecretStr("chave-de-teste"),
+            llm_arquivo_cotas=tmp_path / "cotas.json",
+            llm_cache_diretorio=tmp_path / "cache",
+        )
+
+        assert not configuracao.llm_sem_rede
+        assert cria_provedor(configuracao) is not None

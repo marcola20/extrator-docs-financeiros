@@ -110,6 +110,14 @@ def cria_provedor(
     """
     settings = settings if settings is not None else get_settings()
 
+    if settings.llm_sem_rede:
+        raise ErroDeConfiguracao(
+            "LLM_SEM_REDE está ligado: este ambiente não fala com o provedor. "
+            "É o modo do CI, onde nenhum job chama o modelo — se você chegou "
+            "aqui num teste, ele precisa receber um provedor de mentira em vez "
+            "de deixar a fábrica montar um de verdade."
+        )
+
     nome = settings.llm_provedor.strip().lower()
     construtor = CONSTRUTORES.get(nome)
     if construtor is None:
