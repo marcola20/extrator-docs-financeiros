@@ -14,6 +14,12 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://extrator:extrator@localhost:5432/extrator"
 
+    # Persistência é opcional, e desligada por padrão. O pipeline e o eval
+    # rodam sem banco — fazer a medição depender de um Postgres de pé
+    # transformaria "rodar o eval" numa tarefa de infraestrutura. Só a fila de
+    # revisão da Fase 4 precisa dele. Ver ADR 010.
+    persistencia_ativa: bool = False
+
     # Provedor de LLM (ADR 003). O padrão é o Gemini por causa do tier gratuito.
     llm_provedor: str = "gemini"
     # Vazio significa "use o modelo padrão do provedor".
