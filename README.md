@@ -23,7 +23,8 @@ Fases 1 (boleto) e 2 (informe de rendimentos) concluídas, medidas contra a API.
 | 2.1 | Informe: gerador em pares, schema, validadores, métricas de linha | concluída |
 | 2.2 | Informe: extração via LLM, seis sinais e eval por par | concluída |
 | 3 | Extrato de investimento: multi-página, tabela com quebra | não iniciada |
-| 4 | Revisão (Next.js) e observabilidade | não iniciada |
+| 4.1 | Persistência, API de revisão, realimentação, observabilidade e CI | concluída |
+| 4.2 | Interface de revisão (Next.js) | não iniciada |
 
 O que a Fase 1 entregou: pipeline vertical de PDF a decisão
 (`app/pipeline.py`), quatro sinais de confiança independentes do modelo, um
@@ -267,6 +268,94 @@ Comparar dois evals exige o mesmo corpus. Regerar precisa de **duas** coisas,
 semente e data de referência — o vencimento é sorteado como deslocamento a
 partir dessa data, então a mesma semente em outro dia gera outro corpus, em
 silêncio. As duas ficam gravadas em `gerado_com` em cada gabarito.
+
+## Fila de revisão
+
+A Fase 4.1 dá estado ao que o pipeline já sabia. Até ela, um documento
+processado produzia uma decisão em memória e ela morria com o processo; a
+correção humana não sobrevivia ao reinício.
+
+```bash
+# Persistência é OPCIONAL e desligada por padrão. O pipeline e o eval rodam sem
+# banco — fazer a medição depender de um Postgres de pé transformaria "rodar o
+# eval" numa tarefa de infraestrutura.
+docker compose up -d
+echo "PERSISTENCIA_ATIVA=1" >> .env
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload
+```
+
+| Rota | O que devolve |
+|---|---|
+| `GET /revisao/fila` | a fila, filtrável por tipo, por sinal e por estado do sinal |
+| `GET /revisao/{id}` | o **diagnóstico completo** |
+| `GET /revisao/{id}/pdf` | o arquivo original |
+| `POST /revisao/{id}/correcoes` | as correções do revisor, em lote |
+| `GET /revisao/estatisticas` | os números da fila |
+
+### O diagnóstico é o produto, não os campos extraídos
+
+Uma tela que mostrasse só "documento X, campos Y, aprove ou corrija" seria um
+CRUD, e jogaria fora o que as três fases anteriores construíram. O que o
+`GET /revisao/{id}` devolve é o motivo de o documento estar na fila:
+
+- **qual sinal reprovou, e qual apenas não teve o que conferir.** Os quatro
+  estados atravessam a API sem virar booleano — uma resposta com
+  `"aprovado": false` parece razoável até alguém perguntar se o sinal chegou a
+  rodar;
+- **a mensagem que o sinal escreveu**, que aponta a causa: "não fecha: CNPJ da
+  fonte pagadora inválido", "nenhum quadro tinha total impresso para conferir";
+- **onde olhar**, quando o sinal fala de um lugar específico
+  (`rendimentos_isentos[LCI].valor`);
+- **os trechos que o sanitizador achou, com página e coordenadas**, para o
+  revisor comparar com o que está impresso.
+
+Pela mesma razão, o filtro separa "reprovou" de "não teve o que conferir": são
+filas de trabalho diferentes. Um documento com erro a investigar não é a mesma
+tarefa que um documento que ninguém conseguiu conferir — e no corpus de
+informes o segundo grupo é a maioria (24 de 56).
+
+### O que a API não faz
+
+**Não processa documento.** Extrair custa cota e dezenas de segundos; um
+endpoint que chamasse o modelo viraria porta para gastar orçamento.
+
+**Não recalcula sinal.** Os vereditos vêm do banco como o pipeline os deixou.
+Recalcular na leitura permitiria a tela mostrar uma coisa e o histórico guardar
+outra, e a diferença apareceria como revisor discordando de si mesmo entre duas
+aberturas da mesma página.
+
+### Realimentação: correção humana vira caso de eval
+
+O que o revisor corrigiu é um gabarito conferido por gente — o melhor caso de
+teste que existe. E é sobre um documento **real**, então ele não entra no
+repositório:
+
+```bash
+uv run python -m app.avaliacao.exporta_realimentacao   # grava em dados/realimentacao/
+uv run python eval.py --com-realimentacao              # desligado por padrão
+```
+
+Os casos guardam **caminho e hash** do PDF, nunca uma cópia, e o diretório é
+coberto pelo `.gitignore`. A flag é desligada por padrão porque misturá-los ao
+corpus sintético sem distinção contaminaria a comparação com os baselines: a
+acurácia mudaria por o corpus ter crescido, não por o extrator ter melhorado.
+Quando ligada, a procedência entra no relatório — e a retomada passa a recusar
+somar uma passada com realimentação a uma sem.
+
+### A regra sobre o que é versionado
+
+Três decisões que parecem contraditórias e são a mesma regra
+([ADR 010](docs/adr/010-persistencia-e-fila-de-revisao.md)):
+
+| | Versionado? | Por quê |
+|---|---|---|
+| `resultados/*.json` | **sim** | taxas, contagens e booleanos; uma trava impede que passe a guardar valor extraído |
+| tabela `extracao` (JSONB) | não | é o payload bruto do modelo, e o banco é local |
+| `dados/realimentacao/` | não | é gabarito de documento real |
+
+**O que é versionado não carrega conteúdo de documento; o que carrega conteúdo
+de documento não é versionado.**
 
 ## Modelo de ameaças
 
@@ -522,6 +611,7 @@ problema deixa de ser injeção e vira troca de documento, anterior ao pipeline.
 | [007](docs/adr/007-estrutura-do-informe-de-rendimentos.md) | Estrutura do informe, e o que nele é verificável |
 | [008](docs/adr/008-recalibracao-do-sanitizador-para-o-informe.md) | Recalibração do sanitizador para o informe, medida |
 | [009](docs/adr/009-extracao-do-informe-e-cobertura-de-verificacao.md) | Um prompt para os dois layouts, e cobertura não é aprovação |
+| [010](docs/adr/010-persistencia-e-fila-de-revisao.md) | Persistência opcional, e o que pode ou não ser versionado |
 
 ## Requisitos
 
@@ -568,8 +658,12 @@ app/confianca/       grounding, auto-consistência e roteamento
 app/avaliacao/       métricas de linha e o que os dois evals compartilham
 app/geradores/       geradores de corpus sintético, limpo e adversarial
 app/llm/             provedores, limitador de taxa e cache
+app/persistencia/    modelo de dados da fila de revisão, opcional por configuração
+app/api/             API de revisão: fila, diagnóstico, correções, estatísticas
+app/observabilidade.py   traces no Langfuse, mudos quando não configurado
 app/pipeline.py      boleto: de um PDF a uma decisão
 app/pipeline_informe.py  informe: de um par de anos consecutivos a duas decisões
+migracoes/           migrações Alembic
 eval.py              medição do pipeline contra os corpora (`--informes` troca o corpus)
 dados/sinteticos/    documentos sintéticos versionados, limpos e adversariais
 dados/real/          documentos reais para teste local, fora do git

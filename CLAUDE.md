@@ -30,6 +30,8 @@ aplicada. Preferir código explícito e tipado sobre "pythonices" mágicas.
    2. Extração via LLM, seis sinais de confiança e eval por par — concluída
 3. Extrato de investimento — multi-página, tabela com quebra
 4. Revisão (Next.js) + observabilidade
+   1. Persistência, API de revisão, realimentação, observabilidade e CI —
+      concluída
 
 ## Stack
 
@@ -56,6 +58,10 @@ pytest / ruff / mypy / Docker Compose / Langfuse / Next.js 15
 - Sinal que não teve o que conferir **não é sinal que aprovou**: conta como não
   executado e bloqueia a auto-aprovação, como a Fase 1.2 trata o PDF sem camada
   de texto. Ver ADR 009.
+- O que é versionado não carrega conteúdo de documento; o que carrega conteúdo
+  de documento não é versionado. Relatório de eval sobe (taxas e booleanos),
+  banco não sobe (payload bruto), realimentação não sobe (gabarito real). Ver
+  ADR 010.
 
 ## Comandos
 
@@ -68,6 +74,18 @@ uv run ruff format .   # formatação
 uv run mypy            # tipos (strict em app/)
 uv run uvicorn app.main:app --reload   # API em http://127.0.0.1:8000
 docker compose up -d   # Postgres 16 local
+docker compose --profile observabilidade up -d   # + Langfuse (5 contêineres)
+
+# Persistência é OPCIONAL e desligada por padrão: o pipeline e o eval rodam sem
+# banco. Só a fila de revisão precisa dele.
+#   PERSISTENCIA_ATIVA=1 no .env, e então:
+uv run alembic upgrade head          # aplica as migrações
+uv run python -m app.avaliacao.exporta_realimentacao --simular
+
+# Eval com os casos de correção humana (dados/realimentacao/, fora do git).
+# Desligado por padrão: misturá-los ao corpus sintético sem distinção
+# contaminaria a comparação com os baselines. Ver ADR 010.
+uv run python eval.py --com-realimentacao
 
 # Boletos sintéticos em dados/sinteticos/boletos/, PDF + gabarito JSON.
 # Recusa sobrescrever um lote existente; use --forcar, --saida ou --prefixo.
