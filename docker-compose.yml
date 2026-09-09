@@ -1,5 +1,10 @@
 # Postgres sobe sozinho com `docker compose up -d`.
 #
+# A tela de revisão fica num profile: `docker compose --profile revisao up -d`
+# sobe API e front junto com o banco. Fora dele, `up -d` continua subindo só o
+# Postgres — o pipeline e o eval rodam sem nada disso, e é a decisão da Fase 4.1
+# que eles não passem a depender de infraestrutura.
+#
 # A observabilidade fica num profile: `docker compose --profile observabilidade
 # up -d`. A razão é peso — o Langfuse v3 precisa de ClickHouse, Redis e MinIO
 # além do próprio Postgres, e são quatro serviços a mais num projeto cujo
@@ -26,6 +31,50 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # ------------------------------------------------------- Tela de revisão
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: extrator-api
+    profiles: [revisao]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://extrator:extrator@postgres:5432/extrator
+      PERSISTENCIA_ATIVA: "1"
+      # A tela lê o banco e serve arquivo; ela não chama o modelo. A trava
+      # deixa isso explícito em vez de depender de nenhum endpoint tentar.
+      LLM_SEM_REDE: "1"
+    volumes:
+      # Só leitura: a API serve o PDF original a partir do caminho gravado no
+      # banco, e não tem por que escrever no corpus.
+      - ./dados:/app/dados:ro
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: extrator-web
+    profiles: [revisao]
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    environment:
+      # O navegador nunca fala com a API direto: o Next reescreve `/api/*` para
+      # cá, e por isso não há CORS nenhum para configurar.
+      API_INTERNA: http://api:8000
 
   # ---------------------------------------------------------------- Langfuse
   langfuse-postgres:
