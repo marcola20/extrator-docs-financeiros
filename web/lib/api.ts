@@ -176,7 +176,11 @@ export class ApiIndisponivel extends Error {
   }
 }
 
-/** Onde a API está para o **servidor**. O navegador sempre usa `/api`. */
+/**
+ * Onde a API está para o **servidor**. O navegador usa `/api`, com uma exceção:
+ * o despertar da hospedagem gratuita, que vai direto em `API_PUBLICA`. Ver
+ * `componentes/AcordaApi.tsx`.
+ */
 const BASE = process.env.API_INTERNA ?? "http://127.0.0.1:8000";
 
 async function busca<T>(caminho: string): Promise<T> {

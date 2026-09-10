@@ -128,9 +128,11 @@ Nenhuma decisão. `bloqueia` vem calculado da API, as mensagens vêm prontas do
 pipeline, e nenhum estado é derivado no navegador. O front busca, tipa e
 apresenta.
 
-O navegador também nunca fala com a API diretamente: tudo passa por um proxy em
+O navegador também não busca nada na API diretamente: tudo passa por um proxy em
 `/api/*`. Isso evita CORS sem tocar no backend da 4.1, e faz o `<iframe>` do PDF
-ser mesma origem.
+ser mesma origem. A única exceção é a demonstração pública, onde o navegador
+chama `/health` uma vez, em `no-cors` e sem ler a resposta, só para acordar a API
+— o servidor do front não consegue. Ver `API_PUBLICA`, mais abaixo.
 
 ### Fora de escopo, deliberadamente
 
@@ -144,13 +146,13 @@ ser mesma origem.
 
 ## A demonstração pública
 
-A mesma aplicação, no ar, com três diferenças — e as três estão em variável de
-ambiente. Nenhuma linha de código sabe que existe hospedagem.
+A mesma aplicação, no ar, com quatro diferenças — e as quatro estão em variável
+de ambiente. Nenhuma linha de código sabe que existe hospedagem.
 Ver [ADR 012](adr/012-demonstracao-publica-somente-leitura.md).
 
 ```bash
-# O blueprint sobe Postgres, API e tela. O Render pergunta API_INTERNA:
-# é a URL pública que ele der ao serviço da API.
+# O blueprint sobe Postgres, API e tela. O Render pergunta API_INTERNA e
+# API_PUBLICA: as duas são a URL pública que ele der ao serviço da API.
 render blueprint launch    # ou: painel → New → Blueprint, apontando para render.yaml
 ```
 
@@ -158,7 +160,14 @@ render blueprint launch    # ou: painel → New → Blueprint, apontando para re
 |---|---|
 | `DEMO_SOMENTE_LEITURA=1` | a API responde 403 em `POST /revisao/{id}/correcoes` |
 | `dockerCommand` | `docker/inicia-demo.sh` migra e sobe a API; a fila se semeia uma vez, de fora |
-| `API_INTERNA` | a tela alcança a API pela URL pública dela |
+| `API_INTERNA` | onde o **servidor** do Next alcança a API; todo o tráfego passa por ela |
+| `API_PUBLICA` | onde o **navegador** alcança a API; só para chamar `/health` e acordá-la |
+
+As duas últimas têm o mesmo valor no Render e respondem a perguntas diferentes.
+Chamada do servidor do front à URL pública da API **não acorda** o serviço
+gratuito — medido, 502 por 16 minutos seguidos —, e por isso o layout manda o
+navegador chamar `/health` uma vez. Localmente `API_PUBLICA` fica ausente: nada
+dorme, e `http://api:8000` não é endereço que o navegador alcance.
 
 ### Uma entrada antes da fila
 

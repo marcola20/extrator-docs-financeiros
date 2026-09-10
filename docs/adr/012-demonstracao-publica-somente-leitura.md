@@ -297,15 +297,87 @@ requisição só. Com uma API que nunca acorda e prazo de 20 s, a falha aparece 
 15 s, depois de cinco tentativas. Pelo proxy, o POST durante o sono volta 502 na
 hora, com uma requisição, e o GET repete até voltar 200, aos 7 s.
 
-**Acordar a API antes, pela página de entrada, foi considerado e não feito.** A
-ideia era disparar `/health` assim que a entrada carrega, para a API ir acordando
-enquanto a pessoa lê os cinco casos. Mas os cinco casos **vêm** da API
-(`/demo/casos`): quando eles estão na tela, ela já acordou, e o ping sairia com o
-trabalho feito. A espera em série — o front, depois a API — só encurtaria se algo
-acordasse a API antes de o front responder, e até ali o único código rodando é o
-navegador esperando o HTML.
+**Acordar a API antes, pela página de entrada, foi considerado e não feito** — e
+a subseção seguinte desfaz isso, porque a premissa estava errada. A ideia era
+disparar `/health` assim que a entrada carrega, para a API ir acordando enquanto
+a pessoa lê os cinco casos. Mas os cinco casos **vêm** da API (`/demo/casos`):
+quando eles estão na tela, ela já acordou, e o ping sairia com o trabalho feito.
+A espera em série — o front, depois a API — só encurtaria se algo acordasse a
+API antes de o front responder, e até ali o único código rodando é o navegador
+esperando o HTML.
+
+#### A causa raiz: chamada servidor-a-servidor não acorda o serviço
+
+Com a espera acima no ar, a primeira visita continuou falhando: 11 tentativas em
+65 s, duas vezes seguidas. As hipóteses investigadas foram o prazo curto, a
+semeadura atrasando o despertar e a instância caindo por falta de memória. A
+semeadura saiu da partida por mérito próprio (ver acima), mas nenhuma das três
+era a causa. **Chamadas do servidor do Next à URL pública da API — dois serviços
+da mesma conta no Render — não disparam o despertar.** A hospedagem responde 502
+a elas pelo tempo que for, e a API continua dormindo.
+
+Medido em 2026-09-10, contra a demonstração no ar:
+
+| Hora (UTC) | Caminho | Resultado |
+|---|---|---|
+| 18:54–19:10 | pelo proxy do front, sem parar | 502 em todas, por 16 minutos |
+| 19:17 | direto na URL pública, de fora do Render | 200 em 32,8 s |
+| 19:21 | pelo proxy, com a API acordada | 200 em 0,8 s e 0,4 s |
+
+E o A/B que confirmou, depois de 18 minutos sem tráfego para ela dormir de novo:
+
+| Hora (UTC) | Caminho | Resultado |
+|---|---|---|
+| 19:41, 19:42, 19:43 | pelo proxy | 502, 65 s cada |
+| 19:45 | direto, de fora | 200 em 42,9 s |
+| 19:45, logo depois | pelo proxy | 200 em 0,4 s e 0,8 s |
+
+O proxy alcança a API — com ela acordada responde em milissegundos, então
+`API_INTERNA` está certa. O que ele não faz é acordá-la. O A/B mediu o caso que
+existe aqui, e não separa se o que conta é a conta, a região ou a rede interna do
+Render; a documentação da hospedagem diz só que o serviço acorda "whenever it
+next receives an HTTP request", sem ressalva. O log da API no mesmo dia confirma
+o outro lado: `/health` 200 a cada 5 s, do verificador do próprio Render, e
+depois `Shutting down` limpo — nada de queda, só sono.
+
+A pista já estava escrita acima: "a demonstração só funcionava para quem já
+tivesse acordado a API abrindo `/health` à mão". Era verdade, e não por tempo.
+
+Isso desfaz a decisão do parágrafo anterior. Ela supunha que a espera do servidor
+acordaria a API; sem tráfego de fora, a entrada espera os 65 s e cai em "O
+servidor não acordou a tempo" indefinidamente. A decisão:
+
+- **o navegador chama `/health` da API pela URL pública, uma vez, para
+  acordá-la.** Todo o resto continua pelo proxy — dados, PDF e correção. Não há o
+  que proteger atrás de esconder a URL: a API já é pública, está em somente
+  leitura, recusa POST e serve só dados sintéticos;
+- **a chamada sai do `layout.tsx` raiz, e não da página de entrada.** A página é
+  um componente de servidor que espera `/demo/casos` antes de ir para o
+  navegador; um componente dentro dela só seria montado depois de a API
+  responder, tarde demais por construção. O layout vai no primeiro pedaço do
+  HTML, junto do `loading.tsx`, e cobre também quem chega por link direto em
+  `/fila` ou `/revisao/{id}`;
+- **`mode: "no-cors"`, com a resposta descartada.** O que importa é a requisição
+  chegar à hospedagem. Sem isso a API precisaria de CORS para uma chamada cujo
+  resultado ninguém lê;
+- **uma variável nova, `API_PUBLICA`, e não `NEXT_PUBLIC_`.** O Next grava as
+  `NEXT_PUBLIC_` no bundle durante o build — a mesma armadilha que congelou o
+  destino dos rewrites (ADR 011). O layout lê `API_PUBLICA` no servidor, a cada
+  requisição (`dynamic = "force-dynamic"`), e passa a URL ao componente. Sem a
+  variável nada é disparado, que é o caso local, onde nada dorme.
+
+`API_INTERNA` e `API_PUBLICA` têm o mesmo valor no Render hoje, e são duas porque
+respondem a perguntas diferentes: a primeira é onde o **servidor** do Next alcança
+a API — `http://api:8000` no `docker compose`, e seria o endereço da rede privada
+num plano pago —; a segunda é onde o **navegador** a alcança. Juntá-las numa só
+quebraria o `docker compose`, onde o endereço do servidor não existe para o
+navegador.
 
 ## Consequências
+
+**O navegador fala com a API uma vez, e só para acordá-la.** A regra de que tudo
+passa pelo proxy ganhou uma exceção com nome e lugar: `AcordaApi`, no layout. Ela
+não carrega dado, não decide nada e não existe sem `API_PUBLICA`.
 
 **A demonstração não demonstra a gravação.** Corrigir um campo é metade do que a
 tela faz, e um visitante não vai ver essa metade funcionando — vai ver a nota

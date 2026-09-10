@@ -1,8 +1,10 @@
 import type { NextConfig } from "next";
 
 /**
- * O navegador nunca fala com a API diretamente: tudo passa por `/api/*`, servido
- * pelo route handler em `app/api/[...caminho]/route.ts`.
+ * O navegador não busca nada na API diretamente: tudo passa por `/api/*`, servido
+ * pelo route handler em `app/api/[...caminho]/route.ts`. A exceção é o despertar
+ * na hospedagem gratuita, uma chamada a `/health` em `no-cors` que ninguém lê —
+ * ver `componentes/AcordaApi.tsx` e ADR 012.
  *
  * Ligar CORS na API foi a alternativa recusada, por dois motivos. Primeiro,
  * exigiria mexer no backend da 4.1, e a restrição desta fase é consumir a API

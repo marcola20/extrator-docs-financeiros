@@ -72,8 +72,12 @@ services:
     ports:
       - "3001:3001"
     environment:
-      # O navegador nunca fala com a API direto: o Next reescreve `/api/*` para
-      # cá, e por isso não há CORS nenhum para configurar.
+      # Onde o SERVIDOR do Next alcança a API. O navegador não busca nada nela:
+      # o front repassa `/api/*` para cá, e por isso não há CORS para configurar.
+      #
+      # API_PUBLICA fica de fora de propósito. Ela é a URL que o navegador chama
+      # para acordar a API na hospedagem gratuita, e aqui nada dorme — além de
+      # `http://api:8000` não ser endereço que o navegador alcance. Ver render.yaml.
       API_INTERNA: http://api:8000
 
   # ---------------------------------------------------------------- Langfuse

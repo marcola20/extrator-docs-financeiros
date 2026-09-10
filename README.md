@@ -21,8 +21,8 @@ o quanto ele acha que acertou.
 ## Demonstração no ar
 
 <!-- O Render sufixou o nome do serviço: `extrator-web` já estava em uso. Esta
-     é a URL que o painel mostra, e é ela que a variável API_INTERNA do front
-     tem do lado da API (extrator-api-6b48). -->
+     é a URL que o painel mostra. A da API (extrator-api-6b48) fica no front em
+     duas variáveis, API_INTERNA e API_PUBLICA — ver render.yaml. -->
 
 **[Abrir a demonstração](https://extrator-web-47i7.onrender.com)** — API real,
 Postgres real, corpus sintético. Cinco casos, apresentados pela situação que cada

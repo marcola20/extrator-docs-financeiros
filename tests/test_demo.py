@@ -171,6 +171,47 @@ class TestPartidaDaDemonstracao:
         assert "${PORT:-8000}" in comandos[-1], "a hospedagem escolhe a porta"
 
 
+class TestDespertarPeloNavegador:
+    """O navegador acorda a API; o servidor do front não consegue. Ver ADR 012.
+
+    Medido no Render: com a API dormindo, o proxy do front recebeu 502 por 16
+    minutos seguidos, e uma chamada de fora a acordou em 33 s. Como no script de
+    partida, estes testes são texto — nenhuma suíte sobe o Next, e a regressão só
+    apareceria como uma demonstração que não acorda.
+    """
+
+    def test_o_layout_le_api_publica_em_runtime(self) -> None:
+        """Pré-renderizado no build, o layout leria um ambiente sem a variável."""
+        layout = Path("web/app/layout.tsx").read_text(encoding="utf-8")
+
+        assert "process.env.API_PUBLICA" in layout
+        assert 'export const dynamic = "force-dynamic"' in layout
+
+    def test_nenhuma_url_da_api_e_gravada_no_build(self) -> None:
+        """`NEXT_PUBLIC_` vai para o bundle no build; a URL certa só existe em runtime."""
+        fontes = [
+            arquivo
+            for pasta in ("web/app", "web/componentes", "web/lib")
+            for arquivo in Path(pasta).rglob("*.ts*")
+        ]
+        usam = [
+            str(arquivo)
+            for arquivo in fontes
+            if "process.env.NEXT_PUBLIC_" in arquivo.read_text(encoding="utf-8")
+        ]
+
+        assert fontes, "as fontes do front mudaram de lugar"
+        assert not usam, f"variável gravada no build em {usam}; leia no servidor e passe"
+
+    def test_o_render_declara_as_duas_urls_no_front(self) -> None:
+        """Sem `API_PUBLICA` no extrator-web, o despertar some sem erro nenhum."""
+        render = Path("render.yaml").read_text(encoding="utf-8")
+        front = render[render.index("name: extrator-web") :]
+
+        assert "key: API_INTERNA" in front
+        assert "key: API_PUBLICA" in front
+
+
 @pytest.mark.parametrize("caso", demo.CASOS, ids=lambda c: c.chave)
 def test_o_gabarito_do_caso_esta_ao_lado_do_pdf(caso: demo.Caso) -> None:
     """Sem o gabarito, o provedor do semeador não sabe o que devolver."""

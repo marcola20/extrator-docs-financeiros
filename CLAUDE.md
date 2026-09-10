@@ -57,6 +57,10 @@ pytest / ruff / mypy / Docker Compose / Langfuse / Next.js 15
   esse o defeito das três horas a mais. Ver `web/lib/datas.ts`.
 - O que desliga a escrita na demonstração pública é a **API** (403), não a tela.
   Front que esconde botão não fecha rota. Ver ADR 012.
+- `API_INTERNA` é onde o **servidor** do Next alcança a API, e todo o tráfego
+  passa por ela. `API_PUBLICA` é onde o **navegador** a alcança, e só serve para
+  acordá-la: no Render, chamada do servidor do front à URL pública da API não
+  dispara o despertar. Mesmo valor lá, perguntas diferentes. Ver ADR 012.
 - Type hints obrigatórios. mypy em modo strict (`app/` e `tests/`).
 - Testes junto da feature, não depois.
 - Commits pequenos, em português, no imperativo.
@@ -108,8 +112,10 @@ uv run alembic upgrade head          # aplica as migrações
 # sintético, e não chama a API do modelo. --limpar apaga a fila antes.
 PERSISTENCIA_ATIVA=1 uv run python -m app.geradores.semeia_fila --limpar
 
-# A demonstração pública (ADR 012). O render.yaml sobe Postgres, API e tela; a
-# única variável que o Render pergunta é API_INTERNA, a URL pública da API.
+# A demonstração pública (ADR 012). O render.yaml sobe Postgres, API e tela; o
+# Render pergunta API_INTERNA e API_PUBLICA, as duas com a URL pública da API
+# (ver a convenção sobre as duas). Em blueprint já criado, API_PUBLICA se
+# cadastra à mão no painel do extrator-web.
 # Para reproduzir o modo localmente, sem hospedagem nenhuma:
 DEMO_SOMENTE_LEITURA=1 PERSISTENCIA_ATIVA=1 uv run uvicorn app.main:app
 

@@ -1,18 +1,20 @@
 # A demonstração pública: Postgres, API e tela, no plano gratuito do Render.
 #
-# É a mesma aplicação do `docker-compose.yml`, com três diferenças que estão
+# É a mesma aplicação do `docker-compose.yml`, com quatro diferenças que estão
 # todas em variável de ambiente — nenhuma linha de código sabe que existe Render:
 #
 #   DEMO_SOMENTE_LEITURA=1  a API responde 403 em POST de correção (ADR 012)
 #   dockerCommand           migra antes de servir (docker/inicia-demo.sh)
-#   API_INTERNA             a tela fala com a API pela URL pública dela
+#   API_INTERNA             onde o SERVIDOR do Next alcança a API
+#   API_PUBLICA             onde o NAVEGADOR alcança a API, só para acordá-la
 #
 # ## Por que a tela fala com a API pela internet
 #
 # Rede privada entre serviços é recurso de plano pago. No gratuito, os dois são
 # serviços web com URL pública, e o servidor do Next chama a API por ela. O
-# navegador continua sem falar com a API direto: tudo passa por `/api/*` no
-# próprio front, que é o que mantém o `<iframe>` do PDF na mesma origem.
+# navegador continua sem buscar nada na API direto: tudo passa por `/api/*` no
+# próprio front, que é o que mantém o `<iframe>` do PDF na mesma origem. A única
+# exceção é acordá-la — ver API_PUBLICA, mais abaixo.
 #
 # O custo é o cold start: são **dois** serviços dormindo, e a primeira visita
 # acorda os dois em série. A interface trata isso explicitamente — ver
@@ -84,14 +86,32 @@ services:
     dockerfilePath: ./web/Dockerfile
     dockerContext: ./web
     envVars:
-      # A URL da API, como o servidor do Next a alcança.
+      # ## As duas URLs da API, e por que não são uma
       #
-      # `sync: false` faz o Render **perguntar** o valor ao criar o blueprint,
-      # em vez de deixar um palpite gravado aqui. É deliberado: a URL pública
-      # depende do nome que o serviço acabou recebendo — se `extrator-api` já
-      # estiver em uso, o Render sufixa —, e uma URL errada neste arquivo
-      # apareceria como "a API não respondeu" numa tela que, por desenho, culpa
-      # o cold start. O valor é o que o painel mostra assim que a API sobe:
-      # https://<nome-do-serviço>.onrender.com
+      # Hoje as duas têm o mesmo valor — https://<nome-do-serviço>.onrender.com —
+      # e respondem a perguntas diferentes. Confundi-las quebra de um jeito que
+      # não aparece localmente.
+      #
+      # API_INTERNA é onde o **servidor** do Next alcança a API. Todo o tráfego
+      # passa por ela: as páginas e o proxy `/api/*`. No `docker compose` ela é
+      # `http://api:8000`, e num plano pago seria o endereço da rede privada.
+      #
+      # API_PUBLICA é onde o **navegador** alcança a API, e serve para uma coisa
+      # só: o layout manda o navegador chamar `/health`, em `no-cors`, com a
+      # resposta descartada. Existe porque chamada do servidor do front à URL
+      # pública da API **não acorda** o serviço gratuito — medido, 502 por 16
+      # minutos seguidos pelo proxy, e 33 s para acordar com uma chamada de fora
+      # (ADR 012). É lida no servidor a cada requisição, e não no build, e por
+      # isso não é NEXT_PUBLIC_. Sem ela, nada é disparado.
+      #
+      # `sync: false` faz o Render **perguntar** as duas ao criar o blueprint,
+      # em vez de deixar um palpite gravado aqui: a URL pública depende do nome
+      # que o serviço acabou recebendo — se `extrator-api` já estiver em uso, o
+      # Render sufixa —, e uma URL errada apareceria como "a API não respondeu"
+      # numa tela que, por desenho, culpa o cold start. Num blueprint que já
+      # existe, variável nova com `sync: false` não é perguntada: ela se cadastra
+      # à mão no painel do extrator-web.
       - key: API_INTERNA
+        sync: false
+      - key: API_PUBLICA
         sync: false
