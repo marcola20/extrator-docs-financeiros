@@ -4,7 +4,7 @@
 # todas em variável de ambiente — nenhuma linha de código sabe que existe Render:
 #
 #   DEMO_SOMENTE_LEITURA=1  a API responde 403 em POST de correção (ADR 012)
-#   dockerCommand           migra e semeia antes de servir (docker/inicia-demo.sh)
+#   dockerCommand           migra antes de servir (docker/inicia-demo.sh)
 #   API_INTERNA             a tela fala com a API pela URL pública dela
 #
 # ## Por que a tela fala com a API pela internet
@@ -18,13 +18,26 @@
 # acorda os dois em série. A interface trata isso explicitamente — ver
 # `web/componentes/Carregando.tsx` e `AvisoDaApi.tsx`.
 #
-# ## O banco não sobrevive para sempre
+# ## O banco não sobrevive para sempre, e é semeado uma vez
 #
 # Postgres gratuito no Render expira, e quando expirar a fila some junto. Isso é
 # aceitável aqui e não seria em outro lugar: **nada** neste banco é original.
-# Tudo veio do corpus sintético versionado, e `semeia_fila` o reconstrói do zero
-# na próxima partida. É a mesma razão do ADR 010 — o que carrega conteúdo de
-# documento não é versionado, e o que não é versionado tem que ser descartável.
+# Tudo veio do corpus sintético versionado, e `semeia_fila` o reconstrói do zero.
+# É a mesma razão do ADR 010 — o que carrega conteúdo de documento não é
+# versionado, e o que não é versionado tem que ser descartável.
+#
+# A semeadura **não roda na partida** (ver docker/inicia-demo.sh): sob a cota do
+# plano gratuito ela não termina antes de o serviço dormir. Ela roda uma vez, da
+# máquina de desenvolvimento, com a External Database URL do painel do
+# extrator-postgres — num banco novo, ou depois de ele expirar:
+#
+#   DATABASE_URL='<External Database URL>' PERSISTENCIA_ATIVA=1 LLM_SEM_REDE=1 \
+#       uv run python -m app.geradores.semeia_fila --completar
+#
+# Leva uns 25 s. `--completar` o torna seguro de repetir; os caminhos gravados
+# são relativos (`dados/sinteticos/...`), e o corpus dentro da imagem é o mesmo.
+# A API migra na partida — num banco que ela ainda não viu, rode antes
+# `uv run alembic upgrade head` com a mesma DATABASE_URL.
 
 databases:
   - name: extrator-postgres
@@ -40,7 +53,7 @@ services:
     region: oregon
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    # Migra, semeia se estiver vazio, e só então serve. Ver o script.
+    # Migra e serve. A fila não é semeada aqui — ver o script.
     dockerCommand: ./docker/inicia-demo.sh
     healthCheckPath: /health
     envVars:
@@ -56,10 +69,10 @@ services:
       # O que faz desta instância uma demonstração, e não uma cópia do sistema.
       - key: DEMO_SOMENTE_LEITURA
         value: "1"
-      # A demonstração não tem chave de API e não precisa de uma: o semeador lê
-      # o gabarito ao lado de cada PDF. A trava transforma qualquer tentativa de
-      # chamar o modelo em erro alto, em vez de deixá-la falhar por falta de
-      # chave — que seria o mesmo resultado dito de um jeito pior.
+      # A demonstração não tem chave de API e não precisa de uma: a API só lê o
+      # banco, e nada neste serviço extrai documento. A trava transforma qualquer
+      # tentativa de chamar o modelo em erro alto, em vez de deixá-la falhar por
+      # falta de chave — que seria o mesmo resultado dito de um jeito pior.
       - key: LLM_SEM_REDE
         value: "1"
 

@@ -159,10 +159,9 @@ function Caso({ caso, numero }: { caso: CasoNaEntrada; numero: number }) {
       <div className="rounded-lg border border-dashed border-borda bg-white/50 px-5 py-4 opacity-70">
         {conteudo}
         <p className="mt-2 text-xs text-tinta-fraca">
-          Este documento ainda não está no banco desta instância. Numa
-          implantação recém-feita a fila leva alguns minutos para se povoar — o
-          servidor processa cada documento pelo pipeline inteiro, com OCR, atrás
-          da tela que já está no ar. Recarregue daqui a pouco.
+          Este documento não está no banco desta instância. A fila é semeada
+          uma vez, fora do servidor, e este caso só aparece depois de a
+          semeadura rodar de novo — recarregar não o traz.
         </p>
       </div>
     );
@@ -204,32 +203,33 @@ function NotaDeSomenteLeitura() {
 }
 
 /**
- * O banco está de pé e vazio — e são duas situações, não uma.
+ * O banco está de pé e vazio: ninguém semeou este banco ainda.
  *
- * Na demonstração recém-implantada, a fila está **se povoando agora**: a API
- * sobe em segundos e semeia atrás da tela, porque processar treze documentos
- * com OCR não cabe na janela em que a hospedagem espera a porta abrir (ADR 012).
- * Localmente, quer dizer que ninguém rodou o semeador.
+ * A semeadura não roda no servidor. Ela chegou a rodar na partida, e sob a cota
+ * do plano gratuito não terminava antes de o serviço dormir; desde então roda uma
+ * vez, de fora, contra o banco — que não dorme (ADR 012). Na demonstração
+ * pública, então, esta tela quer dizer um banco novo: recém-criado, ou recriado
+ * depois de o Postgres gratuito expirar. Localmente, quer dizer o mesmo.
  *
- * A tela não sabe qual das duas é — saber exigiria a API expor o andamento de
- * um processo que roda fora dela —, então diz as duas, na ordem em que quem lê
- * provavelmente está.
+ * Esperar não resolve, e a tela não sugere que resolva: dizer "está se povoando"
+ * mandaria o visitante recarregar uma página que vai continuar vazia.
  */
 function SemCasos() {
   return (
     <div className="rounded-lg border border-dashed border-borda bg-white/60 px-5 py-8 text-center">
-      <p className="text-sm font-medium">A fila ainda está vazia</p>
+      <p className="text-sm font-medium">A fila está vazia</p>
       <p className="mx-auto mt-1 max-w-lg text-xs leading-relaxed text-tinta-fraca">
-        Se esta instância acabou de subir, ela está se povoando agora: os
-        documentos passam pelo pipeline inteiro, com OCR, e isso leva alguns
-        minutos. Recarregue daqui a pouco.
+        Ninguém semeou este banco ainda. A semeadura roda uma vez, fora do
+        servidor — cada documento passa pelo pipeline inteiro, com OCR —, e um
+        banco recém-criado fica vazio até ela rodar.
       </p>
       <p className="mx-auto mt-2 max-w-lg text-xs leading-relaxed text-tinta-fraca">
-        Rodando localmente, é o semeador que não rodou:{" "}
+        Para semear, com <code className="font-mono">DATABASE_URL</code> apontando
+        para o banco:{" "}
         <code className="font-mono">
-          PERSISTENCIA_ATIVA=1 uv run python -m app.geradores.semeia_fila
+          PERSISTENCIA_ATIVA=1 uv run python -m app.geradores.semeia_fila --completar
         </code>
-        , que lê o gabarito ao lado de cada PDF e não chama o modelo.
+        . Ele lê o gabarito ao lado de cada PDF e não chama o modelo.
       </p>
     </div>
   );

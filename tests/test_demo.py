@@ -118,16 +118,17 @@ class TestNaoImportaOPipeline:
 
 
 class TestPartidaDaDemonstracao:
-    """O script de partida, que já derrubou um deploy. Ver ADR 012.
+    """O script de partida. Ver ADR 012.
 
-    A primeira versão semeava **antes** de subir o uvicorn, e a hospedagem
-    desistiu de esperar a porta abrir: "No open ports detected", repetido até o
-    tempo acabar. A semeadura processa cada documento pelo pipeline inteiro,
-    com OCR a 300 DPI, e não cabe na janela de varredura.
+    Ele já semeou a fila de duas formas, e as duas saíram. Na frente do uvicorn,
+    a hospedagem desistiu de esperar a porta abrir. Em segundo plano, a porta
+    abria e a semeadura não terminava: sob a cota do plano gratuito, o OCR leva
+    cerca de 90 s por boleto, e o serviço dorme depois de quinze minutos sem
+    visita.
 
     Este teste é texto, e texto é frágil — mas o que ele protege não é coberto
     por mais nada: nenhuma suíte sobe um contêiner, e o sintoma da regressão é
-    um deploy que falha depois do merge.
+    uma demonstração que não acorda depois do merge.
     """
 
     @staticmethod
@@ -145,35 +146,22 @@ class TestPartidaDaDemonstracao:
         assert "set -eu" in comandos[:migracao], "a migração precisa abortar a partida"
         assert not comandos[migracao].endswith("&"), "migrar em segundo plano seria corrida"
 
-    def test_a_semeadura_nao_bloqueia_a_porta(self) -> None:
-        """O defeito que derrubou o primeiro deploy, em forma de asserção."""
-        comandos = self._comandos()
-        semeadura = next(i for i, c in enumerate(comandos) if "semeia_fila" in c)
-        servir = next(i for i, c in enumerate(comandos) if c.startswith("exec uvicorn"))
-        em_segundo_plano = [
-            i for i, c in enumerate(comandos[semeadura:servir], semeadura) if c.endswith("&")
-        ]
+    def test_a_partida_nao_semeia(self) -> None:
+        """O Postgres não dorme, e a fila é semeada uma vez, de fora dele.
 
-        assert em_segundo_plano, (
-            "a semeadura precisa ir para segundo plano — o bloco em volta dela "
-            "tem que terminar em `&` antes do uvicorn. Em primeiro plano ela "
-            "segura a porta por minutos (OCR a 300 DPI por documento), e a "
-            "hospedagem desiste de esperar: 'Port scan timeout reached'"
+        Qualquer forma de semear aqui volta a disputar 0,1 CPU com o despertar.
+        Medido: com o banco cheio e nada a fazer, `/health` respondia aos 19 a 23 s
+        com o semeador ao lado, e aos 13 a 14 s sem ele; com o banco vazio, a
+        semeadura não terminava antes de o serviço dormir.
+        """
+        assert not any("semeia_fila" in c for c in self._comandos()), (
+            "a semeadura voltou para a partida. Ela roda uma vez, da máquina de "
+            "desenvolvimento, contra a URL externa do banco — ver o render.yaml"
         )
 
-    def test_a_semeadura_e_repetivel_e_se_completa(self) -> None:
-        """O serviço reinicia a cada despertar; semear sempre duplicaria a fila.
-
-        `--completar` e não uma trava de "só se estiver vazia": a segunda deixa
-        uma semeadura interrompida pela metade para sempre, sem erro nenhum.
-        """
-        assert any("--completar" in c for c in self._comandos())
-
-    def test_a_semeadura_nao_derruba_a_partida(self) -> None:
-        """Fila vazia é degradação; página que não abre é queda."""
-        comandos = self._comandos()
-
-        assert any("||" in c for c in comandos if "semeia_fila" in c or "!!" in c)
+    def test_nada_fica_em_segundo_plano(self) -> None:
+        """Um `&` aqui é trabalho disputando a CPU do despertar, sem ninguém esperar."""
+        assert not any(c.endswith("&") for c in self._comandos())
 
     def test_o_uvicorn_e_o_ultimo_e_com_exec(self) -> None:
         """`exec` para o uvicorn ser o PID 1 e receber o SIGTERM da hospedagem."""

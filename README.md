@@ -36,7 +36,7 @@ um mostra, e o clique abre o diagnóstico ao lado do PDF.
 A instância pública é **somente leitura**: dá para abrir qualquer documento, ver
 o diagnóstico e navegar pela fila, mas gravar correção está desligado — e quem
 recusa é a API (403), não a tela. Nenhuma chamada ao modelo acontece lá: o banco
-é semeado na partida com o gabarito que está ao lado de cada PDF do corpus. Ver
+foi semeado uma vez com o gabarito que está ao lado de cada PDF do corpus. Ver
 [ADR 012](docs/adr/012-demonstracao-publica-somente-leitura.md).
 
 ## Estado

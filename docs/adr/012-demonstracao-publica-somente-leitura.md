@@ -38,8 +38,8 @@ a única rota de escrita da API, e a recusa é uma dependência do FastAPI
 A tela desabilita os campos e esconde o botão de gravar, mas isso é
 consequência, não trava: ela recebe `somente_leitura` na própria resposta do
 diagnóstico. Esconder o botão sem fechar a rota deixaria a gravação aberta para
-qualquer `curl`, e a fila é semeada uma vez por implantação — o dano ficaria na
-tela até o próximo deploy.
+qualquer `curl`, e a fila é semeada uma vez — o dano ficaria na tela até alguém
+recriar o banco.
 
 É a mesma regra do ADR 011 aplicada a mais um campo: **o front não decide**. Uma
 variável de ambiente lida pelo navegador seria uma segunda definição da política,
@@ -50,18 +50,22 @@ falta é permissão. E 403 antes de procurar a decisão, porque responder 404 pa
 um id inexistente contaria quais ids existem e sugeriria "tente outro" quando
 nenhum id vai funcionar.
 
-### O banco é semeado na partida, com o provedor de gabarito
+### O banco é semeado uma vez, com o provedor de gabarito
 
-`docker/inicia-demo.sh` migra, **abre a porta**, e semeia atrás dela.
+A fila é semeada **uma vez**, da máquina de desenvolvimento, pela URL externa do
+Postgres. Nas duas primeiras formas disto ela era semeada na partida do
+contêiner; as subseções abaixo registram as duas e por que a última saiu.
 `semeia_fila` já existia e já não gastava cota: o provedor dele lê o gabarito
 que está ao lado de cada PDF do corpus sintético e devolve aqueles campos, como
 um extrator perfeito devolveria. **A demonstração não tem chave de API**, e
 `LLM_SEM_REDE=1` transforma qualquer tentativa de chamar o modelo em erro alto.
 
-`--completar` é o que torna a partida segura de repetir. O plano gratuito desliga
-o serviço por inatividade e o religa na visita seguinte, então este script roda
-muitas vezes, não uma; semear sempre duplicaria a fila a cada despertar, e
-semear com `--limpar` a apagaria no meio da visita de alguém.
+`--completar` é o que torna a semeadura segura de repetir. Enquanto ela rodou na
+partida, isso era obrigatório: o plano gratuito desliga o serviço por
+inatividade e o religa na visita seguinte, e semear sempre duplicaria a fila a
+cada despertar. Rodando de fora, é o que permite repetir o comando sem pensar —
+depois de uma semeadura interrompida, ou num banco recriado — sem duplicar nem
+apagar nada.
 
 #### Tudo-ou-nada era a trava errada
 
@@ -140,6 +144,69 @@ Duas correções, e as duas eram necessárias: `PYTHONUNBUFFERED=1` na imagem, e
 linha por documento — **ao começar e ao terminar**. Duas e não uma porque a
 pergunta que o log precisa responder é "onde travou", e o documento que trava é
 justamente o que nunca imprime a linha de fim.
+
+#### A semeadura saiu da partida: sob a cota, ela não termina
+
+Em segundo plano, a semeadura deixou de segurar a porta, e restava saber o que
+ela custava à instância: se estourava a memória ou só demorava. A pergunta foi
+respondida medindo o `docker/inicia-demo.sh` daquela época num
+cgroup local com os limites do plano gratuito: 512 MB sem swap e 10% de uma CPU,
+com SQLite no lugar do Postgres. A CPU local é mais rápida que a da hospedagem,
+então os tempos são um piso.
+
+| | sem limite | com o limite |
+|---|---|---|
+| OCR de uma página de boleto, tesseract a 300 DPI | 1,3 s | 110 s |
+| o mesmo, com `OMP_THREAD_LIMIT=1` | 1,4 s | 14 s |
+| um boleto pelo pipeline inteiro, na semeadura | 1,7–2,0 s | 86–97 s |
+| `/health` 200 no despertar, banco cheio, com o semeador ao lado | — | 19–23 s |
+| o mesmo, só migração e uvicorn | — | 13–14 s |
+
+- **a semeadura a frio não termina.** A 90 s por boleto, os oito cenários passam
+  de vinte minutos, e o Render desliga o serviço depois de quinze sem visita. Ela
+  é interrompida, o despertar seguinte retoma do documento em que parou, e é
+  interrompida de novo — numa demonstração que ninguém visita sem parar, ela não
+  completa;
+- **o despertar comum pagava por nada.** Com o banco cheio, `--completar` não tem
+  o que fazer, e ainda assim custava de 5 a 10 s de `/health` e 88 MB de pico: o
+  módulo importa o pipeline e, através de `app.llm`, os SDKs do Gemini e da
+  Anthropic, só para descobrir que não falta nada;
+- **a memória não era o problema.** O pico foi de 472 MB, uns 140 MB deles de
+  cache de arquivo que o kernel recupera, sem nenhum OOM nos três boletos
+  medidos. Os pares de informe não chegaram a rodar, então o risco não foi
+  descartado — só deixou de importar.
+
+O tesseract abre quatro threads, e sob uma cota de 10% elas passam o tempo
+esperando a vez: com `OMP_THREAD_LIMIT=1` a mesma página cai de 110 s para 14 s.
+Isso tornaria a semeadura na partida viável, e **foi considerado e não feito**:
+ainda seriam minutos de OCR disputando a CPU com o despertar a cada banco novo,
+para refazer um trabalho cujo resultado mora num banco que não dorme.
+
+A decisão: **o Postgres não dorme, então a fila não precisa ser reconstruída a
+cada despertar.** A partida ficou só migração e uvicorn, e a semeadura roda uma
+vez, de fora, em uns 25 s:
+
+```bash
+DATABASE_URL='<External Database URL>' PERSISTENCIA_ATIVA=1 LLM_SEM_REDE=1 \
+    uv run python -m app.geradores.semeia_fila --completar
+```
+
+Os caminhos gravados são relativos (`dados/sinteticos/...`), e o contêiner da API
+roda em `/app` com o mesmo corpus dentro da imagem, então o visor acha o PDF.
+Três consequências:
+
+- **o tesseract saiu da imagem.** Ele só estava lá pela semeadura;
+- **um banco recriado não se conserta sozinho.** Quando o Postgres gratuito
+  expirar, a fila nova fica vazia até alguém rodar o comando, e a entrada diz
+  isso em vez de mandar recarregar. É a troca consciente: uma demonstração que se
+  reconstrói sozinha em teoria e não termina na prática é pior que uma que pede
+  um comando de 25 s a cada expiração;
+- **o lugar natural não existe no plano.** `preDeployCommand` rodaria isso a cada
+  implantação, e é "available for paid web services".
+
+O que as subseções acima dizem sobre "a partida seguinte" e "o despertar
+seguinte" descreve a forma antiga; hoje, uma semeadura interrompida se conserta
+rodando o comando de novo.
 
 ### Uma página de entrada, por situação
 
@@ -245,25 +312,27 @@ tela faz, e um visitante não vai ver essa metade funcionando — vai ver a nota
 dizendo que está desligada e por quê. É o custo aceito: a alternativa é uma fila
 que acumula o que estranhos digitaram.
 
-**O corpus entra na imagem da API, e o tesseract também.** Local, o corpus é
-volume; na hospedagem não há volume, e sem os PDFs o semeador não teria o que
-processar e o visor responderia 404. São 2,4 MB. O tesseract é mais caro (~50 MB)
-e é obrigatório por um motivo de conteúdo, não de rigor: sem a comparação
-texto/imagem, a política da Fase 1.2 barra **todo** documento — "não achar é
-diferente de não procurar" —, a fila sairia inteira bloqueada pelo mesmo sinal, e
-o caso "boleto limpo, auto-aprovado" da entrada seria falso.
+**O corpus entra na imagem da API; o tesseract entrou e saiu.** Local, o corpus
+é volume; na hospedagem não há volume, e sem os PDFs o visor responderia 404. São
+2,4 MB. O tesseract (~50 MB) entrou para a semeadura rodar na partida, e saiu com
+ela. O OCR continua obrigatório para a fila ter contraste — sem a comparação
+texto/imagem, a política da Fase 1.2 barra **todo** documento, e o caso "boleto
+limpo, auto-aprovado" da entrada seria falso —, mas roda onde a semeadura roda,
+na máquina de desenvolvimento.
 
-**A imagem deixou de ser só "a API".** O `CMD` continua sendo o uvicorn e nada
-mais — é o que o `docker compose` local usa —, mas a imagem agora carrega o que
-é preciso para processar documento na partida. A promessa que continua valendo é
-a que importa: **nenhuma requisição processa documento**, e importar `app.main`
-não carrega pdfplumber nem os SDKs de LLM. `app/demo.py` só importa a biblioteca
-padrão por causa disso, e há um teste que o verifica.
+**A imagem voltou a ser "a API", mais o corpus.** O `CMD` continua sendo o
+uvicorn e nada mais — é o que o `docker compose` local usa —, e a partida da
+demonstração só acrescenta a migração. A promessa que importa vale de ponta a
+ponta: **nada no contêiner processa documento**, nem requisição nem partida, e
+importar `app.main` não carrega pdfplumber nem os SDKs de LLM. `app/demo.py` só
+importa a biblioteca padrão por causa disso, e há um teste que o verifica.
 
 **O banco público é descartável, e isso é uma propriedade e não um risco.** Nada
 nele é original: tudo veio do corpus sintético versionado, e o semeador o
-reconstrói do zero. É o mesmo raciocínio do ADR 010 — o que carrega conteúdo de
-documento não é versionado, e o que não é versionado precisa ser descartável.
+reconstrói do zero em uns 25 s. Descartável não quer dizer que se reconstrói
+sozinho: um banco recriado fica vazio até alguém rodar o comando. É o mesmo
+raciocínio do ADR 010 — o que carrega conteúdo de documento não é versionado, e o
+que não é versionado precisa ser descartável.
 
 **A URL da API fica fora do `render.yaml`** (`sync: false`, o Render pergunta ao
 criar o blueprint). Rede privada entre serviços é recurso de plano pago; no

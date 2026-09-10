@@ -6,38 +6,30 @@
 # dezenas de segundos, e um endpoint que chamasse o modelo viraria porta para
 # gastar orçamento (ver `app/api/revisao.py`).
 #
-# Quem gera corpus e roda o eval continua fazendo isso fora daqui, com `uv` no
-# WSL, onde as bibliotecas nativas do WeasyPrint já estão instaladas.
+# Quem gera corpus, roda o eval e semeia a fila continua fazendo isso fora
+# daqui, com `uv` no WSL, onde as bibliotecas nativas do WeasyPrint e o
+# tesseract já estão instalados.
 #
 # ## O que a demonstração pública acrescentou
 #
-# Duas coisas, e as duas só valem na partida, não em requisição nenhuma:
+# **O corpus sintético** (2,4 MB). Local, o `docker compose` monta `./dados`
+# como volume; na hospedagem não há volume, e sem os PDFs dentro da imagem o
+# visor responderia 404.
 #
-# 1. **o corpus sintético** (2,4 MB). Local, o `docker compose` monta `./dados`
-#    como volume; na hospedagem não há volume, e sem os PDFs dentro da imagem o
-#    semeador não teria o que processar e o visor responderia 404;
-# 2. **tesseract**. O semeador roda o pipeline inteiro, e sem a comparação
-#    texto/imagem a política da Fase 1.2 barra **todo** documento — "não achar é
-#    diferente de não procurar". A fila sairia com tudo bloqueado pelo mesmo
-#    sinal, nenhum auto-aprovado, e o caso "boleto limpo" da entrada seria uma
-#    mentira. É o preço de a demonstração ter contraste.
-#
-# `tesseract-ocr-por` não é opcional: os documentos são em português, e sem o
-# pacote de idioma o OCR devolve lixo — o que aparece como divergência
-# texto/imagem em documento limpo, ou seja, falso positivo de infraestrutura.
+# O tesseract também entrou, e saiu. Ele estava aqui porque a demonstração
+# semeava a fila na partida, e a semeadura roda o OCR. Sob a cota do plano
+# gratuito ela não terminava antes de o serviço dormir, e passou a rodar uma vez,
+# de fora, contra o banco — que não dorme. Com ela saiu o único motivo de o
+# contêiner ter OCR. Ver ADR 012.
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 WORKDIR /app
 # `PYTHONUNBUFFERED` não é preferência: o stdout do Python é bloco-bufferizado
 # quando não é terminal, e dentro de um contêiner ele nunca é. Sem isso, o log
-# da hospedagem fica em branco enquanto a semeadura roda, e um processo que
-# demora minutos sem imprimir nada é indistinguível de um processo travado —
-# foi o que atrapalhou o diagnóstico do primeiro deploy.
+# da hospedagem fica em branco enquanto o processo trabalha, e um processo que
+# demora sem imprimir nada é indistinguível de um processo travado — foi o que
+# atrapalhou o diagnóstico do primeiro deploy.
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy PYTHONUNBUFFERED=1
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-por \
-    && rm -rf /var/lib/apt/lists/*
 
 # As dependências primeiro, para a camada delas ser reaproveitada quando só o
 # código muda.
@@ -62,5 +54,5 @@ ENV PATH="/app/.venv/bin:$PATH"
 EXPOSE 8000
 # O padrão continua sendo servir e nada mais — é o que o `docker compose` local
 # usa. A demonstração troca isto pelo `dockerCommand` do `render.yaml`, que
-# migra e semeia antes de servir (`docker/inicia-demo.sh`).
+# migra antes de servir (`docker/inicia-demo.sh`).
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

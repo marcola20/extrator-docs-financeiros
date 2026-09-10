@@ -57,8 +57,8 @@ interface Props {
  * Na demonstração pública os campos ficam desabilitados e o botão sai, mas isso
  * é a **consequência** visível de uma decisão que é da API: ela responde 403 em
  * `POST /revisao/{id}/correcoes` (ADR 012). Se este componente fosse a única
- * trava, um `curl` gravaria assim mesmo — e a fila é semeada uma vez por
- * implantação, então o texto de um visitante ficaria na tela dos próximos.
+ * trava, um `curl` gravaria assim mesmo — e a fila é semeada uma vez, então o
+ * texto de um visitante ficaria na tela dos próximos.
  *
  * A tela diz que está em somente-leitura em vez de esconder o assunto. Um
  * formulário que some sem explicação parece defeito.

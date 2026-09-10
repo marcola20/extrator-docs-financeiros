@@ -157,7 +157,7 @@ render blueprint launch    # ou: painel → New → Blueprint, apontando para re
 | Variável | O que muda |
 |---|---|
 | `DEMO_SOMENTE_LEITURA=1` | a API responde 403 em `POST /revisao/{id}/correcoes` |
-| `dockerCommand` | `docker/inicia-demo.sh` migra, sobe a API, e semeia atrás dela |
+| `dockerCommand` | `docker/inicia-demo.sh` migra e sobe a API; a fila se semeia uma vez, de fora |
 | `API_INTERNA` | a tela alcança a API pela URL pública dela |
 
 ### Uma entrada antes da fila
@@ -179,42 +179,52 @@ decisão que não existe.
 A tela desabilita os campos e esconde o botão, mas isso é a consequência: ela
 recebe `somente_leitura` na resposta do diagnóstico. Esconder o botão sem fechar
 a rota deixaria a gravação aberta para qualquer `curl` — e a fila é semeada uma
-vez por implantação, então o que alguém escrevesse ficaria lá até o próximo
-deploy. É a mesma regra do resto do front: **ele não decide nada**.
+vez, então o que alguém escrevesse ficaria lá até o banco ser recriado. É a mesma
+regra do resto do front: **ele não decide nada**.
 
-### A semeadura não pode ficar na frente da porta
+### A fila se semeia uma vez, de fora
 
-O primeiro deploy falhou assim: `No open ports detected`, repetido até
-`Port scan timeout reached`. O semeador estava rodando — a hospedagem é que
-desistiu de esperar a porta abrir.
+A semeadura já esteve em dois lugares da partida, e saiu dos dois.
 
-A conta é o OCR. Semear processa cada documento pelo pipeline inteiro, e a
-comparação texto/imagem renderiza a página a 300 DPI e roda o tesseract em cima:
-**1,7–2,0 s por boleto e 4,5 s por par de informe** em máquina de
-desenvolvimento, 23 s no total — vários minutos numa instância gratuita
-compartilhada. Semear sem OCR caberia na janela e faria a fila sair inteira
-bloqueada pelo mesmo sinal, com o caso "boleto limpo" virando mentira.
+Na frente do uvicorn, o primeiro deploy falhou: `No open ports detected`,
+repetido até `Port scan timeout reached`. O semeador estava rodando — a
+hospedagem é que desistiu de esperar a porta abrir. A conta é o OCR: semear
+processa cada documento pelo pipeline inteiro, e a comparação texto/imagem
+renderiza a página a 300 DPI e roda o tesseract em cima. Semear sem OCR caberia
+na janela e faria a fila sair inteira bloqueada pelo mesmo sinal, com o caso
+"boleto limpo" virando mentira.
 
-Então: migra, `exec` no uvicorn, e semeia em segundo plano. A tela sobe em
-segundos e a fila se enche atrás dela — só na primeira implantação, porque no
-despertar seguinte não há o que fazer e o comando sai em 1,8 s. Quem visitar no
-meio vê os casos ainda não semeados como indisponíveis, e a entrada diz que a
-instância está se povoando.
+Em segundo plano, a porta abria e a semeadura não terminava. Medido num cgroup
+local com os limites do plano gratuito — 512 MB e 10% de uma CPU —, um boleto que
+leva 1,7 s na máquina de desenvolvimento levou **86 a 97 s**, e os oito cenários
+passariam de vinte minutos num serviço que dorme depois de quinze sem visita. No
+despertar comum, com o banco cheio e nada a fazer, o semeador ainda atrasava o
+`/health` de 13–14 s para 19–23 s, só importando o pipeline para descobrir isso.
+
+O Postgres não dorme; o contêiner, sim. Então a partida é só migração e uvicorn,
+e a fila se semeia **uma vez**, daqui, pela URL externa do banco:
+
+```bash
+DATABASE_URL='<External Database URL>' PERSISTENCIA_ATIVA=1 LLM_SEM_REDE=1 \
+    uv run python -m app.geradores.semeia_fila --completar
+```
+
+Leva uns 25 s. Os caminhos gravados são relativos, e o corpus dentro da imagem é
+o mesmo, então o visor acha cada PDF.
 
 A semeadura é **por cenário faltante** (`--completar`), e não tudo-ou-nada. A
 primeira forma era "não faça nada se a fila tiver qualquer decisão", e o modo de
 falha dela era ruim: uma semeadura interrompida no meio deixa parte dos
-documentos gravados, a partida seguinte trata isso como concluído, e a
+documentos gravados, a rodada seguinte trata isso como concluído, e a
 demonstração fica pela metade **em silêncio** — o buraco só aparece para quem
 abre o link e não acha um caso. Agora ela compara documento a documento, retoma
-só o que falta, e termina listando no log quais dos cinco casos da entrada estão
-no banco e quais não estão.
+só o que falta, e termina listando quais dos cinco casos da entrada estão no
+banco e quais não estão.
 
-Duas lições registradas junto ([ADR 012](adr/012-demonstracao-publica-somente-leitura.md)):
-a semeadura **não pode derrubar a partida** — fila vazia é degradação, página que
-não abre é queda —, e o log precisa de `PYTHONUNBUFFERED=1` e de uma linha por
-documento, ao começar e ao terminar. Sem isso o log fica em branco enquanto o
-processo trabalha, e um processo lento é indistinguível de um travado.
+A lição de log continua registrada ([ADR 012](adr/012-demonstracao-publica-somente-leitura.md)):
+`PYTHONUNBUFFERED=1` e uma linha por documento, ao começar e ao terminar. Sem isso
+o log fica em branco enquanto o processo trabalha, e um processo lento é
+indistinguível de um travado.
 
 ### Cold start
 
@@ -236,10 +246,11 @@ banco fica de fora: ele diz "não", e se reconhece pelo JSON com `detail`.
 ### O banco público é descartável
 
 E isso é propriedade, não risco: nada nele é original. Tudo veio do corpus
-sintético versionado, e `semeia_fila --completar` o reconstrói na próxima
-partida. Quando o Postgres gratuito expirar, a fila volta sozinha. É o mesmo
-raciocínio do ADR 010 — o que carrega conteúdo de documento não é versionado, e
-o que não é versionado precisa ser descartável.
+sintético versionado, e `semeia_fila --completar` o reconstrói em uns 25 s. Mas
+não sozinho: quando o Postgres gratuito expirar, a fila nova fica vazia até
+alguém rodar o comando acima, e a entrada diz isso. É o mesmo raciocínio do ADR
+010 — o que carrega conteúdo de documento não é versionado, e o que não é
+versionado precisa ser descartável.
 
 ## Realimentação: correção humana vira caso de eval
 

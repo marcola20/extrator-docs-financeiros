@@ -609,9 +609,9 @@ def _analisa_argumentos(argv: Sequence[str] | None) -> argparse.Namespace:
         "--completar",
         action="store_true",
         help=(
-            "semeia só os cenários que ainda não estão no banco. É como o "
-            "contêiner da demonstração se semeia: seguro de repetir, e se "
-            "conserta sozinho depois de uma semeadura interrompida"
+            "semeia só os cenários que ainda não estão no banco. Seguro de "
+            "repetir, e conserta uma semeadura interrompida no meio. É como se "
+            "semeia o banco da demonstração pública, uma vez — ver render.yaml"
         ),
     )
     parser.add_argument(

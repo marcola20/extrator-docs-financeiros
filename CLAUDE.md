@@ -102,9 +102,8 @@ docker run --rm -v "$PWD/web":/app -w /app -u "$(id -u):$(id -g)" \
 uv run alembic upgrade head          # aplica as migrações
 
 # Povoa a fila para demonstrar a tela (gravar GIF, mostrar numa entrevista).
-# --completar semeia só os cenários que ainda não estão no banco: é como o
-# contêiner da demonstração se semeia na partida. Seguro de repetir, e uma
-# semeadura interrompida no meio se conserta sozinha no despertar seguinte.
+# --completar semeia só os cenários que ainda não estão no banco: seguro de
+# repetir, e uma semeadura interrompida no meio se conserta rodando de novo.
 # NÃO gasta cota: o provedor lê o gabarito ao lado de cada PDF do corpus
 # sintético, e não chama a API do modelo. --limpar apaga a fila antes.
 PERSISTENCIA_ATIVA=1 uv run python -m app.geradores.semeia_fila --limpar
@@ -113,6 +112,13 @@ PERSISTENCIA_ATIVA=1 uv run python -m app.geradores.semeia_fila --limpar
 # única variável que o Render pergunta é API_INTERNA, a URL pública da API.
 # Para reproduzir o modo localmente, sem hospedagem nenhuma:
 DEMO_SOMENTE_LEITURA=1 PERSISTENCIA_ATIVA=1 uv run uvicorn app.main:app
+
+# O banco público se semeia UMA vez, daqui, pela URL externa do Postgres — num
+# banco novo, ou depois de o gratuito expirar. NÃO roda na partida: sob a cota
+# do plano gratuito o OCR leva ~90 s por boleto, e o serviço dorme antes de
+# terminar. Ver docker/inicia-demo.sh.
+DATABASE_URL='<External Database URL>' PERSISTENCIA_ATIVA=1 LLM_SEM_REDE=1 \
+    uv run python -m app.geradores.semeia_fila --completar
 
 # Verificação contra Postgres de verdade: tipo de coluna, CHECK, timestamptz,
 # e o ida-e-volta dos enums — o que o SQLite não prova. APAGA as tabelas ao
@@ -295,8 +301,10 @@ o recall caiu de 99,8% para 98,7% e o escape de 5,6% para 11,1%.
 **Fase 4.3 (demonstração pública) concluída.** Ver ADR 012. `/` apresenta cinco
 casos por situação e `/fila` é a fila; `DEMO_SOMENTE_LEITURA=1` faz a API recusar
 `POST` de correção; `render.yaml` sobe Postgres, API e tela no plano gratuito, e
-`docker/inicia-demo.sh` migra e semeia na partida sem chamar o modelo. A
-semeadura ganhou um par que faltava — o informe com o saldo do ano anterior
+`docker/inicia-demo.sh` só migra e serve — a fila se semeia uma vez, de fora, pela
+URL externa do banco, sem chamar o modelo, porque sob a cota do plano gratuito a
+semeadura na partida não terminava antes de o serviço dormir. A semeadura ganhou
+um par que faltava — o informe com o saldo do ano anterior
 trocado, em que os outros cinco sinais dizem `conferido` e só o cruzamento entre
 anos reprova.
 
