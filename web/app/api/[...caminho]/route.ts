@@ -16,36 +16,41 @@
  * por serialização.
  */
 
+import { buscaEsperandoAcordar, PRAZO_MS } from "@/lib/espera";
+
 const API = () => process.env.API_INTERNA ?? "http://127.0.0.1:8000";
 
 /**
- * O mesmo tempo limite do cliente das páginas (`lib/api.ts`), e pelo mesmo
- * motivo: na hospedagem gratuita a API dorme, e o `fetch` sem limite deixaria o
- * `<iframe>` do PDF girando para sempre em vez de dizer o que houve.
+ * A mesma espera do cliente das páginas (`lib/api.ts`), e pelo mesmo motivo: na
+ * hospedagem gratuita a API dorme, e o `<iframe>` do PDF não deveria nem girar
+ * para sempre nem desistir no primeiro 502 de quem está na frente dela.
  */
-const ESPERA_MS = Number(process.env.API_ESPERA_MS ?? 65_000);
-
 async function encaminha(requisicao: Request, caminho: string[]): Promise<Response> {
   const consulta = new URL(requisicao.url).search;
   const destino = `${API()}/${caminho.join("/")}${consulta}`;
 
   let resposta: Response;
   try {
-    resposta = await fetch(destino, {
-      method: requisicao.method,
-      headers: requisicao.headers.get("content-type")
-        ? { "content-type": requisicao.headers.get("content-type")! }
-        : undefined,
-      body: requisicao.method === "GET" ? undefined : await requisicao.text(),
-      cache: "no-store",
-      signal: AbortSignal.timeout(ESPERA_MS),
-    });
+    ({ resposta } = await buscaEsperandoAcordar(
+      destino,
+      {
+        method: requisicao.method,
+        headers: requisicao.headers.get("content-type")
+          ? { "content-type": requisicao.headers.get("content-type")! }
+          : undefined,
+        body: requisicao.method === "GET" ? undefined : await requisicao.text(),
+        cache: "no-store",
+      },
+      // Só leitura se repete. O PDF pode; uma correção não, porque um 504 não
+      // garante que a gravação deixou de acontecer.
+      { repete: requisicao.method === "GET" },
+    ));
   } catch (falha) {
     const expirou = falha instanceof Error && falha.name === "TimeoutError";
     return Response.json(
       {
         detail: expirou
-          ? `A API não respondeu em ${Math.round(ESPERA_MS / 1000)}s. Se esta é a ` +
+          ? `A API não respondeu em ${Math.round(PRAZO_MS / 1000)}s. Se esta é a ` +
             `demonstração pública, o servidor está acordando: tente de novo.`
           : `A API não respondeu em ${API()}.`,
       },

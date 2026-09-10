@@ -10,6 +10,8 @@
  * pipeline e a API transporta. O que este arquivo faz é buscar e tipar.
  */
 
+import { buscaEsperandoAcordar, PRAZO_MS, type ResultadoDaBusca } from "./espera";
+
 export type TipoDeDocumento = "boleto" | "informe";
 export type Rota = "auto_aprovado" | "revisao_humana";
 
@@ -142,19 +144,33 @@ export interface EstatisticasDaFila {
   custo_total_usd: string;
 }
 
+/**
+ * Por que a API não entregou o que se pediu.
+ *
+ * Três situações que uma tela descuidada mostraria igual, e no ar as duas
+ * primeiras quase sempre têm a mesma causa: o serviço gratuito dorme por
+ * inatividade e a primeira visita o acorda.
+ */
+export type MotivoDaFalha =
+  /**
+   * Nenhuma resposta chegou: a conexão foi recusada, ou o prazo acabou com a
+   * requisição pendurada. A tela tenta de novo sozinha.
+   */
+  | "sem_resposta"
+  /**
+   * Quem está na frente da API respondeu "ainda não" — 502, 503 ou 504 — até o
+   * prazo acabar. As repetições já aconteceram, então aqui, e só aqui, a tela
+   * diz que falhou. Ver `lib/espera.ts`.
+   */
+  | "nao_acordou"
+  /** A própria API respondeu com erro: 404, o 503 de persistência desligada. */
+  | "respondeu";
+
 export class ApiIndisponivel extends Error {
   constructor(
     readonly status: number,
     readonly detalhe: string,
-    /**
-     * A API não respondeu — recusou a conexão ou estourou o tempo.
-     *
-     * Separado de "respondeu com erro" porque a tela diz coisas diferentes nos
-     * dois casos, e no ar a causa quase sempre é a mesma: o serviço gratuito
-     * dorme por inatividade e a primeira visita o acorda. Chamar isso de "erro"
-     * seria impreciso; a requisição seguinte funciona.
-     */
-    readonly semResposta = false,
+    readonly motivo: MotivoDaFalha,
   ) {
     super(detalhe);
   }
@@ -163,36 +179,43 @@ export class ApiIndisponivel extends Error {
 /** Onde a API está para o **servidor**. O navegador sempre usa `/api`. */
 const BASE = process.env.API_INTERNA ?? "http://127.0.0.1:8000";
 
-/**
- * Quanto esperar antes de desistir.
- *
- * Generoso de propósito. Num serviço gratuito adormecido a primeira requisição
- * espera o contêiner subir, e o padrão do `fetch` — esperar indefinidamente —
- * deixaria a página pendurada sem nunca dizer o que está acontecendo. Um valor
- * curto faria o contrário: desistiria de um servidor que ia responder.
- */
-const ESPERA_MS = Number(process.env.API_ESPERA_MS ?? 65_000);
-
 async function busca<T>(caminho: string): Promise<T> {
-  let resposta: Response;
+  let resultado: ResultadoDaBusca;
   try {
-    resposta = await fetch(`${BASE}${caminho}`, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(ESPERA_MS),
-    });
+    // Toda busca daqui é leitura, então pode repetir.
+    resultado = await buscaEsperandoAcordar(
+      `${BASE}${caminho}`,
+      { cache: "no-store" },
+      { repete: true },
+    );
   } catch (falha) {
     const expirou = falha instanceof Error && falha.name === "TimeoutError";
     throw new ApiIndisponivel(
       0,
       expirou
-        ? `A API não respondeu em ${Math.round(ESPERA_MS / 1000)}s.`
+        ? `A API não respondeu em ${Math.round(PRAZO_MS / 1000)}s.`
         : `A API não respondeu em ${BASE}.`,
-      true,
+      "sem_resposta",
+    );
+  }
+
+  const { resposta } = resultado;
+  if (resultado.esgotou) {
+    throw new ApiIndisponivel(
+      resposta.status,
+      `Por ${Math.round(resultado.decorridoMs / 1000)}s, em ${resultado.tentativas} ` +
+        `tentativas, a resposta foi ${resposta.status} ${resposta.statusText} — o ` +
+        `servidor ainda subindo —, e o prazo acabou antes de ele ficar de pé.`,
+      "nao_acordou",
     );
   }
   if (!resposta.ok) {
     const corpo = (await resposta.json().catch(() => null)) as { detail?: string } | null;
-    throw new ApiIndisponivel(resposta.status, corpo?.detail ?? resposta.statusText);
+    throw new ApiIndisponivel(
+      resposta.status,
+      corpo?.detail ?? resposta.statusText,
+      "respondeu",
+    );
   }
   return (await resposta.json()) as T;
 }

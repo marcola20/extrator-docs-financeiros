@@ -2,33 +2,48 @@ import type { ApiIndisponivel } from "@/lib/api";
 import { TentaDeNovo } from "./TentaDeNovo";
 
 /**
- * A tela quando a API não responde.
+ * A tela quando a API não entrega a página.
  *
- * Diz o que fazer, e não só que deu errado. São três situações que uma tela
+ * Diz o que fazer, e não só que deu errado. São quatro situações que uma tela
  * descuidada mostraria igual, e elas pedem coisas diferentes de quem lê:
  *
  * - **o servidor está acordando** — a hospedagem gratuita desliga o serviço por
  *   inatividade, e a primeira visita paga a espera. Não é defeito e não há nada
  *   a fazer além de esperar, então a tela espera junto e tenta de novo sozinha;
- * - **a persistência está desligada** (503) — o pipeline roda sem banco por
- *   padrão, e a fila é a única parte que precisa dele. Aqui há três comandos a
- *   dar, e eles estão na tela;
+ * - **o servidor não acordou a tempo** — a busca já repetiu os 502, 503 e 504 de
+ *   quem está na frente da API pelo prazo inteiro (`lib/espera.ts`). Só aqui a
+ *   tela admite falha: enquanto havia prazo, quem estava olhando via o
+ *   `loading.tsx` com a nota sobre o servidor acordando, e não esta tela;
+ * - **a persistência está desligada** (503 da própria API) — o pipeline roda sem
+ *   banco por padrão, e a fila é a única parte que precisa dele. Aqui há três
+ *   comandos a dar, e eles estão na tela;
  * - **qualquer outra falha** — mostra o que a API disse.
  *
- * A primeira e a segunda eram a mesma mensagem antes desta fase, e a diferença
- * importa: "suba o banco" é um conselho inútil para quem abriu um link público
- * e só precisa esperar quarenta segundos.
+ * A primeira e a terceira eram a mesma mensagem antes da demonstração pública, e
+ * a diferença importa: "suba o banco" é um conselho inútil para quem abriu um
+ * link público e só precisa esperar quarenta segundos. Pela mesma razão o teste
+ * de banco olha o motivo e não só o status: um 503 da hospedagem não é banco.
  */
 export function AvisoDaApi({ erro }: { erro: ApiIndisponivel }) {
-  if (erro.semResposta) return <Acordando detalhe={erro.detalhe} />;
+  if (erro.motivo === "sem_resposta") return <Acordando detalhe={erro.detalhe} />;
+
+  const semBanco = erro.motivo === "respondeu" && erro.status === 503;
+  const titulo = semBanco
+    ? "A fila precisa de banco"
+    : erro.motivo === "nao_acordou"
+      ? "O servidor não acordou a tempo"
+      : "A API não respondeu";
 
   return (
     <div className="rounded-lg border border-amber-300 bg-amber-50/60 p-6">
-      <h1 className="text-base font-semibold text-amber-900">
-        {erro.status === 503 ? "A fila precisa de banco" : "A API não respondeu"}
-      </h1>
+      <h1 className="text-base font-semibold text-amber-900">{titulo}</h1>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-amber-900">{erro.detalhe}</p>
-      {erro.status === 503 && (
+      {erro.motivo === "nao_acordou" && (
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-amber-900">
+          Recarregar a página tenta de novo.
+        </p>
+      )}
+      {semBanco && (
         <pre className="mt-3 overflow-x-auto rounded border border-amber-300 bg-white/70 px-3 py-2 font-mono text-xs">
 {`docker compose up -d
 echo "PERSISTENCIA_ATIVA=1" >> .env
