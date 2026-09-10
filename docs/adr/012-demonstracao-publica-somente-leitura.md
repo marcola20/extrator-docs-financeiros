@@ -186,9 +186,57 @@ dois em série: pode levar mais de um minuto. A interface diz isso.
 - a falha por não haver resposta (conexão recusada ou tempo esgotado) deixou de
   ser "a API não respondeu" genérico: ela é uma tela própria, que explica o
   plano gratuito e **tenta de novo sozinha**, quantas vezes forem necessárias;
-- o cliente tem tempo limite de 65 s. O padrão do `fetch` — esperar
-  indefinidamente — deixaria a página pendurada sem dizer nada; um valor curto
-  desistiria de um servidor que ia responder.
+- a busca tem prazo total de 65 s, com as repetições dentro. O padrão do
+  `fetch` — esperar indefinidamente — deixaria a página pendurada sem dizer
+  nada; um valor curto desistiria de um servidor que ia responder.
+
+#### O 502 da API acordando era tratado como falha
+
+O tratamento acima cobria o front acordando e a API que não responde nada.
+Faltava o caso que de fato acontece na primeira visita: a hospedagem segura a
+requisição do navegador até o front subir, e só então o servidor do Next chama a
+API — que ainda está dormindo, e para essa chamada a hospedagem responde **502**.
+A tela lia o 502 como "a API respondeu com erro", e quem abria o link pela
+primeira vez via "A API não respondeu — Bad Gateway". A demonstração só
+funcionava para quem já tivesse acordado a API abrindo `/health` à mão.
+
+A correção é o raciocínio do `ErroTransitorio` do limitador do provedor: o erro
+diz "ainda não", não "não". `web/lib/espera.ts` repete 502, 503 e 504 com backoff
+exponencial — 1 s, dobrando até 8 s — dentro do prazo de 65 s, e o servidor do
+Next faz isso **dentro** da renderização: quem está olhando vê o `loading.tsx`,
+com a nota sobre o servidor acordando, durante toda a espera. A tela de falha
+("O servidor não acordou a tempo") só aparece com o prazo esgotado.
+
+Três decisões de desenho:
+
+- **o 503 da própria API não se repete.** Ela responde 503 quando a persistência
+  está desligada, e aquele 503 diz "não": nenhuma espera liga o banco. O critério
+  é quem respondeu — erro da API é JSON com `detail`, como todo erro do FastAPI; o
+  da hospedagem, não. Repetir todo 503 faria a tela que ensina a ligar o banco
+  chegar um minuto atrasada;
+- **só GET se repete.** O proxy também repassa o POST de correção, e um 504 não
+  garante que a gravação deixou de acontecer. Repetir escrita às cegas é o jeito
+  de gravar duas vezes;
+- **o fim do prazo chega como "esgotou", nunca como tentativa abortada.** Quando
+  a espera seguinte não cabe no que sobrou, a busca para ali, até 8 s antes do
+  prazo. Espremer uma última tentativa contra o fim a faria estourar como
+  `TimeoutError`, que a tela lê como "sem resposta" e desenha como servidor
+  acordando — o contrário do que aconteceu.
+
+Medido localmente, contra uma API falsa que responde 502 `text/plain` por 20 s: o
+loading chega em 0,08 s, as tentativas saem em 0, 1, 3, 7, 15 e 23 s, e os casos
+aparecem aos 23 s. Com o 503 em JSON, a tela de banco chega em 78 ms, com uma
+requisição só. Com uma API que nunca acorda e prazo de 20 s, a falha aparece aos
+15 s, depois de cinco tentativas. Pelo proxy, o POST durante o sono volta 502 na
+hora, com uma requisição, e o GET repete até voltar 200, aos 7 s.
+
+**Acordar a API antes, pela página de entrada, foi considerado e não feito.** A
+ideia era disparar `/health` assim que a entrada carrega, para a API ir acordando
+enquanto a pessoa lê os cinco casos. Mas os cinco casos **vêm** da API
+(`/demo/casos`): quando eles estão na tela, ela já acordou, e o ping sairia com o
+trabalho feito. A espera em série — o front, depois a API — só encurtaria se algo
+acordasse a API antes de o front responder, e até ali o único código rodando é o
+navegador esperando o HTML.
 
 ## Consequências
 

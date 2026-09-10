@@ -225,6 +225,14 @@ entra depois de quatro segundos (antes disso ela seria mentira), e a falha por
 falta de resposta tem tela própria, que explica o plano gratuito e tenta de novo
 sozinha.
 
+A primeira versão disso cobria o front acordando e esquecia a API. Enquanto ela
+sobe, a hospedagem responde **502** para a chamada do servidor do Next, e a tela
+mostrava "A API não respondeu — Bad Gateway" justamente para quem abria o link
+pela primeira vez. Agora 502, 503 e 504 são "ainda não", e se repetem com backoff
+por até 65 s (`web/lib/espera.ts`), com o `loading.tsx` na tela o tempo todo; a
+falha só aparece com o prazo esgotado. O 503 que a própria API manda quando falta
+banco fica de fora: ele diz "não", e se reconhece pelo JSON com `detail`.
+
 ### O banco público é descartável
 
 E isso é propriedade, não risco: nada nele é original. Tudo veio do corpus
